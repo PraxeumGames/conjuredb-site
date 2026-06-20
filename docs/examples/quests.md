@@ -3,6 +3,12 @@
 Progress tracking is a lookup-by-owner workload with a simple state flip. It shows how a
 declared index keeps per-player reads fast and how a command performs the write.
 
+:::note
+The `QuestProgress` table here is the same one introduced in
+[Build Your First Game](/docs/build-your-first-game); this page adds the `GetOpenQuests`
+query and the `CompleteQuest` command on top of it.
+:::
+
 ## Schema
 
 ```prql

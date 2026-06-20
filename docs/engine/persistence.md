@@ -371,15 +371,11 @@ For the explicit security boundary and operational assumptions, see
 
 ### Cryptographic Details
 
-| Parameter | Value |
-|-----------|-------|
-| Algorithm | AES-GCM (authenticated encryption with associated data) |
-| Key derivation | PBKDF2 with SHA-256, **100,000 iterations** |
-| Key sizes | 128, 192, or 256 bits (default: **256**) |
-| Chunk size | **4,096 bytes** — independent GCM authentication per chunk |
-| Nonce | Chunked journals use 12 bytes: `[fileNonceSalt(4)][chunkIndex(8)]`; `fileNonceSalt` is generated randomly for every encrypted file write |
-| Tag | 16 bytes per chunk (GCM authentication tag) |
-| Library | BouncyCastle `GcmBlockCipher` |
+Encryption uses AES-GCM with PBKDF2 (SHA-256, **100,000 iterations**) key
+derivation; see [Encryption Configuration](/docs/engine/configuration#encryption-configuration)
+for algorithm, key-size, and chunk parameters. The persistence-specific on-disk
+nonce layout is 12 bytes: `[fileNonceSalt(4)][chunkIndex(8)]`, where
+`fileNonceSalt` is generated randomly for every encrypted file write.
 
 ### Chunk-Based Encryption Format
 
@@ -572,63 +568,21 @@ Your custom serializer must handle all entity types used in persisted `DbSet`s.
 ## Schema Migration
 
 When the database schema changes (entities added/removed/modified), the
-`MigrationOrchestrator` handles schema evolution during snapshot load.
-
-### Migration Flow
-
-1. Snapshot is loaded with old schema metadata.
-2. `MigrationOrchestrator` detects schema differences.
-3. Registered migrations are applied in order.
-4. If `SnapshotAfterMigration` is enabled, an immediate snapshot is taken
-   with the new schema.
-
-### Configuration
-
-```csharp
-var context = DbContextBuilder<GameDbContext>.Create()
-    .WithMigration(mig => mig
-        .SnapshotAfterMigration(true)
-        .VerboseLogging(true))
-    .Build();
-```
+`MigrationOrchestrator` detects schema differences during snapshot load and
+applies registered migrations in order. For the full migration flow, detection
+rules, and configuration, see [Schema Migration](/docs/schema/schema-migration).
 
 ---
 
 ## Configuration Reference
 
-### SnapshotOptions
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `SerializationBufferSize` | `int` | 65,536 (64 KB) | `ArrayBufferWriter` initial capacity |
-| `AutomaticSnapshotInterval` | `TimeSpan` | 5 minutes | Periodic snapshot frequency |
-| `MaxSnapshotsToKeep` | `int` | 10 | Retention limit (oldest deleted) |
-| `CompressSnapshots` | `bool` | `true` | Enable compression |
-| `FileStreamBufferSize` | `int` | 4,096 (4 KB) | `FileStream` write buffer |
-| `EnableIncrementalSnapshots` | `bool` | `false` | Enable delta snapshots |
-| `MaxDeltaChainLength` | `int` | 10 | Max deltas before forced full snapshot |
-| `DeltaToFullThreshold` | `double` | 0.5 | Dirty ratio forcing full snapshot |
-
-### JournalOptions
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `IsEnabled` | `bool` | `false` | Master switch for journaling |
-| `BufferSize` | `int` | 65,536 (64 KB) | Ring buffer for batch writes |
-| `SerializationBufferSize` | `int` | 4,096 (4 KB) | Per-entry serialization workspace |
-| `SerializationBuffersCount` | `int` | 4 | Pooled serialization buffer count |
-| `ChannelCapacity` | `int` | 1,024 | `BoundedChannel` capacity (backpressure) |
-| `FileStreamBufferSize` | `int` | 4,096 (4 KB) | `FileStream` write buffer |
-| `MaxEntrySize` | `int` | 131,072 (128 KB) | Safety limit (rejects oversized entries) |
-| `RecordsPerWrite` | `int` | 16 | Max records per I/O batch |
-| `FlushInterval` | `TimeSpan` | 100 ms | Base flush interval |
-| `MaxStateChangesBeforeSnapshot` | `int` | 100 | Entity mutation count triggering snapshot |
-| `MaxJournalFileSize` | `long` | 2,097,152 (2 MB) | File rotation threshold |
-| `QueueThresholdForSnapshot` | `int` | 10 | Queue depth triggering snapshot hint |
-| `DelayBeforeSnapshotMs` | `int` | 500 | Batching delay before snapshot execution |
-| `HighWriteOpsPerSecond` | `int` | 100 | Threshold for accelerating flush |
-| `MinFlushIntervalMs` | `int` | 100 | Lower bound for adaptive flush |
-| `MaxFlushIntervalMs` | `int` | 5,000 | Upper bound for adaptive flush |
+For the full `SnapshotOptions` and `JournalOptions` parameter tables (types,
+defaults, and descriptions), see
+[Snapshot Parameters Summary](/docs/engine/configuration#snapshot-parameters-summary) and
+[Journal Parameters Summary](/docs/engine/configuration#journal-parameters-summary).
+The on-disk format and recovery architecture those options govern are described
+in the [Snapshots](#snapshots) and [Journal (Write-Ahead Log)](#journal-write-ahead-log)
+sections above.
 
 ---
 
@@ -771,14 +725,17 @@ var context = await DbContextBuilder<GameDbContext>.Create()
 
 ## Troubleshooting
 
-### Common Issues
+For persistence symptoms and fixes — slow startup from large journal replay,
+missing data after a crash, encryption key mismatch, and serialization errors —
+see the [Persistence & Data Issues](/docs/reference/troubleshooting#persistence--data-issues)
+and [Performance Issues](/docs/reference/troubleshooting#performance-issues) sections of the
+Troubleshooting guide.
 
-| Symptom | Cause | Solution |
-|---------|-------|----------|
-| Slow startup | Large journal replay | Decrease snapshot interval or `MaxStateChangesBeforeSnapshot` |
-| High memory during snapshot | Large database | Increase `SerializationBufferSize`, consider incremental snapshots |
-| Commit latency spikes | Journal channel backpressure | Increase `ChannelCapacity` |
-| Encryption errors on load | Salt or password mismatch | Verify salt and password match original values |
-| Missing data after crash | Journal not flushed | Use `CommitAsync(forceFlush: true)` for critical data |
-| Too many journal files | High write throughput | Increase `MaxJournalFileSize` |
-| Snapshot too large | All entities persisted | Set `PersistenceType.None` on transient tables |
+Persistence-specific quick fixes:
+
+- **Snapshot too large** — set `PersistenceType.None` on transient tables so
+  they are excluded from snapshots.
+- **Too many journal files** — increase `MaxJournalFileSize` to reduce rotation
+  frequency.
+- **Commit latency spikes** — increase `ChannelCapacity` to absorb journal
+  channel backpressure.

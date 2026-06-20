@@ -199,57 +199,9 @@ new EntitySchemaDescriptor(
     fields: PlayerFields)
 ```
 
-### 3.2  Compatibility Detection
+### 3.2  Compatibility, Auto-Handled Changes, and Manual Migration
 
-When loading persisted snapshots, ConjureDB compares the stored schema fingerprint (FNV-1a hash of TypeId + SchemaVersion + fields) against the current definition:
-
-| Verdict | Action |
-|---------|--------|
-| `Identical` | Loaded directly |
-| `BackwardCompatible` | Loaded via MessagePack tolerance (added fields, widened nullability) |
-| `RequiresMigration` | Migration chain applied before deserialization |
-| `Incompatible` | Hard error — `SchemaMigrationException` |
-| `EntityRemoved` | Data skipped (warning logged) |
-| `EntityAdded` | Empty DbSet initialized |
-
-### 3.3  Auto-Handled Changes
-
-No migration code required for:
-
-- **Adding a new field** — MessagePack assigns default values to absent fields.
-- **Removing a field** — MessagePack silently skips extra stored fields (do not reuse the ordinal).
-- **Widening nullability** — `string` → `string?` is backward-compatible.
-
-### 3.4  Manual Migration Builder
-
-For breaking changes (type change, narrowed nullability), register migrations in `DbContext.OnBeforeBuild()`:
-
-```csharp
-protected override void OnBeforeBuild()
-{
-    MigrationRegistry.Register(
-        new EntityMigrationBuilder(typeId: 1, fromVersion: 2, toVersion: 3)
-            .KeepField(0)                                        // Id: keep
-            .KeepField(1)                                        // Name: keep
-            .TransformField<int, long>(2, static v => (long)v)   // Score: int → long
-            .Build());
-}
-```
-
-**Field operations:**
-
-| Operation | Description |
-|-----------|-------------|
-| `KeepField(ordinal)` | Copy field value unchanged |
-| `DropField(ordinal)` | Skip source field |
-| `AddField<T>(ordinal, defaultValue)` | Add new field with default |
-| `TransformField<TSrc,TDst>(ordinal, fn)` | Transform field type |
-
-### 3.5  Migration Chains
-
-Migrations are registered as single-step transforms (v1→v2, v2→v3). The `MigrationRegistry` automatically resolves multi-step chains. The chain must be contiguous and forward-only.
-
-For full migration documentation, see [SchemaMigration.md](/docs/schema/schema-migration).
+When loading persisted snapshots, ConjureDB compares the stored schema fingerprint against the current definition and classifies the change as identical, backward-compatible, requiring migration, or incompatible. Adding/removing fields and widening nullability are auto-handled; breaking changes (type change, narrowed nullability) require an `EntityMigrationBuilder` registered in `DbContext.OnBeforeBuild()`. Single-step migrations (v1→v2, v2→v3) are resolved into contiguous, forward-only chains automatically. See [Schema Migration](/docs/schema/schema-migration) for the compatibility verdict table ([Overview](/docs/schema/schema-migration#overview)), [auto-handled changes](/docs/schema/schema-migration#automatic-handling), the builder's `KeepField`/`DropField`/`AddField`/`TransformField` operations ([Field Operations](/docs/schema/schema-migration#field-operations)), and migration chains.
 
 ---
 

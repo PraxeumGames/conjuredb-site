@@ -119,24 +119,10 @@ Choosing the right index type is the difference between O(1) and O(n). ConjureDB
 
 ### Index Overhead
 
-Every index consumes memory and adds update cost. Only add indexes that your queries actually use.
+Every index consumes memory and adds update cost. For per-index-type memory overhead, update-cost complexity, and the general "when NOT to index" guidance (small tables, write-heavy/read-light columns), see [Indexing](/docs/schema/indexing#performance-considerations) — that is the canonical reference.
 
-| Index Type | Memory per Entry | Insert Cost | Update Cost (key change) | Notes |
-|------------|-----------------|-------------|-------------------------|-------|
-| PrimaryIndex | ~size of entity | O(1) amort. | O(1) | Always present, automatic |
-| LookupIndex | ~4 bytes (objectId in bucket) | O(1) amort. | O(1) remove + O(1) insert | Type-specialized for int/ulong |
-| UniqueIndex | ~12 bytes (key + objectId) | O(1) | O(1) | Pre-commit duplicate check adds overhead |
-| SortedSetIndex | ~16 bytes (group entry) | O(log n) | O(log n) × 2 | Cached orderings rebuilt lazily after mutations |
-| SortedListIndex | ~8 bytes (sorted array slot) | O(n) shift | O(n) shift × 2 | Dense array; insertions shift elements |
-| GroupedSortedIndex | ~12 bytes (group slot) | O(log k) per group | O(log k) × 2 | k = group size |
-| RangeLookupIndex | ~12 bytes (3 sparse arrays) | O(1) | O(1) | Min/max boundary removals mark group dirty |
-| AggregationIndex | ~32 bytes (running stats) | O(1) | O(1) | Lazy min/max recomputation on removal |
-| UniversalAggregationIndex | ~40 bytes per group | O(1) | O(1) | Ranking cache adds overhead if enabled |
+From a query-tuning standpoint, two additional access-pattern cases argue against an index even when the canonical guidance is satisfied:
 
-### When NOT to Add an Index
-
-- **Tables with < 100 rows** — full scan is often faster than index overhead.
-- **Write-heavy columns with rare reads** — index update cost outweighs query savings.
 - **Columns only used in projections** — indexes help filters and sorts, not `select`.
 - **Low-selectivity columns** (e.g., `bool IsActive` on a table where 95% are active) — the index returns nearly all rows; a scan is comparable.
 

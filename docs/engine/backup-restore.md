@@ -598,14 +598,7 @@ await newDb.SaveAsync();
 
 ### Encryption Details
 
-| Property | Value |
-|----------|-------|
-| Algorithm | AES-GCM (authenticated encryption) |
-| Key derivation | PBKDF2 from password + salt |
-| Chunk size | 4 KB |
-| Auth tag | 16 bytes per chunk |
-| Key sizes | 128, 192, or 256 bits (default: 256) |
-| Salt | 32 random bytes, base64-encoded (auto-generated if omitted) |
+Backups use AES-GCM authenticated encryption with PBKDF2 key derivation (per-4 KB chunk, 16-byte auth tags; key sizes 128/192/256 bits, default 256; 32-byte random salt if omitted). See [Configuration](/docs/engine/configuration#encryption-configuration) for the full parameter reference and [Encryption Threat Model](/docs/engine/encryption-threat-model#cryptographic-contract) for the security contract.
 
 ---
 
@@ -983,11 +976,11 @@ var db = DbContextBuilder<LiveGameDb>.Create()
 
 ## Troubleshooting
 
+For general persistence and encryption errors (corrupted snapshot / `JournalCorruptionException`, slow restore of large databases, encryption key mismatch), see [Troubleshooting](/docs/reference/troubleshooting#persistence--data-issues). Backup-specific symptoms not covered there:
+
 | Problem | Cause | Solution |
 |---------|-------|---------|
-| Corrupted snapshot | Crash during write | Enable journal for zero-loss recovery; the previous snapshot is still intact due to `MaxSnapshotsToKeep` |
 | Large snapshot files | Too many or large entities | Enable incremental snapshots; lower `DeltaToFullThreshold`; prune unused data |
-| Slow restore | Long journal to replay | Increase snapshot frequency (`AutomaticSnapshotInterval`) or lower `MaxStateChangesBeforeSnapshot` to shorten journal |
 | Cloud sync conflicts | Concurrent saves from multiple devices | Set `StateResolutionStrategy` explicitly; `RemoteFirst` is safest for most games |
 | Recovery loads stale data | Journal files deleted or corrupt | Ensure `MaxSnapshotsToKeep` > 1 for fallback; use `StopAtCorruption` policy to recover partial journal |
 | Out of disk space | Too many snapshots + journals | Lower `MaxSnapshotsToKeep`; reduce `MaxJournalFileSize`; enable incremental snapshots |

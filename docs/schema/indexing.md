@@ -1119,41 +1119,9 @@ what-if metadata in structured output.
 
 ### Accepting Recommendations
 
-PGO guidance is intentionally accepted through **explicit schema ownership**:
+The `AutoIndexingMode.ReportOnly` advisor mechanism and the `auto-index analyze / show / patch / decide` CLI review loop are documented canonically in [Profile-Guided Optimization](/docs/performance/pgo#safe-auto-index-advisor). That advisor is report-only: it never auto-creates indexes, mutates schema, or routes candidates into runtime/codegen.
 
-1. Enable `CompilerOptions.AutoIndexing.Mode = ReportOnly`.
-2. Review `auto-index-report.json` or `PlanExplain.AutoIndexAdvisory`.
-3. Optionally use the profiling CLI to inspect evidence and generate a patch preview:
-   - `auto-index analyze`
-   - `auto-index show`
-   - `auto-index patch --surface csharp|schema`
-4. Record the owner decision in `.conjuredb/auto-index.decisions.json` with
-   `auto-index decide` if you want future reviews to suppress or mark the
-   candidate as already accepted.
-5. Add the chosen `@index` / `@@index` declaration to your `.conjure` schema explicitly.
-6. Re-compile and re-profile to verify the improvement.
-
-The current production path does **not** auto-create indexes, mutate schema
-metadata during compilation, or route advisory candidates into runtime/codegen
-materialization.
-
-### CLI Review Workflow
-
-```bash
-dotnet run --project ConjureDB.Profiling -- auto-index analyze --profile ./profiles/game.json
-dotnet run --project ConjureDB.Profiling -- auto-index show --profile ./profiles/game.json --candidate 1
-dotnet run --project ConjureDB.Profiling -- auto-index patch --profile ./profiles/game.json --candidate 1 --surface schema
-dotnet run --project ConjureDB.Profiling -- auto-index decide --profile ./profiles/game.json --candidate 1 --decision accepted --surface schema --target-file ./schema/game.conjure
-```
-
-Important DX constraints:
-
-- `patch` previews/export diffs only; it does not edit tracked files.
-- `surface` is always explicit. The tool never guesses between C# and schema.
-- ambiguous ownership fails closed and reports candidate target files instead of
-  mutating anything.
-- accepted/suppressed decisions only affect review noise and ranking; they do
-  not change compilation semantics until you explicitly add the index to schema.
+Index-selection-specific note: PGO advisory candidates are accepted through **explicit schema ownership** — once you decide to take a recommendation, add the chosen `@index` / `@@index` declaration to your `.conjure` schema yourself, then re-compile and re-profile to verify the improvement. See the [CLI-first review loop](/docs/performance/pgo#cli-first-review-loop) for evidence inspection and patch/decision workflow.
 
 ### Profile-Driven Index Lifecycle
 

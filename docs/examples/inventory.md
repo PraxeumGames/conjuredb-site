@@ -3,6 +3,12 @@
 The inventory screen is the workhorse for filters, joins and atomic writes: items a
 player owns, queried by owner, kept consistent as items are granted or consumed.
 
+:::note
+This example shares its `InventorySlot` schema and `GrantItem` command with the
+[Build Your First Game](/docs/build-your-first-game) tutorial, which introduces and
+explains them. Keep the two in sync if you change either.
+:::
+
 ## Schema
 
 ```prql

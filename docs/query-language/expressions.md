@@ -885,7 +885,7 @@ to_long("100000")      # string → long?
 to_string(42)          # int → string?
 ```
 
-See [§10.4 Type Conversion Functions](#104--type-conversion-functions).
+See [Functions Reference](/docs/query-language/functions#scalar-functions) for the conversion-function catalog.
 
 ---
 
@@ -895,109 +895,22 @@ See [§10.4 Type Conversion Functions](#104--type-conversion-functions).
 
 Function names are **case-insensitive**. Aliases are listed in parentheses.
 
-### 10.1  String Functions
+### 10.1  Scalar Function Catalog
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `length` (`len`) | `(str: string) → int` | Number of characters |
-| `upper` (`toupper`) | `(str: string) → string` | Convert to uppercase |
-| `lower` (`tolower`) | `(str: string) → string` | Convert to lowercase |
-| `trim` | `(str: string) → string` | Remove leading/trailing whitespace |
-| `substring` (`substr`) | `(str, start: int) → string` | From `start` to end |
-| `substring` (`substr`) | `(str, start: int, length: int) → string` | From `start` for `length` chars |
-| `replace` | `(str, oldValue, newValue: string) → string` | Replace all occurrences |
-| `concat` | `(str1, str2: string [, …]) → string` | Concatenate strings |
-| `indexof` | `(str, value: string) → int?` | Index of first occurrence (nullable) |
-| `contains` | `(str, value: string) → bool?` | Substring containment test |
-| `startswith` | `(str, value: string) → bool?` | Prefix test |
-| `endswith` | `(str, value: string) → bool?` | Suffix test |
+The complete signature catalog for the built-in **String**, **Math**, **Date/Time**,
+**Type Conversion**, and **Null Handling** scalar functions lives in the canonical
+functions reference: [Functions Reference](/docs/query-language/functions#scalar-functions).
 
-**Examples:**
+Semantic notes specific to expression evaluation:
 
-```
-from Users
-| derive NameLen = length(Name)
-| filter contains(Email, "@company.com")
-| derive Greeting = concat("Hello, ", upper(Name), "!")
-| derive Domain = substring(Email, indexof(Email, "@") + 1)
-```
-
-### 10.2  Math Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `abs` | `(value: numeric) → same type` | Absolute value |
-| `sqrt` | `(value: double\|decimal) → double?` | Square root |
-| `round` | `(value: double\|decimal) → same type` | Round to nearest integer |
-| `round` | `(value: double\|decimal, digits: int) → same type` | Round to `digits` decimal places |
-| `ceiling` (`ceil`) | `(value: double\|decimal) → same type` | Smallest integer ≥ value |
-| `floor` | `(value: double\|decimal) → same type` | Largest integer ≤ value |
-| `truncate` | `(value: double\|decimal) → same type` | Truncate toward zero |
-| `log` (`ln`) | `(value: double\|decimal) → double?` | Natural logarithm |
-| `power` (`pow`) | `(base, exp: double\|decimal) → double?` | Raise to power |
-| `exp` | `(value: double\|decimal) → double?` | Euler's number raised to power |
-| `sign` | `(value: numeric) → int?` | Returns -1, 0, or 1 |
-| `min` (scalar) | `(left, right: any) → same type` | Smaller of two values |
-| `max` (scalar) | `(left, right: any) → same type` | Larger of two values |
-
-**Examples:**
-
-```
-from Products
-| derive RoundedPrice = round(Price, 2)
-| derive LogPrice = log(Price)
-| derive Distance = sqrt(power(X2 - X1, 2) + power(Y2 - Y1, 2))
-```
-
-### 10.3  Date/Time Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `now` | `() → DateTime` | Current local date/time |
-| `utcnow` | `() → DateTime` | Current UTC date/time |
-| `year` | `(dt: DateTime\|DateTimeOffset) → int?` | Year component |
-| `month` | `(dt: DateTime\|DateTimeOffset) → int?` | Month component (1–12) |
-| `day` | `(dt: DateTime\|DateTimeOffset) → int?` | Day of month (1–31) |
-| `hour` | `(dt: DateTime\|DateTimeOffset) → int?` | Hour (0–23) |
-| `minute` | `(dt: DateTime\|DateTimeOffset) → int?` | Minute (0–59) |
-| `second` | `(dt: DateTime\|DateTimeOffset) → int?` | Second (0–59) |
-| `date_add` | `(dt, days: double) → same type` | Add days |
-| `date_add_hours` | `(dt, hours: double) → same type` | Add hours |
-| `date_add_minutes` | `(dt, minutes: double) → same type` | Add minutes |
-| `date_add_seconds` | `(dt, seconds: double) → same type` | Add seconds |
-| `date_diff` | `(dt1, dt2: DateTime\|DateTimeOffset) → double?` | Difference in days |
-| `date_trunc` | `(dt, unit: string) → same type` | Truncate to unit |
-
-**`date_trunc` units:** `"year"`, `"month"`, `"day"`, `"hour"`, `"minute"`, `"second"`.
-
-**Examples:**
-
-```
-from Orders
-| filter year(CreatedAt) == 2025
-| derive DaysSinceOrder = date_diff(now(), CreatedAt)
-| derive OrderMonth = date_trunc(CreatedAt, "month")
-```
-
-### 10.4  Type Conversion Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `to_string` | `(value: any) → string?` | Convert to string representation |
-| `to_int` | `(value: string\|numeric) → int?` | Parse/convert to `int` |
-| `to_double` | `(value: string\|numeric) → double?` | Parse/convert to `double` |
-| `to_long` | `(value: string\|numeric) → long?` | Parse/convert to `long` |
-
-All conversion functions return **nullable** types — they return `null` if the
-conversion fails at runtime rather than throwing.
-
-### 10.5  Null Handling Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `coalesce` | `(value1, value2: any) → any` | First non-null value |
-| `is_null` (`isnull`) | `(value: any) → bool` | `true` if `null` |
-| `is_not_null` (`isnotnull`) | `(value: any) → bool` | `true` if not `null` |
+- Type conversion functions (`to_string`, `to_int`, `to_double`, `to_long`) return
+  **nullable** types — they return `null` if the conversion fails at runtime rather
+  than throwing.
+- `date_trunc` accepts the units `"year"`, `"month"`, `"day"`, `"hour"`, `"minute"`,
+  and `"second"`.
+- For the evaluation semantics of the null-handling functions and operators
+  (`coalesce`/`??`, `is_null`, `is_not_null`), see [§8 NULL Handling](#8--null-handling);
+  for type-coercion rules see [§9 Type Coercion](#9--type-coercion-rules).
 
 ### 10.6  Spatial Functions
 
