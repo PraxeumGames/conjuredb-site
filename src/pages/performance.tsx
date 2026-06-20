@@ -115,42 +115,6 @@ function Table({title, head, rows, baseline}: {title: string; head: string; rows
   );
 }
 
-function Numbers(): ReactNode {
-  return (
-    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
-      <div className="container">
-        <span className="cdb-kicker">The numbers</span>
-        <h2 className="cdb-h2">Measured against real baselines</h2>
-        <p className="cdb-lead">
-          The 50× number isn't one cherry-picked query. It holds across a governed taxonomy of{' '}
-          <strong>{BENCH_SUMMARY.families} query families</strong> — {BENCH_SUMMARY.caseCount}{' '}
-          BenchmarkDotNet cases vs SQLite at 50,000 players, spanning filters, lookups, joins,
-          aggregation, windows, semi/anti/exists, set operations, outer joins, distinct and
-          sort/pagination. All <strong>{BENCH_SUMMARY.releaseCommon} production-tier cases run
-          ≥{BENCH_SUMMARY.target}×</strong>, none slower; the weakest is {BENCH_SUMMARY.weakest}×.
-          Each case carries three baselines side by side — the hand-written LINQ a developer would
-          write by hand, embedded SQLite, and ConjureDB — measured on the same dataset. Browse by
-          family:
-        </p>
-        <BenchmarkExplorer />
-        <Table
-          title="vs a plain Dictionary — raw collection ops"
-          head="50,000 items. Honest both ways: reads are aggressively optimized; the delete pass is slower because the engine maintains an index snapshot, a write-ahead journal and change tracking the Dictionary does not."
-          rows={VS_DICT}
-          baseline="Dictionary"
-        />
-        <p className={styles.caveat}>
-          Methodology: figures are from the project's authoritative all-case BenchmarkDotNet
-          proof (57 cases) vs SQLite, Release, .NET 8, 50,000-row datasets; the best measured
-          variant is shown per query. These are <strong>measurements of one configuration —
-          not a guarantee</strong>. Your game is different: schema, hardware and generated plan
-          all matter, so benchmark your own workload. Raw benchmark data ships with the source.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function Verdict(): ReactNode {
   return (
     <section className="cdb-section">
@@ -162,6 +126,60 @@ function Verdict(): ReactNode {
           developer reaches for first, embedded SQLite, and ConjureDB. Here is how they stack up.
         </p>
         <BenchVerdict />
+      </div>
+    </section>
+  );
+}
+
+function Families(): ReactNode {
+  return (
+    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
+      <div className="container">
+        <span className="cdb-kicker">The coverage</span>
+        <h2 className="cdb-h2">Every query shape, measured</h2>
+        <p className="cdb-lead">
+          The verdict above isn't one cherry-picked query. It holds across a governed taxonomy of{' '}
+          <strong>{BENCH_SUMMARY.families} query families</strong> — {BENCH_SUMMARY.caseCount}{' '}
+          BenchmarkDotNet cases vs SQLite at 50,000 players, spanning filters, lookups, joins,
+          aggregation, windows, semi/anti/exists, set operations, outer joins, distinct and
+          sort/pagination. All <strong>{BENCH_SUMMARY.releaseCommon} production-tier cases run
+          ≥{BENCH_SUMMARY.target}×</strong>, none slower; the weakest is {BENCH_SUMMARY.weakest}×.
+          Every row carries all three baselines side by side — open one for the ConjureDB, LINQ and
+          SQL form and the per-engine timings. Browse by family:
+        </p>
+        <BenchmarkExplorer />
+        <p className={styles.caveat}>
+          Methodology: ConjureDB and SQLite figures are from the project's authoritative all-case
+          BenchmarkDotNet proof (57 cases) vs SQLite, Release, .NET 8, 50,000-row datasets; the
+          best-measured ConjureDB variant is shown per query. The LINQ baseline is measured
+          separately on the identical dataset and query parameters (in-process timing). These are{' '}
+          <strong>measurements of one configuration — not a guarantee</strong>. Your game is
+          different: schema, hardware and generated plan all matter, so benchmark your own workload.
+          Raw benchmark data ships with the source.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function VsDict(): ReactNode {
+  return (
+    <section className="cdb-section">
+      <div className="container">
+        <span className="cdb-kicker">A different yardstick</span>
+        <h2 className="cdb-h2">And against a plain Dictionary</h2>
+        <p className="cdb-lead">
+          SQLite and LINQ are query baselines. For raw collection operations the honest comparison
+          is a <code>Dictionary</code> — and ConjureDB is honest both ways.
+        </p>
+        <div className={styles.dictCard}>
+          <Table
+            title="vs a plain Dictionary — raw collection ops"
+            head="50,000 items. Reads are aggressively optimized; the delete pass is slower because the engine maintains an index snapshot, a write-ahead journal and change tracking the Dictionary does not."
+            rows={VS_DICT}
+            baseline="Dictionary"
+          />
+        </div>
       </div>
     </section>
   );
@@ -198,8 +216,9 @@ export default function Performance(): ReactNode {
       <main>
         <PerfStats />
         <Why />
-        <Numbers />
         <Verdict />
+        <Families />
+        <VsDict />
         <Cta />
       </main>
     </Layout>

@@ -121,8 +121,16 @@
   color: var(--ifm-color-primary);
   font-weight: 700;
 }
-.linqCol {
-  color: #c98a3c;
+/* per-row traffic-light ranking across the three engine columns */
+.rankFast {
+  color: #46a758;
+  font-weight: 700;
+}
+.rankMid {
+  color: #cf9b3f;
+}
+.rankSlow {
+  color: #e0584f;
 }
 .alloc {
   color: var(--cdb-muted);
@@ -286,5 +294,69 @@
   max-width: 72ch;
 }
 .disclaimer code {
+  font-size: 0.72rem;
+}
+
+/* ConjureDB execution-variant breakdown (default / NoAlloc / ForEach) */
+.variants {
+  margin-top: 0.75rem;
+}
+.variantsHead {
+  font-family: var(--cdb-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cdb-muted);
+}
+.variantList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+}
+.variant,
+.variantBest {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 8px;
+  background: var(--cdb-surface);
+}
+.variantBest {
+  border-color: var(--ifm-color-primary);
+  background: rgba(45, 212, 191, 0.06);
+}
+.variantKind {
+  font-family: var(--cdb-mono);
+  font-size: 0.78rem;
+  color: var(--cdb-ink);
+}
+.variantTime {
+  font-family: var(--cdb-mono);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cdb-ink);
+}
+.variantAlloc {
+  font-family: var(--cdb-mono);
+  font-size: 0.74rem;
+  color: var(--cdb-muted);
+}
+.variantFlag {
+  font-family: var(--cdb-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ifm-color-primary);
+}
+.variantNote {
+  margin: 0.55rem 0 0;
+  font-size: 0.76rem;
+  color: var(--cdb-muted);
+  max-width: 72ch;
+}
+.variantNote code {
   font-size: 0.72rem;
 }

@@ -74,9 +74,14 @@
 /* Stat highlights */
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-top: 1.3rem;
+}
+@media (max-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .stat {
   border: 1px solid var(--cdb-line);

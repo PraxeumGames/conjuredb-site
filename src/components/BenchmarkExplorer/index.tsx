@@ -9,6 +9,35 @@ const FORMS: {key: FormKey; label: string; lang: string}[] = [
   {key: 'sql', label: 'SQLite SQL', lang: 'sql'},
 ];
 
+function rankClass(rank?: string): string {
+  if (rank === 'fast') return styles.rankFast;
+  if (rank === 'mid') return styles.rankMid;
+  if (rank === 'slow') return styles.rankSlow;
+  return '';
+}
+
+function Variants({variants}: {variants: NonNullable<BenchRow['variants']>}): ReactNode {
+  return (
+    <div className={styles.variants}>
+      <span className={styles.variantsHead}>Execution variants</span>
+      <div className={styles.variantList}>
+        {variants.map((v) => (
+          <span key={v.kind} className={v.best ? styles.variantBest : styles.variant}>
+            <span className={styles.variantKind}>{v.kind}</span>
+            <span className={styles.variantTime}>{v.time}</span>
+            <span className={styles.variantAlloc}>{v.alloc}</span>
+            {v.best && <span className={styles.variantFlag}>fastest</span>}
+          </span>
+        ))}
+      </div>
+      <p className={styles.variantNote}>
+        Each query compiles into materializing, zero-allocation (<code>NoAlloc</code>) and streaming
+        (<code>ForEach</code>) entry points — the fastest is what the table shows.
+      </p>
+    </div>
+  );
+}
+
 function LinqCallout({row}: {row: BenchRow}): ReactNode {
   if (!row.linqNs || !row.linqVsCdb) return null;
   return (
@@ -73,6 +102,9 @@ function CaseDetail({row}: {row: BenchRow}): ReactNode {
       <pre className={styles.code} data-lang={active.lang}>
         <code>{row[active.key]}</code>
       </pre>
+      {active.key === 'dsl' && row.variants && row.variants.length > 1 && (
+        <Variants variants={row.variants} />
+      )}
       {active.key === 'linq' && row.linqNote && <p className={styles.note}>{row.linqNote}</p>}
       {active.key === 'linq' && (
         <p className={styles.disclaimer}>
@@ -157,9 +189,9 @@ export function BenchmarkExplorer(): ReactNode {
                         {r.label}
                         {r.cls === 'StressRare' && <span className={styles.badge}>stress-rare</span>}
                       </td>
-                      <td className={`${styles.num} ${styles.linqCol}`}>{r.linqNs ?? '—'}</td>
-                      <td className={styles.num}>{r.sqlite}</td>
-                      <td className={styles.num}>{r.cdb}</td>
+                      <td className={`${styles.num} ${rankClass(r.rankLinq)}`}>{r.linqNs ?? '—'}</td>
+                      <td className={`${styles.num} ${rankClass(r.rankSqlite)}`}>{r.sqlite}</td>
+                      <td className={`${styles.num} ${rankClass(r.rankCdb)}`}>{r.cdb}</td>
                       <td className={`${styles.num} ${styles.win}`}>{r.x}</td>
                       <td className={`${styles.num} ${styles.alloc}`}>{r.alloc}</td>
                     </tr>

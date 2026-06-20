@@ -107,3 +107,12 @@
   color: var(--cdb-muted);
   font-size: 0.85rem;
 }
+
+.dictCard {
+  margin-top: 1.4rem;
+  border: 1px solid var(--cdb-line);
+  border-left: 3px solid var(--cdb-accent);
+  border-radius: 14px;
+  background: var(--cdb-surface);
+  padding: 1.3rem 1.4rem;
+}

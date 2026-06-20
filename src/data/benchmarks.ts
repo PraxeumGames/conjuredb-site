@@ -1,12 +1,13 @@
 // AUTO-GENERATED from docs/benchmarks/comparisons/{latest-benchmarkdotnet-vssqlite-proof,vssqlite-workload-taxonomy}.json
 // Regenerate from source; do not hand-edit.
 
-export type BenchRow = {q: string; label: string; sqlite: string; cdb: string; x: string; alloc: string; cls: string; meets: boolean; summary?: string; dsl?: string; sql?: string; linq?: string; linqNote?: string; linqNs?: string; linqAlloc?: string; linqVsCdb?: string; linqVsSqlite?: string; idxWin?: boolean};
+export type BenchVariant = {kind: string; time: string; alloc: string; best: boolean};
+export type BenchRow = {q: string; label: string; sqlite: string; cdb: string; x: string; alloc: string; cls: string; meets: boolean; summary?: string; dsl?: string; sql?: string; linq?: string; linqNote?: string; linqNs?: string; linqAlloc?: string; linqVsCdb?: string; linqVsSqlite?: string; idxWin?: boolean; rankCdb?: string; rankSqlite?: string; rankLinq?: string; variants?: BenchVariant[]};
 export type BenchGroup = {id: string; title: string; tab: string; range: string; rows: BenchRow[]};
 
 export const BENCH_SUMMARY = {"caseCount": 57, "releaseCommon": 56, "releaseCommonGte": 56, "releaseCommonLt": 0, "weakest": 54.81, "families": 12, "target": 50};
 
-export const BENCH_COMPARE = {"cases": 57, "cdbVsSqlite": 497, "cdbVsLinq": 3400, "linqVsSqlite": 6.8, "linqSlowerThanSqlite": 31, "cdbNs": 4654, "sqliteNs": 2312017, "linqNs": 15825151, "cdbTime": "4.65 \u00b5s", "sqliteTime": "2.31 ms", "linqTime": "15.8 ms"};
+export const BENCH_COMPARE = {"cases": 57, "excluded": 22, "cdbVsSqlite": 239, "cdbVsLinq": 519, "linqVsSqlite": 2.2, "cdbNs": 71846, "sqliteNs": 17161156, "linqNs": 37294808, "cdbTime": "71.8 \u00b5s", "sqliteTime": "17.2 ms", "linqTime": "37.3 ms", "cdbVsSqliteAll": 497, "cdbVsLinqAll": 3400, "linqSlowerThanSqlite": 31, "cdbZeroAlloc": 26, "linqAllocTypical": "2.3 MB", "linqTotalAlloc": "1007.4 MB"};
 
 export const BENCH_GROUPS: BenchGroup[] = [
   {
@@ -32,7 +33,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "1.4 MB",
         "linqVsCdb": "4,801\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1.8\u00d7 faster"
+        "linqVsSqlite": "1.8\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "496 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "95.1 \u00b5s",
+            "alloc": "372.6 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q1_FilterLevel_Consume",
@@ -50,7 +68,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "2.28 ms",
         "linqAlloc": "1.1 MB",
         "linqVsCdb": "88\u00d7",
-        "linqVsSqlite": "1.4\u00d7 faster"
+        "linqVsSqlite": "1.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "26.0 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "68.5 \u00b5s",
+            "alloc": "416 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -77,7 +112,10 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "264 B",
         "linqVsCdb": "22,729\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "210\u00d7 slower"
+        "linqVsSqlite": "210\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow"
       },
       {
         "q": "Q6_FKLookup",
@@ -96,7 +134,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "1.4 KB",
         "linqVsCdb": "21,190\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "87\u00d7 slower"
+        "linqVsSqlite": "87\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "7.1 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "16 ns",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "17 ns",
+            "alloc": "184 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q10_PlayerOrdersMinAmount",
@@ -115,7 +176,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "1.4 KB",
         "linqVsCdb": "78,503\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "230\u00d7 slower"
+        "linqVsSqlite": "230\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "5.0 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "15 ns",
+            "alloc": "120 B",
+            "best": false
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "17 ns",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q11_TopOrdersForPlayer",
@@ -134,7 +218,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "1.5 KB",
         "linqVsCdb": "70,402\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "160\u00d7 slower"
+        "linqVsSqlite": "160\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "5.3 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "15 ns",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "18 ns",
+            "alloc": "184 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -161,7 +268,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "2.3 MB",
         "linqVsCdb": "107,573\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "163\u00d7 slower"
+        "linqVsSqlite": "163\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "5.8 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "36 ns",
+            "alloc": "424 B",
+            "best": false
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "46 ns",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q9_Top5ByRank",
@@ -181,7 +311,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "5.0 MB",
         "linqVsCdb": "146,541\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "3.8\u00d7 faster"
+        "linqVsSqlite": "3.8\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "24 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "38 ns",
+            "alloc": "312 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q14_TopOrderItemScores",
@@ -199,7 +346,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "11.2 ms",
         "linqAlloc": "5.8 MB",
         "linqVsCdb": "652\u00d7",
-        "linqVsSqlite": "2.9\u00d7 slower"
+        "linqVsSqlite": "2.9\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "17.2 \u00b5s",
+            "alloc": "264 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "18.5 \u00b5s",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q20_TopCompletedWeaponOrderScores",
@@ -218,7 +382,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "5.7 MB",
         "linqVsCdb": "1,599\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "2.3\u00d7 slower"
+        "linqVsSqlite": "2.3\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "6.23 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "7.20 \u00b5s",
+            "alloc": "504 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q62_GuildCompletedSpendLeaderboard",
@@ -236,7 +417,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "9.91 ms",
         "linqAlloc": "11.5 MB",
         "linqVsCdb": "114\u00d7",
-        "linqVsSqlite": "1.7\u00d7 slower"
+        "linqVsSqlite": "1.7\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "87.0 \u00b5s",
+            "alloc": "529 B",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "95.8 \u00b5s",
+            "alloc": "265 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q68_LevelStatusSpendTopN",
@@ -254,7 +452,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "22.5 ms",
         "linqAlloc": "21.5 MB",
         "linqVsCdb": "59\u00d7",
-        "linqVsSqlite": "1.2\u00d7 faster"
+        "linqVsSqlite": "1.2\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "381 \u00b5s",
+            "alloc": "12.9 KB",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "\u2014",
+            "alloc": "\u2014",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -280,7 +495,10 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "2.41 ms",
         "linqAlloc": "5.5 MB",
         "linqVsCdb": "748\u00d7",
-        "linqVsSqlite": "3.8\u00d7 faster"
+        "linqVsSqlite": "3.8\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow"
       },
       {
         "q": "Q13_PlayerOrderStats",
@@ -299,7 +517,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "27.9 MB",
         "linqVsCdb": "275,191\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1.4\u00d7 slower"
+        "linqVsSqlite": "1.4\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "90 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "106 ns",
+            "alloc": "504 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q21_OrderStatusDistinctStats",
@@ -318,7 +553,10 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "14.8 MB",
         "linqVsCdb": "71,052\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "5.0\u00d7 faster"
+        "linqVsSqlite": "5.0\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow"
       },
       {
         "q": "Q30_OrderActivityLevelStatusDistinctStats",
@@ -336,7 +574,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "45.2 ms",
         "linqAlloc": "36.1 MB",
         "linqVsCdb": "34\u00d7",
-        "linqVsSqlite": "1.6\u00d7 faster"
+        "linqVsSqlite": "1.6\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "1.34 ms",
+            "alloc": "35.6 KB",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "\u2014",
+            "alloc": "\u2014",
+            "best": false
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "\u2014",
+            "alloc": "\u2014",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q35_TopPlayersByCompletedOrderCount",
@@ -355,7 +616,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "10.4 MB",
         "linqVsCdb": "14,926,751\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1,184\u00d7 slower"
+        "linqVsSqlite": "1,184\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "707 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "721 ns",
+            "alloc": "624 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q42_TopPlayerStatusAggregates",
@@ -374,7 +652,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "39.9 MB",
         "linqVsCdb": "54,359\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "2.3\u00d7 slower"
+        "linqVsSqlite": "2.3\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "1.25 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "1.27 \u00b5s",
+            "alloc": "2.4 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q61_WalletRecentRowsWithBalanceStats",
@@ -393,7 +688,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "2.0 KB",
         "linqVsCdb": "221,740\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1,887\u00d7 slower"
+        "linqVsSqlite": "1,887\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "19 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "51 ns",
+            "alloc": "480 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -419,7 +731,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "1.22 ms",
         "linqAlloc": "154.3 KB",
         "linqVsCdb": "134\u00d7",
-        "linqVsSqlite": "1.4\u00d7 faster"
+        "linqVsSqlite": "1.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "9.12 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "20.0 \u00b5s",
+            "alloc": "6 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "79.9 \u00b5s",
+            "alloc": "269.8 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q7_ComplexJoin",
@@ -438,7 +773,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "8.0 MB",
         "linqVsCdb": "21,562\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1.2\u00d7 slower"
+        "linqVsSqlite": "1.2\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "619 ns",
+            "alloc": "1008 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "649 ns",
+            "alloc": "504 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q19_PlayersAboveWeaponItemScore",
@@ -458,7 +810,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "11.0 MB",
         "linqVsCdb": "54,687\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "552\u00d7 slower"
+        "linqVsSqlite": "552\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "179 \u00b5s",
+            "alloc": "2.7 KB",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "181 \u00b5s",
+            "alloc": "5.1 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q34_TopWeightedCompletedWeaponOrdersByGuildPolicy",
@@ -476,7 +845,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "57.6 ms",
         "linqAlloc": "172.1 MB",
         "linqVsCdb": "613\u00d7",
-        "linqVsSqlite": "10\u00d7 slower"
+        "linqVsSqlite": "10\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "94.0 \u00b5s",
+            "alloc": "506 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "96.5 \u00b5s",
+            "alloc": "2 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q48_TopCompletedWeaponOrdersAboveGlobalWeaponAverage",
@@ -495,7 +881,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "63.7 MB",
         "linqVsCdb": "4,443\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "6.2\u00d7 slower"
+        "linqVsSqlite": "6.2\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "9.81 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "14.6 \u00b5s",
+            "alloc": "1.6 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q56_ClaimableQuestRewards",
@@ -514,7 +917,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "82.2 KB",
         "linqVsCdb": "33,367\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "160\u00d7 slower"
+        "linqVsSqlite": "160\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "12 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "45 ns",
+            "alloc": "520 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -541,7 +961,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "12.6 MB",
         "linqVsCdb": "123,951\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "300\u00d7 slower"
+        "linqVsSqlite": "300\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "87.7 \u00b5s",
+            "alloc": "48 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "943 \u00b5s",
+            "alloc": "3.6 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q8_Exists_Consume",
@@ -560,7 +997,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "12.6 MB",
         "linqVsCdb": "121,852\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "795\u00d7 slower"
+        "linqVsSqlite": "795\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "104 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "110 \u00b5s",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q16_ActiveNoOrders",
@@ -579,7 +1033,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "8.6 MB",
         "linqVsCdb": "9,636,074\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "74,720\u00d7 slower"
+        "linqVsSqlite": "74,720\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "1.06 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "1.22 \u00b5s",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "1.50 \u00b5s",
+            "alloc": "104 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q44_GuildsWithPlayersHavingOrders",
@@ -598,7 +1075,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "14.1 KB",
         "linqVsCdb": "34,947\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "387\u00d7 slower"
+        "linqVsSqlite": "387\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "59 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "87 ns",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "100 ns",
+            "alloc": "416 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q58_MissionBoardEligibility",
@@ -617,7 +1117,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "149.7 KB",
         "linqVsCdb": "245,409\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1,843\u00d7 slower"
+        "linqVsSqlite": "1,843\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "885 ns",
+            "alloc": "1008 B",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "914 ns",
+            "alloc": "504 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -644,7 +1161,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "8.37 ms",
         "linqAlloc": "9.6 MB",
         "linqVsCdb": "65\u00d7",
-        "linqVsSqlite": "3.4\u00d7 faster"
+        "linqVsSqlite": "3.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "130 \u00b5s",
+            "alloc": "2 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "137 \u00b5s",
+            "alloc": "20.8 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q17_MovingAvg",
@@ -663,7 +1197,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "17.3 ms",
         "linqAlloc": "14.5 MB",
         "linqVsCdb": "222\u00d7",
-        "linqVsSqlite": "1.3\u00d7 faster"
+        "linqVsSqlite": "1.3\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "77.6 \u00b5s",
+            "alloc": "49 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "99.0 \u00b5s",
+            "alloc": "177 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "787 \u00b5s",
+            "alloc": "2.8 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q23_Top3OrdersPerLevelWithRunningAmount",
@@ -682,7 +1239,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "40.5 ms",
         "linqAlloc": "30.9 MB",
         "linqVsCdb": "98\u00d7",
-        "linqVsSqlite": "2.6\u00d7 faster"
+        "linqVsSqlite": "2.6\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "412 \u00b5s",
+            "alloc": "4 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "415 \u00b5s",
+            "alloc": "19.2 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q51_PlayersWithScoreRankById",
@@ -701,7 +1275,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "12.7 ms",
         "linqAlloc": "7.6 MB",
         "linqVsCdb": "32\u00d7",
-        "linqVsSqlite": "2.4\u00d7 faster"
+        "linqVsSqlite": "2.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "400 \u00b5s",
+            "alloc": "830.3 KB",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "855 \u00b5s",
+            "alloc": "2.9 MB",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -728,7 +1319,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "251.1 KB",
         "linqVsCdb": "5,920\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "2.2\u00d7 faster"
+        "linqVsSqlite": "2.2\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "6.43 \u00b5s",
+            "alloc": "43.6 KB",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "10.3 \u00b5s",
+            "alloc": "33.5 KB",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -754,7 +1362,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "3.86 ms",
         "linqAlloc": "1.4 KB",
         "linqVsCdb": "42\u00d7",
-        "linqVsSqlite": "3.4\u00d7 faster"
+        "linqVsSqlite": "3.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "91.7 \u00b5s",
+            "alloc": "81 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "94.9 \u00b5s",
+            "alloc": "233 B",
+            "best": false
+          },
+          {
+            "kind": "ForEach",
+            "time": "124 \u00b5s",
+            "alloc": "82 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q25_UnionAllTiers",
@@ -772,7 +1403,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "33.9 ms",
         "linqAlloc": "11.4 MB",
         "linqVsCdb": "72\u00d7",
-        "linqVsSqlite": "1.8\u00d7 faster"
+        "linqVsSqlite": "1.8\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "470 \u00b5s",
+            "alloc": "4 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "532 \u00b5s",
+            "alloc": "3.8 KB",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "1.47 ms",
+            "alloc": "5.1 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q26_IntersectAllTiers",
@@ -791,7 +1445,10 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "4.77 ms",
         "linqAlloc": "3.4 MB",
         "linqVsCdb": "14\u00d7",
-        "linqVsSqlite": "37\u00d7 faster"
+        "linqVsSqlite": "37\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow"
       },
       {
         "q": "Q27_ExceptAllTiers",
@@ -810,7 +1467,10 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "5.98 ms",
         "linqAlloc": "15.9 MB",
         "linqVsCdb": "16\u00d7",
-        "linqVsSqlite": "29\u00d7 faster"
+        "linqVsSqlite": "29\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow"
       },
       {
         "q": "Q28_IntersectPlayersByTierBucket",
@@ -829,7 +1489,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "8.00 ms",
         "linqAlloc": "2.1 MB",
         "linqVsCdb": "376\u00d7",
-        "linqVsSqlite": "1.3\u00d7 slower"
+        "linqVsSqlite": "1.3\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "21.3 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "23.8 \u00b5s",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "286 \u00b5s",
+            "alloc": "1.4 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q29_ExceptPlayersByTierBucket",
@@ -848,7 +1531,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "5.54 ms",
         "linqAlloc": "2.1 MB",
         "linqVsCdb": "238\u00d7",
-        "linqVsSqlite": "1.1\u00d7 faster"
+        "linqVsSqlite": "1.1\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "23.3 \u00b5s",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "24.8 \u00b5s",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "287 \u00b5s",
+            "alloc": "1.4 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q53_ProductCategoryNameIntersectAllByCategory",
@@ -867,7 +1573,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "20.9 ms",
         "linqAlloc": "9.9 MB",
         "linqVsCdb": "107\u00d7",
-        "linqVsSqlite": "4.7\u00d7 faster"
+        "linqVsSqlite": "4.7\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "195 \u00b5s",
+            "alloc": "1.1 KB",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "1.09 ms",
+            "alloc": "2.5 MB",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -894,7 +1617,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "11.5 ms",
         "linqAlloc": "10.6 MB",
         "linqVsCdb": "137\u00d7",
-        "linqVsSqlite": "1.5\u00d7 faster"
+        "linqVsSqlite": "1.5\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "83.4 \u00b5s",
+            "alloc": "6.3 KB",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "87.2 \u00b5s",
+            "alloc": "2.4 KB",
+            "best": false
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "91.3 \u00b5s",
+            "alloc": "2.4 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q32_SparseCompletedOrdersLeftJoin",
@@ -913,7 +1659,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "8.31 ms",
         "linqAlloc": "10.9 MB",
         "linqVsCdb": "71\u00d7",
-        "linqVsSqlite": "1.6\u00d7 faster"
+        "linqVsSqlite": "1.6\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "117 \u00b5s",
+            "alloc": "1 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "155 \u00b5s",
+            "alloc": "514 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "1.44 ms",
+            "alloc": "5.7 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q33_TopPlayersBySparseCompletedOrders",
@@ -932,7 +1701,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "4.38 ms",
         "linqAlloc": "4.3 MB",
         "linqVsCdb": "32\u00d7",
-        "linqVsSqlite": "3.6\u00d7 faster"
+        "linqVsSqlite": "3.6\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "137 \u00b5s",
+            "alloc": "3.2 KB",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "137 \u00b5s",
+            "alloc": "3.2 KB",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "153 \u00b5s",
+            "alloc": "7.1 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q36_TopPlayersByCompletedWeaponCount",
@@ -952,7 +1744,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "16.3 MB",
         "linqVsCdb": "369,731\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "3,861\u00d7 slower"
+        "linqVsSqlite": "3,861\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "112 \u00b5s",
+            "alloc": "449 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "114 \u00b5s",
+            "alloc": "953 B",
+            "best": false
+          },
+          {
+            "kind": "ForEach",
+            "time": "142 \u00b5s",
+            "alloc": "554 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -979,7 +1794,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "19.1 MB",
         "linqVsCdb": "91,370\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "526\u00d7 slower"
+        "linqVsSqlite": "526\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "235 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "305 ns",
+            "alloc": "1.0 KB",
+            "best": false
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "359 ns",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q38_TopPlayersByDistinctWeaponCountAndAmount",
@@ -997,7 +1835,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "125 ms",
         "linqAlloc": "106.5 MB",
         "linqVsCdb": "337\u00d7",
-        "linqVsSqlite": "1.6\u00d7 slower"
+        "linqVsSqlite": "1.6\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "372 \u00b5s",
+            "alloc": "1.0 KB",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "375 \u00b5s",
+            "alloc": "645 B",
+            "best": false
+          },
+          {
+            "kind": "ForEach",
+            "time": "378 \u00b5s",
+            "alloc": "645 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q52_JoinedDistinctItemPageResorted",
@@ -1016,7 +1877,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "147.9 MB",
         "linqVsCdb": "189,199\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "1.5\u00d7 faster"
+        "linqVsSqlite": "1.5\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "645 ns",
+            "alloc": "600 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "772 ns",
+            "alloc": "408 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q63_DistinctQuestRewardCurrencies",
@@ -1035,7 +1913,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "82.1 KB",
         "linqVsCdb": "7,854\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "143\u00d7 slower"
+        "linqVsSqlite": "143\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "79 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "200 ns",
+            "alloc": "880 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q65_TopDistinctOrderBucketsForActivePlayers",
@@ -1053,7 +1948,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "18.4 ms",
         "linqAlloc": "21.8 MB",
         "linqVsCdb": "53\u00d7",
-        "linqVsSqlite": "1.4\u00d7 faster"
+        "linqVsSqlite": "1.4\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "346 \u00b5s",
+            "alloc": "35.7 KB",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "\u2014",
+            "alloc": "\u2014",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -1079,7 +1991,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "25.9 ms",
         "linqAlloc": "17.2 MB",
         "linqVsCdb": "49\u00d7",
-        "linqVsSqlite": "1.6\u00d7 faster"
+        "linqVsSqlite": "1.6\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "NoAlloc",
+            "time": "528 \u00b5s",
+            "alloc": "977.1 KB",
+            "best": true
+          },
+          {
+            "kind": "ForEach",
+            "time": "659 \u00b5s",
+            "alloc": "975.6 KB",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "1.94 ms",
+            "alloc": "5.4 MB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q50_TopOrderAmountSliceResorted",
@@ -1098,7 +2033,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "5.7 MB",
         "linqVsCdb": "10,241\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "21\u00d7 faster"
+        "linqVsSqlite": "21\u00d7 faster",
+        "rankCdb": "fast",
+        "rankLinq": "mid",
+        "rankSqlite": "slow",
+        "variants": [
+          {
+            "kind": "default",
+            "time": "198 ns",
+            "alloc": "168 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "199 ns",
+            "alloc": "0 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q55_ProductInventoryCatalogPage",
@@ -1117,7 +2069,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "5.9 MB",
         "linqVsCdb": "6,768\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "71\u00d7 slower"
+        "linqVsSqlite": "71\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "151 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "178 ns",
+            "alloc": "0 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "416 ns",
+            "alloc": "10.3 KB",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q57_PlayerWalletRecentDeltas",
@@ -1136,7 +2111,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "1.8 KB",
         "linqVsCdb": "89,945\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "631\u00d7 slower"
+        "linqVsSqlite": "631\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "13 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "38 ns",
+            "alloc": "576 B",
+            "best": false
+          }
+        ]
       },
       {
         "q": "Q64_PlayerTopOrdersPageThenItems",
@@ -1155,7 +2147,24 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqAlloc": "21.4 MB",
         "linqVsCdb": "268,838\u00d7",
         "idxWin": true,
-        "linqVsSqlite": "4,611\u00d7 slower"
+        "linqVsSqlite": "4,611\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "61 ns",
+            "alloc": "0 B",
+            "best": true
+          },
+          {
+            "kind": "default",
+            "time": "99 ns",
+            "alloc": "880 B",
+            "best": false
+          }
+        ]
       }
     ]
   },
@@ -1182,7 +2191,30 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "linqNs": "56.0 ms",
         "linqAlloc": "33.8 MB",
         "linqVsCdb": "235\u00d7",
-        "linqVsSqlite": "2.8\u00d7 slower"
+        "linqVsSqlite": "2.8\u00d7 slower",
+        "rankCdb": "fast",
+        "rankSqlite": "mid",
+        "rankLinq": "slow",
+        "variants": [
+          {
+            "kind": "ForEach",
+            "time": "238 \u00b5s",
+            "alloc": "2 B",
+            "best": true
+          },
+          {
+            "kind": "NoAlloc",
+            "time": "270 \u00b5s",
+            "alloc": "388 B",
+            "best": false
+          },
+          {
+            "kind": "default",
+            "time": "606 \u00b5s",
+            "alloc": "1.1 MB",
+            "best": false
+          }
+        ]
       }
     ]
   }

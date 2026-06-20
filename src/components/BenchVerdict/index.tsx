@@ -13,6 +13,7 @@ function barWidth(ns: number, maxNs: number): string {
 export function BenchVerdict(): ReactNode {
   const c = BENCH_COMPARE;
   if (!c) return null;
+  const kept = c.cases - c.excluded;
   const maxNs = Math.max(c.linqNs, c.sqliteNs, c.cdbNs);
   const bars = [
     {key: 'linq', label: 'Hand-written LINQ', time: c.linqTime, mult: `${c.cdbVsLinq.toLocaleString()}× slower`, ns: c.linqNs, cls: styles.linq},
@@ -24,7 +25,7 @@ export function BenchVerdict(): ReactNode {
     <div className={styles.wrap}>
       <div className={styles.chart}>
         <div className={styles.chartHead}>
-          Typical query time — geometric mean across all {c.cases} cases · log scale
+          Typical query time — geometric mean across {kept} real-work cases · log scale
         </div>
         {bars.map((b) => (
           <div key={b.key} className={styles.row}>
@@ -49,6 +50,12 @@ export function BenchVerdict(): ReactNode {
           <span className={styles.statLabel}>faster than SQLite (geomean)</span>
         </div>
         <div className={styles.stat}>
+          <span className={styles.statNum}>0 B</span>
+          <span className={styles.statLabel}>
+            ConjureDB allocations on {c.cdbZeroAlloc} of {c.cases} cases
+          </span>
+        </div>
+        <div className={styles.stat}>
           <span className={styles.statNum}>
             {c.linqSlowerThanSqlite}/{c.cases}
           </span>
@@ -58,20 +65,36 @@ export function BenchVerdict(): ReactNode {
 
       <div className={styles.notes}>
         <p className={styles.note}>
-          <strong>It’s index hits, not magic.</strong> The biggest multipliers come from a declared
-          index turning a full O(n) — or O(n·m) — scan into an O(1)/O(log n) probe. Hand-written
-          LINQ over a plain <code>List&lt;T&gt;</code> has no index, so it walks everything; on
-          correlated queries that is quadratic, which is why naive LINQ often lands{' '}
-          <em>slower than SQLite</em> — SQLite at least has a planner and indexes.
+          <strong>Fair by construction.</strong> Those geomeans deliberately set aside{' '}
+          {c.excluded} cases that resolve to a <em>sub-microsecond index probe</em> (primary- and
+          foreign-key lookups, top-N off a sorted index) — there ConjureDB does almost no work and
+          the ratio is effectively unbounded, which would flatter the average. Counting all{' '}
+          {c.cases} cases it is ~{c.cdbVsSqliteAll.toLocaleString()}× vs SQLite and ~
+          {c.cdbVsLinqAll.toLocaleString()}× vs LINQ; the numbers above are the conservative slice
+          that still does real scanning, joining and aggregation.
+        </p>
+        <p className={styles.note}>
+          <strong>It’s index hits, not magic.</strong> The advantage is a declared index turning a
+          full O(n) — or O(n·m) — scan into an O(1)/O(log n) probe. Hand-written LINQ over a plain{' '}
+          <code>List&lt;T&gt;</code> has no index, so it walks everything; on correlated queries that
+          is quadratic, which is why naive LINQ lands <em>slower than SQLite</em> in{' '}
+          {c.linqSlowerThanSqlite} of {c.cases} cases — SQLite at least has a planner and indexes.
+        </p>
+        <p className={styles.note}>
+          <strong>Allocations tell the same story.</strong> ConjureDB’s best variant allocates{' '}
+          <strong>0 B</strong> on {c.cdbZeroAlloc} of {c.cases} cases — it streams from indexes into
+          caller-owned buffers. The naive LINQ churns a geomean of {c.linqAllocTypical} per query
+          ({c.linqTotalAlloc} across the suite), all of it pressure on the GC — which on a frame
+          budget is its own tax.
         </p>
         <p className={styles.note}>
           <strong>And this is the floor, not the ceiling.</strong> These are one-shot evaluations —
-          ConjureDB runs the query against its indexes on every call, same as SQLite and the LINQ.
-          For hot, repeatedly-read queries it can go further with{' '}
-          <strong>incremental view maintenance</strong>: instead of re-evaluating, it applies
-          O(changes) deltas as data is written and reads just return the maintained result. That
-          moves cost to write time — proportional to what changed, not the dataset, and kept off the
-          synchronous read path — so it’s a deliberate read/write trade these benchmarks don’t use.
+          ConjureDB runs the query against its indexes on every call, same as SQLite and the LINQ,
+          and with no incremental view maintenance. For hot, repeatedly-read queries it can go
+          further with <strong>IVM</strong>: instead of re-evaluating, it applies O(changes) deltas
+          as data is written and reads just return the maintained result. That moves cost to write
+          time — proportional to what changed, not the dataset, and off the synchronous read path —
+          a deliberate read/write trade these benchmarks don’t use.
         </p>
       </div>
     </div>
