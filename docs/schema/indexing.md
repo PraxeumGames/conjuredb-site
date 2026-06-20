@@ -828,7 +828,7 @@ table Player {
 }
 ```
 
-**Available `kind` values:** `lookup`, `sorted_set`, `sorted_list`, `range_lookup`, `grouped_sorted`.
+**Available `kind` values:** `lookup`, `sorted_set`, `sorted_list`, `unique`, `aggregation`, `universal_aggregation`, `range_lookup`, `grouped_sorted`, `spatial_grid`.
 
 ---
 

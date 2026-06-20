@@ -361,7 +361,7 @@ Guids support **equality** and **ordering** comparisons. They can be implicitly 
 ```
 // Schema
 table Player {
-    id: guid @primary
+    id: guid @id
     session_id: guid?
 }
 
@@ -594,7 +594,7 @@ types in ConjureDB.
 ```
 // Schema definition
 table Player {
-    id: int @primary
+    id: int @id
     name: string
     level: int
 }
@@ -866,7 +866,7 @@ All other cross-family conversions are unsupported by the type system.
 
 ## CASE Expression Type Resolution
 
-`CASE` (or `if`/`else` in DSL syntax) expressions require the compiler to find a common type
+`CASE`-style conditionals (written with the `switch` expression in DSL syntax) require the compiler to find a common type
 across all branches. The algorithm:
 
 1. **Ignore** null literals and unknown types.
@@ -879,16 +879,10 @@ across all branches. The algorithm:
 
 ```
 // All branches numeric — result promoted to long
-from Player | select case
-    when level < 10 then (short)1
-    when level < 50 then 2
-    else (long)3
-end
+from Player | select level switch { < 10 => (short)1, < 50 => 2, _ => (long)3 } as tier
 
-// Missing ELSE — result is int? (nullable)
-from Player | select case
-    when level > 50 then level
-end
+// Default arm returns null — result is int? (nullable)
+from Player | select level switch { > 50 => level, _ => null } as high_level
 ```
 
 ---

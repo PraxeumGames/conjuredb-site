@@ -729,8 +729,8 @@ type_field      = IDENT ":" type_ref ;
 
 table           = [ "struct" ] "table" IDENT [ table_options ] "{" { field | table_ann } "}" ;
 table_options   = "(" option { "," option } ")" ;
-option          = ( "persistence" | "capacity" | "schema_version" | "type_id" )
-                  ( ":" | "=" ) value ;
+option          = ( "persistence" | "capacity" | "schema_version" | "type_id" | "plural" )
+                  ":" value ;
 
 field           = IDENT ":" type_ref { field_ann } [ "=" default_value ] ;
 field_ann       = "@" ( "id" | "unique" | "default" "(" value ")"

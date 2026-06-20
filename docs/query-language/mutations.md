@@ -13,8 +13,8 @@ subcommand composition on top of mutation primitives.
 ```prql
 mutation AddExperience(playerId: int, amount: int) {
     update Players
-    | filter Id == playerId
-    | set Experience = Experience + amount
+    | filter Id == @playerId
+    | set Experience = Experience + @amount
 }
 ```
 
@@ -24,10 +24,10 @@ mutation AddExperience(playerId: int, amount: int) {
 mutation CreatePlayer(id: int, name: string) {
     insert Players
     | values {
-        Id: id,
-        Name: name,
-        Level: 1,
-        Experience: 0
+        Id = @id,
+        Name = @name,
+        Level = 1,
+        Experience = 0
     }
 }
 ```
@@ -37,8 +37,8 @@ mutation CreatePlayer(id: int, name: string) {
 ```prql
 mutation GrantItem(playerId: int, itemId: int, amount: int) {
     upsert InventorySlots
-    | key { PlayerId: playerId, ItemId: itemId }
-    | set Amount += amount
+    | filter PlayerId == @playerId and ItemId == @itemId
+    | set Amount = Amount + @amount
 }
 ```
 
@@ -47,8 +47,8 @@ mutation GrantItem(playerId: int, itemId: int, amount: int) {
 ```prql
 mutation RemoveExpiredReward(playerId: int, rewardId: int) {
     delete RewardClaims
-    | filter PlayerId == playerId
-    | filter RewardId == rewardId
+    | filter PlayerId == @playerId
+    | filter RewardId == @rewardId
 }
 ```
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-ConjureDB provides a rich set of **built-in functions** (scalar, aggregate, and window) and supports extending the DSL with user-defined C# functions via the `extern function` attribute. All functions are resolved at compile time and emit direct static method calls — no reflection, no delegates, no runtime overhead.
+ConjureDB provides a rich set of **built-in functions** (scalar, aggregate, and window) and supports extending the DSL with user-defined C# functions via an `extern function` declaration in the schema. All functions are resolved at compile time and emit direct static method calls — no reflection, no delegates, no runtime overhead.
 
 ---
 
@@ -330,28 +330,29 @@ from Players
 
 ## Custom Function Definition
 
-### extern function Attribute
+### extern function Declaration
 
-Mark a **static method** with `extern function` to register it as a DSL function:
+A custom function has two parts: a plain **`public static` method** in C# (no attribute) and an `extern function` declaration in your `.conjure` schema that maps a DSL name to that fully-qualified method:
+
+```
+extern function calculateDamage(baseDamage: int, enchantLevel: int) -> int = GameMath.CalculateDamage
+extern function xpForLevel(level: int) -> long = GameMath.XpForLevel
+extern function clampScore(score: int, min: int, max: int) -> int = GameMath.ClampScore
+```
 
 ```csharp
-using ConjureDB.CodeGen;
-
 public static class GameMath
 {
-    extern function "calculateDamage")]
     public static int CalculateDamage(int baseDamage, int enchantLevel)
     {
         return baseDamage + enchantLevel * 10;
     }
 
-    extern function "xpForLevel")]
     public static long XpForLevel(int level)
     {
         return (long)(100 * Math.Pow(1.5, level - 1));
     }
 
-    extern function "clampScore", Description = "Clamp score between min and max bounds")]
     public static int ClampScore(int score, int min, int max)
     {
         return score < min ? min : score > max ? max : score;
@@ -359,12 +360,18 @@ public static class GameMath
 }
 ```
 
-### Attribute Parameters
+### Declaration Form
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `FunctionName` | `string` | Name used in DSL expressions. Required (first positional argument). If omitted, the method name is used. |
-| `Description` | `string?` | Optional documentation string for tooling and diagnostics. |
+```
+extern function <dslName>(<param>: <Type>, ...) -> <ReturnType> = <Fully.Qualified.Static.Method>
+```
+
+| Part | Description |
+|------|-------------|
+| `<dslName>` | Name used in DSL expressions. |
+| parameters | Comma-separated `name: Type` list; types use the schema type grammar (`int`, `string`, `extern Some.Clr.Type`, `T[]`, `T?`, generics). |
+| `-> <ReturnType>` | Return type of the function. |
+| `= <method>` | Fully-qualified name of the target `public static` C# method. |
 
 ---
 
@@ -398,7 +405,7 @@ Custom function methods **must** satisfy all of the following:
 
 | Requirement | Validation |
 |-------------|-----------|
-| Be `static` | Instance methods are rejected with a compile-time warning |
+| Be `public static` | Instance / non-public methods cannot be referenced by an `extern function` declaration |
 | Not be generic | Generic methods are rejected |
 | No `ref` / `out` / `in` parameters | `RefKind != RefKind.None` → rejected per parameter |
 | No `params` parameters | `IsParams` → rejected |
@@ -428,9 +435,9 @@ Custom function methods **must** satisfy all of the following:
 
 ## Discovery Mechanism
 
-Functions marked with `extern function` are automatically discovered at compile time. The source generator finds all annotated static methods in your project and any referenced assemblies — no manual registration is needed.
+Functions are registered by `extern function` declarations in your `.conjure` schema. Each declaration names the DSL function and the fully-qualified C# static method it maps to, so no attribute scanning or manual runtime registration is needed.
 
-The discovery produces a mapping from DSL function names to their fully qualified C# method names (e.g., `"calculateDamage"` → `"GameMath.CalculateDamage"`), which the compiler uses for direct code generation.
+Each declaration produces a mapping from a DSL function name to a fully qualified C# method name (e.g., `calculateDamage` → `GameMath.CalculateDamage`), which the compiler uses for direct code generation.
 
 ---
 
@@ -467,14 +474,17 @@ When multiple overloads exist for a function (e.g., `round(double)` and `round(d
 ```csharp
 public static class StringHelpers
 {
-    extern function "initials")]
     public static string Initials(string firstName, string lastName)
         => $"{firstName[0]}{lastName[0]}";
 
-    extern function "truncate")]
     public static string Truncate(string value, int maxLength)
         => value.Length <= maxLength ? value : value.Substring(0, maxLength);
 }
+```
+
+```
+extern function initials(firstName: string, lastName: string) -> string = StringHelpers.Initials
+extern function truncate(value: string, maxLength: int) -> string = StringHelpers.Truncate
 ```
 
 ```dsl
@@ -489,10 +499,13 @@ from Players
 ```csharp
 public static class NullableHelpers
 {
-    extern function "safeLength")]
     public static int SafeLength(string? value)
         => value?.Length ?? 0;
 }
+```
+
+```
+extern function safeLength(value: string) -> int = NullableHelpers.SafeLength
 ```
 
 ```dsl
@@ -507,7 +520,6 @@ from Players
 ```csharp
 public static class GameLogic
 {
-    extern function "tierForLevel")]
     public static string TierForLevel(int level)
         => level switch
         {
@@ -518,10 +530,14 @@ public static class GameLogic
             _ => "Diamond"
         };
 
-    extern function "combatPower")]
     public static double CombatPower(int attack, int defense, int speed)
         => attack * 1.5 + defense * 1.2 + speed * 0.8;
 }
+```
+
+```
+extern function tierForLevel(level: int) -> string = GameLogic.TierForLevel
+extern function combatPower(attack: int, defense: int, speed: int) -> double = GameLogic.CombatPower
 ```
 
 ```dsl

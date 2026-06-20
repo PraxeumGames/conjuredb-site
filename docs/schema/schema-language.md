@@ -41,8 +41,8 @@ Errors at any stage abort the pipeline with structured diagnostics printed to st
 
 | Schema Declaration | Generated File | C# Artifact |
 |--------------------|----------------|-------------|
-| `table Player` | `Player.g.cs` | `schema table[MessagePackObject] public record Player` |
-| `struct table Pos` | `Pos.g.cs` | `schema table[MessagePackObject] public record struct Pos` |
+| `table Player` | `Player.g.cs` | `[MessagePackObject] public record Player` |
+| `struct table Pos` | `Pos.g.cs` | `[MessagePackObject] public record struct Pos` |
 | `view ActiveRows` | metadata only | Virtual reusable query source, no storage |
 | `materialized view PlayerItemRow` | metadata + derived runtime state | In-memory derived relation, no persistence/type id/schema version |
 | `enum Status` | `Status.g.cs` | `public enum Status` |
@@ -582,7 +582,7 @@ table Guild {
 }
 ```
 
-**Alternative option separator:** both `key: value` and `key = value` syntax are accepted for table options.
+Table options use `key: value` syntax only; each option key is followed by a colon.
 
 ### 6.3  Struct Tables
 
@@ -600,7 +600,6 @@ struct table Position {
 Generated C#:
 
 ```csharp
-table "Position")]
 [MessagePackObject]
 public record struct Position
 {

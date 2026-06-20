@@ -53,13 +53,13 @@ table QuestProgress(plural: QuestProgressRows, persistence: local, capacity: 204
 ```prql
 query GetInventory(playerId: int) -> InventorySlot[] {
     from InventorySlots
-    | filter PlayerId == playerId
+    | filter PlayerId == @playerId
     | sort ItemId
 }
 
 query GetPlayerGold(playerId: int) -> long {
     from PlayerProfiles
-    | filter Id == playerId
+    | filter Id == @playerId
     | select Gold
     | single
 }

@@ -9,7 +9,7 @@ parameter types, result shape, indexes, and optimization hints.
 ```prql
 query GetPlayersByLevel(minLevel: int) -> Player[] {
     from Players
-    | filter Level >= minLevel
+    | filter Level >= @minLevel
     | select { Id, Name, Level }
     | sort -Level
 }
@@ -30,7 +30,7 @@ Return a table row:
 ```prql
 query GetPlayer(id: int) -> Player? {
     from Players
-    | filter Id == id
+    | filter Id == @id
     | single_or_default
 }
 ```
@@ -41,11 +41,11 @@ Return a projection:
 query GetLeaderboard(count: int) -> LeaderboardRow[] {
     from Players
     | sort -Score
-    | take count
+    | take @count
     | select {
-        playerId: Id,
-        name: Name,
-        score: Score
+        playerId = Id,
+        name = Name,
+        score = Score
     }
 }
 ```
@@ -55,10 +55,10 @@ Return aggregates:
 ```prql
 query GetGuildScoreTotals() -> GuildScoreTotal[] {
     from Players
-    | group GuildId (
-        totalScore: sum Score,
-        playerCount: count
-      )
+    | group GuildId (aggregate {
+        totalScore = sum Score,
+        playerCount = count
+      })
 }
 ```
 
@@ -81,13 +81,13 @@ as generated APIs. The compiler warns when order cannot be proven.
 
 ## Parameters
 
-Parameters are declared in the query signature and referenced by name:
+Parameters are declared in the query signature and referenced in the body with a leading `@`:
 
 ```prql
 query GetItems(ownerId: int, minRarity: int) -> Item[] {
     from Items
-    | filter OwnerId == ownerId
-    | filter Rarity >= minRarity
+    | filter OwnerId == @ownerId
+    | filter Rarity >= @minRarity
     | sort -Rarity
 }
 ```

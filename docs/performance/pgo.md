@@ -53,10 +53,10 @@ Add the `[PgoMode]` attribute at assembly or DbContext level:
 
 ```csharp
 // Assembly-level (instruments all queries)
-[assembly: PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
+[assembly: PgoMode(PgoMode.Collect, "./profiles/game.json")]
 
 // Per-context (instruments one context)
-[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
+[PgoMode(PgoMode.Collect, "./profiles/game.json")]
 public class GameDbContext : DbContext { ... }
 ```
 
@@ -107,7 +107,7 @@ dotnet run --project ConjureDB.CodeGen.Manual --pgo --profile=./profiles/game.js
 Switch to `PgoMode.Use` and rebuild:
 
 ```csharp
-[assembly: PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
+[assembly: PgoMode(PgoMode.Use, "./profiles/game.json")]
 ```
 
 ```bash
@@ -476,7 +476,7 @@ Heuristic defaults          (lowest priority)
 
 ```bash
 # The compiler warns when the profile SchemaHash doesn't match:
-# warning UM1042: PGO profile schema hash mismatch. Profile may be stale.
+# warning: Schema hash mismatch. Profile was generated for different schema version.
 ```
 
 Regenerate the profile whenever entities are added, removed, or modified.
@@ -645,7 +645,7 @@ See [Reactive Queries](/docs/advanced/reactive-queries) for more details on IVM.
 
 ```csharp
 // GameDbContext.cs
-[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
+[PgoMode(PgoMode.Collect, "./profiles/game.json")]
 public class GameDbContext : DbContext
 {
     // Generated from .conjure schema AdditionalFiles.
@@ -694,7 +694,7 @@ cat profiles/game.json | jq '.JoinStats'
 
 ```csharp
 // Switch to Use mode
-[PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
+[PgoMode(PgoMode.Use, "./profiles/game.json")]
 public class GameDbContext : DbContext { ... }
 ```
 

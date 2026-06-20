@@ -17,7 +17,7 @@ table Player(plural: Players, persistence: local, capacity: 50000, type_id: 1) {
 }
 ```
 
-The `sorted` index on `Score` is what turns "top N" into an O(N) head-read instead of an
+The `sorted_set` index on `Score` is what turns "top N" into an O(N) head-read instead of an
 O(n log n) sort.
 
 ## Query
@@ -25,9 +25,9 @@ O(n log n) sort.
 ```prql
 query GetTopScorers(minScore: int, count: int) -> Player[] {
     from Players
-    | filter Score > minScore
+    | filter Score > @minScore
     | sort -Score
-    | take count
+    | take @count
 }
 ```
 

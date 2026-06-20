@@ -37,7 +37,7 @@ identifiers in most positions:
 
 ```
 from    select   filter   derive   group   aggregate  sort    take    skip
-join    left     right    inner    full    semi       anti    window  loop
+join    left     right    inner    full    semi       anti    window
 union   remove   intersect except  and     or         not     null    true
 false   in       as       switch   cast    sum        count   avg     average
 min     max      distinct asc      desc    version    like    is      by

@@ -468,11 +468,11 @@ Set accurate initial capacities in `table` attributes to avoid runtime resizing.
 
 ```csharp
 // ❌ BAD — default capacity, resizes multiple times as players join
-table "Players", PersistenceType.Local)]
+[Table("Players", PersistenceType.Local)]
 public class Player { ... }
 
 // ✅ GOOD — pre-allocate for expected steady-state count
-table "Players", PersistenceType.Local, capacity: 10_000)]
+[Table("Players", PersistenceType.Local, capacity: 10_000)]
 public class Player { ... }
 ```
 
@@ -571,7 +571,7 @@ Typical frame budgets:
 1. **Pre-compute with reactive queries** — let the worker thread maintain query results. Read `Current` in the game loop (O(1), zero allocation):
 
 ```csharp
-schema reactive query "from Players | filter Level > 10 | sort -Score | take 20")]
+[ReactiveQuery("from Players | filter Level > 10 | sort -Score | take 20")]
 ReactiveQuery<Player> TopPlayers { get; }
 
 // In Update() — O(1) read, zero allocation
@@ -810,7 +810,7 @@ dotnet run -c Release --project ConjureDB.Benchmarks
 **Entity design:**
 
 ```csharp
-table "Inventory", PersistenceType.Local, capacity: 50_000)]
+[Table("Inventory", PersistenceType.Local, capacity: 50_000)]
 public record InventoryItem
 {
     public int Id { get; set; }
@@ -861,7 +861,7 @@ IEnumerable<InventoryItem> GetRarestItems(int pid, int n);
 **Entity design:**
 
 ```csharp
-table "Players", PersistenceType.Local, capacity: 100_000)]
+[Table("Players", PersistenceType.Local, capacity: 100_000)]
 public record Player
 {
     public int Id { get; set; }
@@ -905,7 +905,7 @@ IEnumerable<GuildRanking> GetTopGuilds(int n);
 **For reactive leaderboards** (auto-updating UI):
 
 ```csharp
-schema reactive query "from Players | sort -Score | take 20")]
+[ReactiveQuery("from Players | sort -Score | take 20")]
 ReactiveQuery<Player> TopPlayersLive { get; }
 
 // In Update() — always current, zero allocation
@@ -917,7 +917,7 @@ ReadOnlySpan<Player> top = context.TopPlayersLive.Current;
 Game config (item templates, level requirements, skill trees) is loaded once and read frequently:
 
 ```csharp
-table "ItemTemplates", PersistenceType.None, capacity: 5_000)]
+[Table("ItemTemplates", PersistenceType.None, capacity: 5_000)]
 public record ItemTemplate
 {
     public int Id { get; set; }
@@ -993,7 +993,7 @@ context.Players.Subscribe((in StateChange<Player> change) =>
 
 ```csharp
 // Nearby enemies — auto-maintained by worker thread
-schema reactive query "from Enemies | filter IsAlive == true | sort Distance | take 10")]
+[ReactiveQuery("from Enemies | filter IsAlive == true | sort Distance | take 10")]
 ReactiveQuery<Enemy> NearestEnemies { get; }
 
 // In Update() — current snapshot, zero allocation, O(1)

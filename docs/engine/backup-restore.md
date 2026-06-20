@@ -279,7 +279,7 @@ var db = DbContextBuilder<GameDb>.Create()
 | `FlushInterval` | 100 ms | Lower = less data at risk; higher = better throughput |
 | `MaxJournalFileSize` | 2 MB | Controls rotation; larger files = fewer fsyncs |
 | `MaxStateChangesBeforeSnapshot` | 100 | Auto-triggers snapshot after N journal entries |
-| Recovery corruption policy | `StopAtCorruption` | Lower-level `JournalOptions` recovery behavior; not part of the fluent builder |
+| Recovery corruption policy | `StopAtCorruption` | Set via `.WithJournaling(j => j.CorruptionPolicy(...))`; controls journal-replay behavior on corruption |
 
 **Corruption policies:**
 
@@ -457,7 +457,7 @@ Build() / BuildAsync()
             │
             ├─ 3. InitializeJournal()  — start journal writer
             │
-            └─ 4. TakePostMigrationSnapshotIfNeeded()  — if schema changed
+            └─ 4. TakePostMigrationSnapshotIfNeededAsync()  — if schema changed
 ```
 
 No manual intervention is required. After `Build()` or `BuildAsync()` returns, the database
@@ -470,7 +470,7 @@ directory before re-opening the context:
 
 ```csharp
 // 1. Stop the database (if running)
-await db.DisposeAsync();
+db.Dispose();
 
 // 2. Clear the current data directory
 Directory.Delete("save/snapshots", recursive: true);
@@ -576,7 +576,7 @@ var oldDb = DbContextBuilder<GameDb>.Create()
 // 2. Export data (in-memory — no files involved)
 var profiles = oldDb.Set<PlayerProfile>().ToArray();
 
-await oldDb.DisposeAsync();
+oldDb.Dispose();
 
 // 3. Clear old files and re-create with new key
 Directory.Delete("save/", recursive: true);
@@ -936,7 +936,7 @@ public async Task QuickSave(DbContext db)
 // Quick-load: dispose, restore, rebuild
 public async Task<GameDb> QuickLoad(GameDb db, DbContextBuilder<GameDb> builder)
 {
-    await db.DisposeAsync();
+    db.Dispose();
     // Build() loads the latest snapshot automatically
     return builder.Build();
 }

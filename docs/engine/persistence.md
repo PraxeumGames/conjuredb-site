@@ -199,7 +199,7 @@ Each journal record is MessagePack-serialized:
 | Field | Type | Description |
 |-------|------|-------------|
 | `EntityTypeId` | `ushort` | The schema `type_id` value |
-| `OperationType` | `ChangeType` | `Insert`, `Update`, or `Delete` |
+| `OperationType` | `ChangeType` | `Add`, `Update`, or `Remove` |
 | `ChangesCount` | `uint` | Number of entities in this batch |
 | `SerializedChange` | `byte[]` | MessagePack-serialized entity data |
 | `DataLength` | `int` | Length of `SerializedChange` |
@@ -468,8 +468,8 @@ custom key management), implement `IProtectedFileStreamFactory`:
 ```csharp
 public interface IProtectedFileStreamFactory
 {
-    Stream CreateReadStream(string filePath);
-    Stream CreateWriteStream(string filePath);
+    Stream CreateReadStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
+    Stream CreateWriteStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
 }
 ```
 
@@ -623,7 +623,7 @@ var context = DbContextBuilder<GameDbContext>.Create()
 | `RecordsPerWrite` | `int` | 16 | Max records per I/O batch |
 | `FlushInterval` | `TimeSpan` | 100 ms | Base flush interval |
 | `MaxStateChangesBeforeSnapshot` | `int` | 100 | Entity mutation count triggering snapshot |
-| `MaxJournalFileSize` | `long` | 2,097,152 (2 MB) | File rotation threshold |
+| `MaxJournalFileSize` | `int` | 2,097,152 (2 MB) | File rotation threshold |
 | `QueueThresholdForSnapshot` | `int` | 10 | Queue depth triggering snapshot hint |
 | `DelayBeforeSnapshotMs` | `int` | 500 | Batching delay before snapshot execution |
 | `HighWriteOpsPerSecond` | `int` | 100 | Threshold for accelerating flush |

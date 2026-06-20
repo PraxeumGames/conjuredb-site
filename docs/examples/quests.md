@@ -21,7 +21,7 @@ table QuestProgress(plural: QuestProgressRows, persistence: local, capacity: 204
 ```prql
 query GetOpenQuests(playerId: int) -> QuestProgress[] {
     from QuestProgressRows
-    | filter PlayerId == playerId && Completed == false
+    | filter PlayerId == @playerId && Completed == false
     | sort QuestId
 }
 ```

@@ -67,7 +67,7 @@ Internal errors indicate compiler bugs or infrastructure problems. Users should 
 // No schema file referenced — compiler has no metadata
 public interface IUserRepository : IRepository<User>
 {
-  schema query "from Users | select Name")]  // UM0004: Schema metadata is missing
+  [Query("from Users | select Name")]  // UM0004: Schema metadata is missing
   IEnumerable<string> GetUserNames();
 }
 ```

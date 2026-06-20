@@ -48,13 +48,13 @@ The operation that atomically applies all buffered mutations in the current tran
 
 ### Compiled Mutation
 
-A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method via the `mutation` attribute. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
+A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method via the `mutation` keyword in a `.conjure` schema. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
 
 **See also:** [Mutations](/docs/query-language/mutations)
 
 ### Compiled Query
 
-A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method via the `query` attribute on an `IRepository<T>` interface method. The compiler selects optimal indexes, applies predicate pushdown, and emits zero-allocation code.
+A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method via the `query` keyword in a `.conjure` schema. The compiler selects optimal indexes, applies predicate pushdown, and emits zero-allocation code.
 
 **See also:** [Compiled Queries](/docs/query-language/compiled-queries)
 
@@ -369,9 +369,9 @@ A nested pipeline expression used as a data source, a scalar value, or a set mem
 
 **See also:** [Query Language — Subquery Expressions](/docs/query-language/reference#subquery-expressions)
 
-### schema table Attribute
+### table (Schema Declaration)
 
-The C# attribute that marks a record as a ConjureDB entity. Specifies the table name, persistence type, and initial capacity. Example: `table "Players", PersistenceType.Local, capacity: 1024)]`.
+The `.conjure` schema declaration that defines a ConjureDB entity table. Specifies the table name and options such as persistence type and capacity. Example: `table Player(persistence: local, capacity: 1024)`.
 
 **See also:** [Getting Started — Defining Entities](/docs/getting-started#defining-entities), [Database Engine](/docs/engine/database-engine)
 

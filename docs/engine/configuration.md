@@ -8,7 +8,7 @@ Complete reference for all ConjureDB configuration parameters.
 
 ## Overview
 
-ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance may be used exactly once — calling `Build()` or `BuildAsync()` a second time throws `InvalidOperationException`.
+ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance is intended to be used exactly once — calling `BuildAsync()` a second time throws `InvalidOperationException`.
 
 ```csharp
 var db = DbContextBuilder<GameDb>.Create()

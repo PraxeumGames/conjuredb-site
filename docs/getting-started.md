@@ -57,15 +57,15 @@ that is never used for durable snapshot identity.
 ```prql
 query GetHighLevelPlayers(minLevel: int) -> Player[] {
     from Players
-    | filter Level > minLevel
+    | filter Level > @minLevel
     | select { Id, Name, Level }
 }
 
 query GetTopScorers(minScore: int, count: int) -> Player[] {
     from Players
-    | filter Score > minScore
+    | filter Score > @minScore
     | sort -Score
-    | take count
+    | take @count
 }
 ```
 
@@ -78,9 +78,9 @@ query parser on the hot path.
 mutation GrantItem(playerId: int, itemType: string, quantity: int) {
     insert Items
     | values {
-        OwnerId: playerId,
-        ItemType: itemType,
-        Quantity: quantity
+        OwnerId = @playerId,
+        ItemType = @itemType,
+        Quantity = @quantity
     }
 }
 ```

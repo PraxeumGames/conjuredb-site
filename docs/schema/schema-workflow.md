@@ -104,7 +104,7 @@ Found 3 .conjure file(s)
 Resolving imports...
 Merging declarations...
 Binding...
-Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s).
+Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s), 0 command(s).
 ```
 
 ### 3. Generate
@@ -213,8 +213,8 @@ module Core {
 }
 ```
 
-> **Note:** Inside modules, use braced body syntax `{ ... }` for queries and
-> mutations rather than expression-body `=` syntax.
+> **Note:** Inside modules, queries and mutations accept both the expression-body
+> `=` form and the braced `{ ... }` form, exactly as at the top level.
 
 See `samples/schema/multi-file/` for a
 complete multi-file example and
@@ -344,13 +344,14 @@ file and import it.
 `SCH2002: Unknown type 'Rarity'` — the type is not declared in the current file
 or any imported file. Add an `import` for the file that declares it.
 
-**Expression-body syntax in modules**
+**Query and mutation bodies**
 
-Inside `module { ... }` blocks, use braced body syntax for queries and mutations:
+Queries and mutations accept both the expression-body `=` form and the braced
+`{ ... }` form, inside modules and at the top level alike:
 
 ```
 module Core {
-    query GetPlayer(id: int) -> Player {        // ← use { }
+    query GetPlayer(id: int) -> Player {        // braced body
         from Player | where id == @id | take 1 | require found
     }
 }

@@ -41,7 +41,7 @@ path stays allocation-free and boxing-free. Explicit snapshot helpers such as
 ### 1. Define Entities with Relationships
 
 ```csharp
-table "Customers", PersistenceType.Local, capacity: 10_000)]
+[Table("Customers", PersistenceType.Local, capacity: 10_000)]
 public record Customer
 {
     public int Id { get; set; }
@@ -51,13 +51,13 @@ public record Customer
     public IReadOnlyList<Order>? Orders => null;
 }
 
-table "Orders", PersistenceType.Local, capacity: 50_000)]
+[Table("Orders", PersistenceType.Local, capacity: 50_000)]
 public record Order
 {
     public int Id { get; set; }
 
     [ForeignKey(nameof(Customer))]
-    [Index("Order_Customer", IndexType.Lookup)]
+    [Index("Order_Customer", Type = IndexType.Lookup)]
     public int CustomerId { get; set; }
 
     [NavigationCollection(nameof(OrderItem), nameof(OrderItem.OrderId))]
@@ -67,13 +67,13 @@ public record Order
     public string Status { get; set; } = string.Empty;
 }
 
-table "OrderItems", PersistenceType.Local, capacity: 200_000)]
+[Table("OrderItems", PersistenceType.Local, capacity: 200_000)]
 public record OrderItem
 {
     public int Id { get; set; }
 
     [ForeignKey(nameof(Order))]
-    [Index("OrderItem_Order", IndexType.Lookup)]
+    [Index("OrderItem_Order", Type = IndexType.Lookup)]
     public int OrderId { get; set; }
 
     public int ProductId { get; set; }
@@ -88,7 +88,7 @@ public record OrderItem
 |-----------|---------|
 | `[NavigationCollection]` | Preferred parent-side declaration for generated child collection navigation |
 | `[ForeignKey]` | Declares the FK relationship for compiler/optimizer metadata |
-| `[Index(..., IndexType.Lookup)]` | Creates the lookup index used by `CollectionHandle` |
+| `[Index(..., Type = IndexType.Lookup)]` | Creates the lookup index used by `CollectionHandle` |
 | `[InjectReference]` | Immutable-config injection on child entities; legacy fallback for inferred navigation generation |
 
 ### 2. Generate Code
@@ -403,7 +403,7 @@ When a child entity has FK references to multiple parents, handles are
 disambiguated with the parent name:
 
 ```csharp
-table "Reviews")]
+[Table("Reviews")]
 public record Review
 {
     public int Id { get; set; }

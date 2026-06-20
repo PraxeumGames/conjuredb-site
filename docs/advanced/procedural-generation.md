@@ -32,7 +32,7 @@ platform, JIT, or runtime version.
 
 | Function | Signature | Return Type | Description |
 |----------|-----------|-------------|-------------|
-| `hash64` | `hash64(seed: long, key: long) → long` | `long` | Core 64-bit hash. Combines a seed with an arbitrary key. |
+| `hash` | `hash(seed: long, key: long) → long` | `long` | Core 64-bit hash. Combines a seed with an arbitrary key. |
 | `hash_int` | `hash_int(seed: long, value: long, min: int, max: int) → int` | `int` | Uniform integer in `[min, max)`. |
 | `hash_float` | `hash_float(seed: long, value: long) → double` | `double` | Uniform double in `[0.0, 1.0)`. IEEE 754 compliant. |
 | `hash_normal` | `hash_normal(seed: long, value: long, mean: double, stddev: double) → double` | `double` | Normally distributed double (Box-Muller, deterministic). |
@@ -52,7 +52,7 @@ underlying table or `DbSet`. Each row receives two implicit columns:
 | Column | Type | Derivation |
 |--------|------|------------|
 | `RowIndex` | `int` | Sequential `0 .. count-1`. |
-| `Seed` | `long` | `hash64(baseSeed, rowIndex)` — unique per-row seed. |
+| `Seed` | `long` | `hash(baseSeed, rowIndex)` — unique per-row seed. |
 
 Virtual rows are created lazily during query execution. No intermediate
 collection is allocated — the emitter produces a counted loop that feeds
@@ -184,7 +184,7 @@ unique NPC names.
 ```
 from generate(50, @townSeed) g
 | join FirstNames fn (hash_index(g.Seed, 0L, count(fn)) == fn.Id)
-| join LastNames ln (hash_index(hash64(g.Seed, 100L), 0L, count(ln)) == ln.Id)
+| join LastNames ln (hash_index(hash(g.Seed, 100L), 0L, count(ln)) == ln.Id)
 | select fn.Name as First, ln.Name as Last, g.RowIndex as NpcId
 ```
 
@@ -226,7 +226,7 @@ interval timer resets.
 
 | Function | Signature | Range | Example |
 |----------|-----------|-------|---------|
-| `hash64` | `(seed: long, key: long) → long` | Full `long` range | `hash64(@seed, 42L)` → deterministic 64-bit value |
+| `hash` | `(seed: long, key: long) → long` | Full `long` range | `hash(@seed, 42L)` → deterministic 64-bit value |
 | `hash_int` | `(seed: long, value: long, min: int, max: int) → int` | `[min, max)` | `hash_int(@seed, 0L, 1, 100)` → integer in `[1, 100)` |
 | `hash_float` | `(seed: long, value: long) → double` | `[0.0, 1.0)` | `hash_float(@seed, 0L)` → `0.7312...` |
 | `hash_normal` | `(seed: long, value: long, mean: double, stddev: double) → double` | Unbounded (normal dist.) | `hash_normal(@seed, 0L, 0.0, 1.0)` → `−0.42...` |

@@ -24,7 +24,7 @@ index that makes per-player lookups fast.
 ```prql
 query GetInventory(playerId: int) -> InventorySlot[] {
     from InventorySlots
-    | filter PlayerId == playerId
+    | filter PlayerId == @playerId
     | sort ItemId
 }
 ```

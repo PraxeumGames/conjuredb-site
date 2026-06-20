@@ -11,7 +11,7 @@ Count players per level and report their average score:
 ```prql
 query LevelStats() -> { Level: int, Players: int, AvgScore: float }[] {
     from Players
-    | group { Level } (
+    | group Level (
         aggregate {
             Players = count(),
             AvgScore = avg(Score)
@@ -29,7 +29,8 @@ loop-and-sort:
 ```prql
 query Top3PerLevel() -> { Level: int, Name: string, Score: int, Rank: int }[] {
     from Players
-    | derive Rank = row_number() over (partition Level, order -Score)
+    | sort -Score
+    | window by Level (Rank = row_number)
     | filter Rank <= 3
     | select { Level, Name, Score, Rank }
 }
