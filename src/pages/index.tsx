@@ -22,7 +22,7 @@ function Hero(): ReactNode {
             Right now it's hand-wired across managers, ScriptableObjects and OnChanged events until a
             simple shop or inventory owns your week — and a year later it's a tangle you're scared to
             touch. ConjureDB lets you describe your data once and generates the fast C# instead: clean
-            systems you build once and reuse, with no spaghetti and no GC spikes.
+            systems you build once and reuse, with no spaghetti and no GC spikes from your data layer.
           </p>
           <div className={styles.ctaRow}>
             <Link className="button button--primary button--lg" to="/docs/getting-started">
@@ -34,7 +34,7 @@ function Hero(): ReactNode {
           </div>
           <div className={styles.chips}>
             <span className={styles.chip}>Unity 2021.3+ · IL2CPP &amp; Mono</span>
-            <span className={styles.chip}>.NET 8+</span>
+            <span className={styles.chip}>.NET 8 · .NET Standard 2.1</span>
             <span className={styles.chip}>Index-aware optimizer</span>
             <span className={styles.chip}>Reactive views · IVM</span>
           </div>
@@ -54,7 +54,7 @@ type Stat = {n: string; l: string};
 const STATS: Stat[] = [
   {n: '50×+', l: 'faster than SQLite*'},
   {n: 'O(1)', l: 'indexed lookups'},
-  {n: '0', l: 'GC on hot paths'},
+  {n: 'AOT', l: 'IL2CPP-safe'},
   {n: '1', l: 'build step · no runtime parser'},
 ];
 
@@ -71,7 +71,7 @@ function StatBand(): ReactNode {
           ))}
         </div>
         <p style={{textAlign: 'center', marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--cdb-muted)'}}>
-          * 20-query game-workload benchmark vs SQLite (50,000 players).{' '}
+          * 57-query game-workload benchmark vs SQLite (50,000 players).{' '}
           <Link to="/performance">See the methodology →</Link>
         </p>
       </div>
@@ -154,8 +154,8 @@ const BENEFITS: Benefit[] = [
   },
   {
     tag: 'Frame budget',
-    title: 'Zero-allocation, AOT-safe C#',
-    body: 'It all compiles to plain C# with no reflection and no runtime codegen, so it survives IL2CPP and a tight mobile frame. If you do not trust it, read the generated code.',
+    title: 'AOT-safe, allocation-lean C#',
+    body: 'It compiles to plain C# — no runtime codegen, no reflection on the query path — so it survives IL2CPP and a tight mobile frame. The query hot path is allocation-free; if you do not trust it, read the generated code.',
     link: '/performance',
     cta: 'See performance →',
   },
@@ -208,9 +208,9 @@ function Proof(): ReactNode {
         <span className="cdb-kicker">Measured, not asserted</span>
         <h2 className="cdb-h2">Fast — and willing to show its work</h2>
         <p className="cdb-lead" style={{margin: '0 auto'}}>
-          In a 20-query game-workload benchmark against SQLite (50,000 players), every query ran{' '}
-          <strong>50× or faster</strong>, none slower. Numbers depend on your workload and hardware —
-          so we publish the methodology and tell you to benchmark your own scenario.
+          In a 57-query game-workload benchmark against SQLite (50,000 players), all 56 production
+          queries ran <strong>50× or faster</strong>, none slower. Numbers depend on your workload and
+          hardware — so we publish the methodology and tell you to benchmark your own scenario.
         </p>
         <div className={styles.proofCta}>
           <Link className="button button--primary button--lg" to="/performance">

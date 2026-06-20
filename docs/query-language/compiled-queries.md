@@ -103,7 +103,7 @@ table Item(plural: Items, persistence: local, capacity: 50000, type_id: 2) {
     Rarity: int
 
     @@index(fields: [OwnerId], name: "ItemsByOwner", kind: lookup)
-    @@index(fields: [OwnerId, Rarity], name: "ItemsByOwnerRarity", kind: sorted)
+    @@index(fields: [OwnerId, Rarity], name: "ItemsByOwnerRarity", kind: sorted_set)
 }
 ```
 

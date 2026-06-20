@@ -13,7 +13,7 @@ table Player(plural: Players, persistence: local, capacity: 50000, type_id: 1) {
     GuildId: int
     Score: int
 
-    @@index(fields: [Score], name: "PlayersByScore", kind: sorted)
+    @@index(fields: [Score], name: "PlayersByScore", kind: sorted_set)
 }
 ```
 

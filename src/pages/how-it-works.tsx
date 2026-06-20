@@ -14,8 +14,8 @@ function Header(): ReactNode {
         <p className={styles.pageLead}>
           ConjureDB treats your client's data layer as a compiled program. A query is parsed,
           bound, optimized, planned and emitted as plain C# before the build ever leaves your
-          machine — so there's no query parser, no planner and no reflection on the device.
-          Here's each step, with nothing hidden.
+          machine — so there's no query parser, no planner and no reflection in the query code
+          on the device. Here's each step, with nothing hidden.
         </p>
       </div>
     </header>
@@ -95,9 +95,9 @@ function NoMagic(): ReactNode {
         <h2 className="cdb-h2">If you don't trust it, read it</h2>
         <p className="cdb-lead">
           The generated code is plain source you can open. There is no reflection, no
-          runtime code generation, no hidden GC — which is exactly why it survives IL2CPP
-          and a tight mobile frame. ConjureDB earns trust by removing mystery, not by
-          asserting quality.
+          runtime code generation, nothing dynamic on the query path — which is exactly why it
+          survives IL2CPP and a tight mobile frame. ConjureDB earns trust by removing mystery,
+          not by asserting quality.
         </p>
         <div className={styles.ctaRow} style={{marginTop: '1.6rem'}}>
           <Link className="button button--primary button--lg" to="/docs/getting-started">

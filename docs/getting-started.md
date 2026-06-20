@@ -34,8 +34,8 @@ table Player(plural: Players, persistence: local, capacity: 1000, type_id: 1) {
     Level: int
     Score: int
 
-    @@index(fields: [Level], name: "PlayersByLevel", kind: sorted)
-    @@index(fields: [Score], name: "PlayersByScore", kind: sorted)
+    @@index(fields: [Level], name: "PlayersByLevel", kind: sorted_set)
+    @@index(fields: [Score], name: "PlayersByScore", kind: sorted_set)
 }
 
 table Item(plural: Items, persistence: local, capacity: 10000, type_id: 2) {

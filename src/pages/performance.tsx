@@ -11,10 +11,10 @@ function Header(): ReactNode {
         <h1 className={styles.pageTitle}>Fast because of what it doesn't do</h1>
         <p className={styles.pageLead}>
           ConjureDB is fast for structural reasons, not tricks: compilation removes runtime
-          parsing, planning and reflection; declared indexes turn the lists you'd loop over
-          every frame into O(1) or O(log n) lookups; hot paths allocate nothing, so no GC
-          churn; and reactive views apply deltas instead of recomputing. The numbers below
-          follow from that — and we tell you exactly how they were measured.
+          parsing and planning; declared indexes turn the lists you'd loop over every frame
+          into O(1) or O(log n) lookups; the query hot path avoids heap allocations; and
+          reactive views apply deltas instead of recomputing. The numbers below follow from
+          that — and we tell you exactly how they were measured.
         </p>
       </div>
     </header>
@@ -22,9 +22,9 @@ function Header(): ReactNode {
 }
 
 const PERF_STATS: {n: string; l: string}[] = [
-  {n: '20 / 20', l: 'queries ≥50× vs SQLite'},
+  {n: '56 / 56', l: 'production queries ≥50× vs SQLite'},
   {n: '108×', l: 'PK lookup'},
-  {n: '662×', l: 'leaderboard top-N'},
+  {n: '661×', l: 'leaderboard top-N'},
   {n: '0', l: 'queries slower than SQLite'},
 ];
 
@@ -48,7 +48,7 @@ function PerfStats(): ReactNode {
 const WHY: {title: string; body: string}[] = [
   {title: 'Nothing is interpreted', body: 'Queries are compiled to C# at build time. There is no parser or planner on the hot path at runtime.'},
   {title: 'Indexes you declare', body: 'A matching index turns a full scan into a direct lookup or a bounded range walk — chosen by the optimizer.'},
-  {title: 'Zero-allocation paths', body: 'Struct storage, ref returns and pooled buffers keep hot operations off the heap, so there is no GC churn.'},
+  {title: 'Allocation-lean paths', body: 'Struct storage, ref returns and pooled buffers keep query evaluation off the heap; only the result collection is materialized, so per-query GC stays low.'},
   {title: 'Deltas, not recomputes', body: 'Incremental view maintenance updates reactive results by the size of the change, not the size of the table.'},
 ];
 
@@ -73,19 +73,19 @@ function Why(): ReactNode {
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
 const VS_SQLITE: Row[] = [
-  {q: 'PK lookup', what: 'Fetch one player by id', sqlite: '671 ns', cdb: '6.2 ns', x: '108×'},
-  {q: 'Top-N by score', what: 'Leaderboard head', sqlite: '3.81 µs', cdb: '36 ns', x: '662×'},
-  {q: 'Player orders (filtered)', what: 'Join + filter', sqlite: '1.71 µs', cdb: '15 ns', x: '341×'},
-  {q: 'Top-3 per level', what: 'Windowed top-K per group', sqlite: '28.7 ms', cdb: '137 µs', x: '221×'},
-  {q: 'Intersect tiers', what: 'Set intersection', sqlite: '13.2 ms', cdb: '95 µs', x: '144×'},
-  {q: 'Complex multi-join', what: 'Several joins + filter', sqlite: '11.3 ms', cdb: '622 ns', x: '18,186×'},
+  {q: 'PK lookup', what: 'Fetch one player by id', sqlite: '671 ns', cdb: '6.19 ns', x: '108×'},
+  {q: 'Top-N by score', what: 'Leaderboard head', sqlite: '3.81 µs', cdb: '5.76 ns', x: '661×'},
+  {q: 'Player-orders join', what: 'Foreign-key join', sqlite: '1.71 µs', cdb: '7.07 ns', x: '242×'},
+  {q: 'Top-3 per level', what: 'Windowed top-K per group', sqlite: '28.7 ms', cdb: '130 µs', x: '221×'},
+  {q: 'Intersect tiers', what: 'Set intersection', sqlite: '13.2 ms', cdb: '91.7 µs', x: '144×'},
+  {q: 'Complex multi-join', what: 'Several joins + filter', sqlite: '11.3 ms', cdb: '619 ns', x: '18,256×'},
 ];
 
 const VS_DICT: Row[] = [
-  {q: 'Search', what: 'Lookup over 50k items', sqlite: '698 µs', cdb: '54 µs', x: '12.9×'},
-  {q: 'Add (batched)', what: 'Insert 50k in a transaction', sqlite: '608 µs', cdb: '178 µs', x: '3.4×'},
-  {q: 'Iterate', what: 'Scan all 50k', sqlite: '80 µs', cdb: '66 µs', x: '1.2×'},
-  {q: 'Remove', what: 'Delete pass', sqlite: '113 µs', cdb: '235 µs', x: '0.5× (slower)'},
+  {q: 'Search', what: 'Lookup over 50k items', sqlite: '698 µs', cdb: '54 µs', x: '12.85×'},
+  {q: 'Add (batched)', what: 'Insert 50k in a transaction', sqlite: '608 µs', cdb: '178 µs', x: '3.41×'},
+  {q: 'Iterate', what: 'Scan all 50k', sqlite: '80 µs', cdb: '66 µs', x: '1.21×'},
+  {q: 'Remove', what: 'Delete pass', sqlite: '113 µs', cdb: '235 µs', x: '2.1× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -128,9 +128,9 @@ function Numbers(): ReactNode {
         <span className="cdb-kicker">The numbers</span>
         <h2 className="cdb-h2">Measured against real baselines</h2>
         <p className="cdb-lead">
-          Across a 20-query game-workload benchmark vs SQLite (50,000 players), every query
-          ran 50× or faster, and none was slower. A representative slice of the
-          BenchmarkDotNet-authoritative spot-checks:
+          Across a 57-query game-workload benchmark vs SQLite (50,000 players), all 56
+          production-tier queries ran 50× or faster — none slower, the weakest still 54.81×.
+          A representative slice of the BenchmarkDotNet proof:
         </p>
         <Table
           title="vs SQLite — game-workload queries"
@@ -140,18 +140,16 @@ function Numbers(): ReactNode {
         />
         <Table
           title="vs a plain Dictionary — raw collection ops"
-          head="50,000 items. Honest both ways: reads are aggressively optimized; the delete pass is slower because the engine maintains indexes and durability the Dictionary does not."
+          head="50,000 items. Honest both ways: reads are aggressively optimized; the delete pass is slower because the engine maintains an index snapshot, a write-ahead journal and change tracking the Dictionary does not."
           rows={VS_DICT}
           baseline="Dictionary"
         />
         <p className={styles.caveat}>
-          Methodology: BenchmarkDotNet, Release, .NET 8, macOS, 50,000-row datasets; SQLite
-          figures from authoritative BenchmarkDotNet spot-checks, broader cases from a local
-          median snapshot. These are <strong>triage-grade measurements illustrative of one
-          configuration — not a guarantee</strong>. Release-grade claims require fresh
-          BenchmarkDotNet evidence matched to your exact schema, hardware and generated plan.
-          Your game is different: benchmark your own workload. Raw benchmark data ships with
-          the source.
+          Methodology: figures are from the project's authoritative all-case BenchmarkDotNet
+          proof (57 cases) vs SQLite, Release, .NET 8, 50,000-row datasets; the best measured
+          variant is shown per query. These are <strong>measurements of one configuration —
+          not a guarantee</strong>. Your game is different: schema, hardware and generated plan
+          all matter, so benchmark your own workload. Raw benchmark data ships with the source.
         </p>
       </div>
     </section>

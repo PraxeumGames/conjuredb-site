@@ -5,9 +5,9 @@ type Step = {t: string; s: string};
 const STEPS: Step[] = [
   {t: 'game.conjure', s: 'your data & queries'},
   {t: 'bind & type', s: 'analysis'},
-  {t: 'optimize', s: 'Cascades · indexes'},
+  {t: 'optimize', s: 'Cascades · cost-based'},
   {t: 'plan', s: 'physical plan'},
-  {t: 'emit C#', s: 'zero-alloc'},
+  {t: 'emit C#', s: 'plain C#'},
 ];
 
 export function Pipeline() {
