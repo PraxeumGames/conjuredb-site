@@ -1,7 +1,7 @@
 // AUTO-GENERATED from docs/benchmarks/comparisons/{latest-benchmarkdotnet-vssqlite-proof,vssqlite-workload-taxonomy}.json
 // Regenerate from source; do not hand-edit.
 
-export type BenchRow = {q: string; label: string; sqlite: string; cdb: string; x: string; alloc: string; cls: string; meets: boolean; summary?: string; dsl?: string; sql?: string; linq?: string; linqNote?: string};
+export type BenchRow = {q: string; label: string; sqlite: string; cdb: string; x: string; alloc: string; cls: string; meets: boolean; summary?: string; dsl?: string; sql?: string; linq?: string; linqNote?: string; linqNs?: string; linqAlloc?: string; linqVsCdb?: string; linqVsSqlite?: string};
 export type BenchGroup = {id: string; title: string; tab: string; range: string; rows: BenchRow[]};
 
 export const BENCH_SUMMARY = {"caseCount": 57, "releaseCommon": 56, "releaseCommonGte": 56, "releaseCommonLt": 0, "weakest": 54.81, "families": 12, "target": 50};
@@ -25,7 +25,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player | filter Level > @minLevel | sort -Level",
         "sql": "SELECT Id, Name, Level, Score FROM Players\nWHERE Level > $level ORDER BY Level DESC",
         "summary": "Players above a minimum level, highest level first.",
-        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .OrderByDescending(p => p.Level)\n    .Select(p => new { p.Id, p.Name, p.Level, p.Score });"
+        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .OrderByDescending(p => p.Level)\n    .Select(p => new { p.Id, p.Name, p.Level, p.Score });",
+        "linqNs": "2.38 ms",
+        "linqAlloc": "1.4 MB",
+        "linqVsCdb": "4,801\u00d7",
+        "linqVsSqlite": "1.8\u00d7 faster"
       },
       {
         "q": "Q1_FilterLevel_Consume",
@@ -39,7 +43,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player | filter Level > @minLevel | sort -Level",
         "sql": "SELECT Id, Level, Score FROM Players\nWHERE Level > $level ORDER BY Level DESC",
         "summary": "Players above the given level, ordered from highest level to lowest.",
-        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .OrderByDescending(p => p.Level);"
+        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .OrderByDescending(p => p.Level);",
+        "linqNs": "2.28 ms",
+        "linqAlloc": "1.1 MB",
+        "linqVsCdb": "88\u00d7",
+        "linqVsSqlite": "1.4\u00d7 faster"
       }
     ]
   },
@@ -61,7 +69,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player | filter Id == @playerId",
         "sql": "SELECT Id, Name, Level, Score, GuildId FROM Players\nWHERE Id = $id",
         "summary": "Returns the single player whose Id matches the given playerId.",
-        "linq": "var result = players\n    .Where(p => p.Id == playerId);"
+        "linq": "var result = players\n    .Where(p => p.Id == playerId);",
+        "linqNs": "141 \u00b5s",
+        "linqAlloc": "264 B",
+        "linqVsCdb": "22,729\u00d7",
+        "linqVsSqlite": "210\u00d7 slower"
       },
       {
         "q": "Q6_FKLookup",
@@ -75,7 +87,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order | filter PlayerId == @playerId | sort -Amount",
         "sql": "SELECT o.Id, o.Amount, o.Status\nFROM Orders o\nWHERE o.PlayerId = $playerId\nORDER BY o.Amount DESC",
         "summary": "All orders for a given player, sorted from highest to lowest amount.",
-        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount);"
+        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount);",
+        "linqNs": "150 \u00b5s",
+        "linqAlloc": "1.4 KB",
+        "linqVsCdb": "21,190\u00d7",
+        "linqVsSqlite": "87\u00d7 slower"
       },
       {
         "q": "Q10_PlayerOrdersMinAmount",
@@ -89,7 +105,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order | filter PlayerId == @playerId && Amount > @minAmount | sort -Amount, -Id",
         "sql": "SELECT Id, Amount, Status\nFROM Orders\nWHERE PlayerId = $playerId AND Amount > $minAmount\nORDER BY Amount DESC, Id DESC",
         "summary": "A player's orders above a minimum amount, sorted from highest amount (then newest id) down.",
-        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId && o.Amount > minAmount)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Select(o => new { o.Id, o.Amount, o.Status });"
+        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId && o.Amount > minAmount)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Select(o => new { o.Id, o.Amount, o.Status });",
+        "linqNs": "393 \u00b5s",
+        "linqAlloc": "1.4 KB",
+        "linqVsCdb": "78,503\u00d7",
+        "linqVsSqlite": "230\u00d7 slower"
       },
       {
         "q": "Q11_TopOrdersForPlayer",
@@ -103,7 +123,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order | filter PlayerId == @playerId | sort -Amount, -Id | take @limit",
         "sql": "SELECT Id, Amount, Status\nFROM Orders\nWHERE PlayerId = $playerId\nORDER BY Amount DESC, Id DESC\nLIMIT $limit",
         "summary": "The given player's orders, highest amount first (ties broken by newest order id), capped at a limit.",
-        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Take(limit);"
+        "linq": "var result = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Take(limit);",
+        "linqNs": "376 \u00b5s",
+        "linqAlloc": "1.5 KB",
+        "linqVsCdb": "70,402\u00d7",
+        "linqVsSqlite": "160\u00d7 slower"
       }
     ]
   },
@@ -125,7 +149,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player | sort -Score | take @limit",
         "sql": "SELECT Id, Name, Level, Score FROM Players\nORDER BY Score DESC LIMIT $limit",
         "summary": "The highest-scoring players, ordered by score from highest to lowest, limited to the top N.",
-        "linq": "var result = players\n    .OrderByDescending(p => p.Score)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = players\n    .OrderByDescending(p => p.Score)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "620 \u00b5s",
+        "linqAlloc": "2.3 MB",
+        "linqVsCdb": "107,573\u00d7",
+        "linqVsSqlite": "163\u00d7 slower"
       },
       {
         "q": "Q9_Top5ByRank",
@@ -140,7 +168,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT Id, Score, Rnk\nFROM (\n    SELECT Id,\n           Score,\n           RANK() OVER (ORDER BY Score DESC) AS Rnk\n    FROM Players\n)\nWHERE Rnk <= 5\nORDER BY Rnk ASC, Id ASC",
         "summary": "The 5 highest-scoring players (ties share a rank, sharing the top-5 slots), with their score and rank.",
         "linq": "// Order by Score descending, then assign SQL RANK(): ties share a rank,\n// and the next distinct value skips ahead (1,1,3,...).\nvar ordered = players\n    .OrderByDescending(p => p.Score)\n    .ToList();\n\nvar ranked = new List<(int Id, int Score, int Rnk)>(ordered.Count);\nint rank = 0;\nint seen = 0;\nint? prevScore = null;\nforeach (var p in ordered)\n{\n    seen++;\n    if (prevScore == null || p.Score != prevScore.Value)\n    {\n        rank = seen; // RANK(): jump to current row position on a new value\n        prevScore = p.Score;\n    }\n    ranked.Add((p.Id, p.Score, rank));\n}\n\nvar result = ranked\n    .Where(r => r.Rnk <= 5)\n    .OrderBy(r => r.Rnk)\n    .ThenBy(r => r.Id)\n    .Select(r => new { r.Id, r.Score, Rnk = r.Rnk });",
-        "linqNote": "Window RANK() has no LINQ operator: hand-rolled a single pass over the Score-desc ordered sequence so ties share a rank and the next distinct score skips ranks (1,1,3,...). Final order is Rnk ASC, Id ASC per the benchmarked SQL."
+        "linqNote": "Window RANK() has no LINQ operator: hand-rolled a single pass over the Score-desc ordered sequence so ties share a rank and the next distinct score skips ranks (1,1,3,...). Final order is Rnk ASC, Id ASC per the benchmarked SQL.",
+        "linqNs": "3.49 ms",
+        "linqAlloc": "5.0 MB",
+        "linqVsCdb": "146,541\u00d7",
+        "linqVsSqlite": "3.8\u00d7 faster"
       },
       {
         "q": "Q14_TopOrderItemScores",
@@ -154,7 +186,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o | filter o.Status == \"Completed\" | join Item it (o.PlayerId == it.PlayerId) | filter it.ItemType == \"Weapon\" | derive { Weighted = o.Amount + it.ItemScore } | sort -Weighted, o.PlayerId, o.Id, it.Id | take @k | select { PlayerId = o.PlayerId, OrderId = o.Id, ItemId = it.Id, Weighted }",
         "sql": "SELECT o.PlayerId,\n       o.Id AS OrderId,\n       it.Id AS ItemId,\n       (o.Amount + (it.Quantity * it.Rarity)) AS Weighted\nFROM Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\nINNER JOIN Items it INDEXED BY idx_Items_Weapon_PlayerId_Score_Id ON o.PlayerId = it.PlayerId\nWHERE o.Status = 'Completed' AND it.ItemType = 'Weapon'\nORDER BY Weighted DESC, o.PlayerId ASC, o.Id ASC, it.Id ASC\nLIMIT $limit",
         "summary": "Top k completed-order / weapon-item pairs by combined order amount plus item score, with tie-breakers.",
-        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(\n        items.Where(it => it.ItemType == \"Weapon\"),\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it, Weighted = o.Amount + (long)it.Quantity * it.Rarity })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(k)\n    .Select(x => new\n    {\n        PlayerId = x.o.PlayerId,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        x.Weighted\n    });"
+        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(\n        items.Where(it => it.ItemType == \"Weapon\"),\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it, Weighted = o.Amount + (long)it.Quantity * it.Rarity })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(k)\n    .Select(x => new\n    {\n        PlayerId = x.o.PlayerId,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        x.Weighted\n    });",
+        "linqNs": "11.2 ms",
+        "linqAlloc": "5.8 MB",
+        "linqVsCdb": "652\u00d7",
+        "linqVsSqlite": "2.9\u00d7 slower"
       },
       {
         "q": "Q20_TopCompletedWeaponOrderScores",
@@ -168,7 +204,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | filter o.Status == \"Completed\" && o.Amount >= @minAmount\n            | join Item it (o.PlayerId == it.PlayerId)\n            | filter it.ItemType == \"Weapon\" && it.Rarity >= @minRarity\n            | join Player p (o.PlayerId == p.Id)\n            | filter p.IsActive == true && p.Level >= @minLevel\n            | derive { Weighted = o.Amount + it.ItemScore }\n            | sort -Weighted, o.PlayerId, o.Id, it.Id\n            | take @limit\n            | select { PlayerId = o.PlayerId, OrderId = o.Id, ItemId = it.Id, Weighted }",
         "sql": "SELECT o.PlayerId,\n       o.Id AS OrderId,\n       it.Id AS ItemId,\n       (o.Amount + (it.Quantity * it.Rarity)) AS Weighted\nFROM Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\nINNER JOIN Items it INDEXED BY idx_Items_PlayerId_ItemType ON o.PlayerId = it.PlayerId\nINNER JOIN Players p ON o.PlayerId = p.Id\nWHERE o.Status = 'Completed'\n  AND o.Amount >= $minAmount\n  AND it.ItemType = 'Weapon'\n  AND it.Rarity >= $minRarity\n  AND p.IsActive = 1\n  AND p.Level >= $minLevel\nORDER BY Weighted DESC, o.PlayerId ASC, o.Id ASC, it.Id ASC\nLIMIT $limit",
         "summary": "Top orders by amount-plus-item-score for completed weapon orders of active high-level players.",
-        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\" && o.Amount >= minAmount)\n    .Join(\n        items.Where(it => it.ItemType == \"Weapon\" && it.Rarity >= minRarity),\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .Join(\n        players.Where(p => p.IsActive && p.Level >= minLevel),\n        x => x.o.PlayerId,\n        p => p.Id,\n        (x, p) => new { x.o, x.it })\n    .Select(x => new\n    {\n        x.o,\n        x.it,\n        Weighted = x.o.Amount + ((long)x.it.Quantity * x.it.Rarity)\n    })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        PlayerId = x.o.PlayerId,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        x.Weighted\n    });"
+        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\" && o.Amount >= minAmount)\n    .Join(\n        items.Where(it => it.ItemType == \"Weapon\" && it.Rarity >= minRarity),\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .Join(\n        players.Where(p => p.IsActive && p.Level >= minLevel),\n        x => x.o.PlayerId,\n        p => p.Id,\n        (x, p) => new { x.o, x.it })\n    .Select(x => new\n    {\n        x.o,\n        x.it,\n        Weighted = x.o.Amount + ((long)x.it.Quantity * x.it.Rarity)\n    })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        PlayerId = x.o.PlayerId,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        x.Weighted\n    });",
+        "linqNs": "9.97 ms",
+        "linqAlloc": "5.7 MB",
+        "linqVsCdb": "1,599\u00d7",
+        "linqVsSqlite": "2.3\u00d7 slower"
       },
       {
         "q": "Q62_GuildCompletedSpendLeaderboard",
@@ -182,7 +222,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | filter o.Status == \"Completed\"\n            | join Player p (o.PlayerId == p.Id)\n            | filter p.IsActive == true && p.Level >= @minLevel && p.GuildId != null\n            | join Guild g (p.GuildId == g.Id)\n            | group g.Id, g.Name (aggregate { CompletedSpend = sum(o.Amount), OrderCount = count(o.Id) })\n            | sort -CompletedSpend, g.Id\n            | take @limit\n            | select { GuildId = g.Id, Name = g.Name, CompletedSpend, OrderCount }",
         "sql": "SELECT g.Id AS GuildId,\n       g.Name,\n       SUM(o.Amount) AS CompletedSpend,\n       COUNT(o.Id) AS OrderCount\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nINNER JOIN Guilds g ON p.GuildId = g.Id\nWHERE o.Status = 'Completed'\n  AND p.IsActive = 1\n  AND p.Level >= $minLevel\n  AND p.GuildId IS NOT NULL\nGROUP BY g.Id, g.Name\nORDER BY CompletedSpend DESC, g.Id ASC\nLIMIT $limit",
         "summary": "Top guilds by total completed-order spend from active high-level members, with order counts.",
-        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.IsActive == true && x.p.Level >= minLevel && x.p.GuildId != null)\n    .Join(guilds,\n        x => x.p.GuildId,\n        g => (int?)g.Id,\n        (x, g) => new { x.o, x.p, g })\n    .GroupBy(x => new { GuildId = x.g.Id, x.g.Name })\n    .Select(grp => new\n    {\n        GuildId = grp.Key.GuildId,\n        Name = grp.Key.Name,\n        CompletedSpend = grp.Sum(x => x.o.Amount),\n        OrderCount = grp.Count()\n    })\n    .OrderByDescending(r => r.CompletedSpend)\n    .ThenBy(r => r.GuildId)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.IsActive == true && x.p.Level >= minLevel && x.p.GuildId != null)\n    .Join(guilds,\n        x => x.p.GuildId,\n        g => (int?)g.Id,\n        (x, g) => new { x.o, x.p, g })\n    .GroupBy(x => new { GuildId = x.g.Id, x.g.Name })\n    .Select(grp => new\n    {\n        GuildId = grp.Key.GuildId,\n        Name = grp.Key.Name,\n        CompletedSpend = grp.Sum(x => x.o.Amount),\n        OrderCount = grp.Count()\n    })\n    .OrderByDescending(r => r.CompletedSpend)\n    .ThenBy(r => r.GuildId)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "9.91 ms",
+        "linqAlloc": "11.5 MB",
+        "linqVsCdb": "114\u00d7",
+        "linqVsSqlite": "1.7\u00d7 slower"
       },
       {
         "q": "Q68_LevelStatusSpendTopN",
@@ -196,7 +240,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | filter p.Level >= @minLevel\n            | group p.Level, o.Status (aggregate { OrderCount = count(o.Id), TotalAmount = sum(o.Amount) })\n            | sort -TotalAmount, p.Level, o.Status\n            | take @limit\n            | select { Level = p.Level, Status = o.Status, OrderCount, TotalAmount }",
         "sql": "SELECT p.Level,\n       o.Status,\n       COUNT(o.Id) AS OrderCount,\n       SUM(o.Amount) AS TotalAmount\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nWHERE p.Level >= $minLevel\nGROUP BY p.Level, o.Status\nORDER BY TotalAmount DESC, p.Level ASC, o.Status ASC\nLIMIT $limit",
         "summary": "Top spending level/status groups (level >= minLevel) by total order amount, with order count, limited.",
-        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.Level >= minLevel)\n    .GroupBy(x => new { x.p.Level, x.o.Status })\n    .Select(g => new\n    {\n        Level = g.Key.Level,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        TotalAmount = g.Sum(x => x.o.Amount)\n    })\n    .OrderByDescending(r => r.TotalAmount)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.Level >= minLevel)\n    .GroupBy(x => new { x.p.Level, x.o.Status })\n    .Select(g => new\n    {\n        Level = g.Key.Level,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        TotalAmount = g.Sum(x => x.o.Amount)\n    })\n    .OrderByDescending(r => r.TotalAmount)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "22.5 ms",
+        "linqAlloc": "21.5 MB",
+        "linqVsCdb": "59\u00d7",
+        "linqVsSqlite": "1.2\u00d7 faster"
       }
     ]
   },
@@ -218,7 +266,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player | group Level | filter count() > @minCount | select Level, PlayerCount = count(), AvgScore = avg(Score) | sort -PlayerCount",
         "sql": "SELECT Level, COUNT(*) as PlayerCount, AVG(Score) as AvgScore\nFROM Players\nGROUP BY Level\nHAVING COUNT(*) > 5\nORDER BY PlayerCount DESC",
         "summary": "Player counts and average score per level, only levels with more than minCount players, busiest first.",
-        "linq": "var result = players\n    .GroupBy(p => p.Level)\n    .Where(g => g.Count() > minCount)\n    .Select(g => new\n    {\n        Level = g.Key,\n        PlayerCount = g.Count(),\n        AvgScore = g.Average(p => p.Score)\n    })\n    .OrderByDescending(x => x.PlayerCount);"
+        "linq": "var result = players\n    .GroupBy(p => p.Level)\n    .Where(g => g.Count() > minCount)\n    .Select(g => new\n    {\n        Level = g.Key,\n        PlayerCount = g.Count(),\n        AvgScore = g.Average(p => p.Score)\n    })\n    .OrderByDescending(x => x.PlayerCount);",
+        "linqNs": "2.41 ms",
+        "linqAlloc": "5.5 MB",
+        "linqVsCdb": "748\u00d7",
+        "linqVsSqlite": "3.8\u00d7 faster"
       },
       {
         "q": "Q13_PlayerOrderStats",
@@ -232,7 +284,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o | group o.PlayerId (aggregate { SumAmount = sum(o.Amount), Cnt = count(o.Id), MinA = min(o.Amount), MaxA = max(o.Amount) }) | derive { AvgVal = SumAmount / (double)Cnt } | select { PlayerId = o.PlayerId, SumAmount, Cnt, MinA, MaxA, AvgVal } | sort -SumAmount, o.PlayerId | take @k",
         "sql": "SELECT PlayerId,\n       SUM(Amount) AS SumAmount,\n       COUNT(Id) AS Cnt,\n       MIN(Amount) AS MinA,\n       MAX(Amount) AS MaxA,\n       (CAST(SUM(Amount) AS REAL) / COUNT(Id)) AS AvgVal\nFROM Orders\nGROUP BY PlayerId\nORDER BY SumAmount DESC, PlayerId ASC\nLIMIT $limit",
         "summary": "Top-k players by total order spend, with order count, min/max/avg amount per player.",
-        "linq": "var result = orders\n    .GroupBy(o => o.PlayerId)\n    .Select(g => new\n    {\n        PlayerId = g.Key,\n        SumAmount = g.Sum(o => o.Amount),\n        Cnt = g.Count(),\n        MinA = g.Min(o => o.Amount),\n        MaxA = g.Max(o => o.Amount),\n        AvgVal = g.Sum(o => o.Amount) / (double)g.Count()\n    })\n    .OrderByDescending(x => x.SumAmount)\n    .ThenBy(x => x.PlayerId)\n    .Take(k)\n    .ToList();"
+        "linq": "var result = orders\n    .GroupBy(o => o.PlayerId)\n    .Select(g => new\n    {\n        PlayerId = g.Key,\n        SumAmount = g.Sum(o => o.Amount),\n        Cnt = g.Count(),\n        MinA = g.Min(o => o.Amount),\n        MaxA = g.Max(o => o.Amount),\n        AvgVal = g.Sum(o => o.Amount) / (double)g.Count()\n    })\n    .OrderByDescending(x => x.SumAmount)\n    .ThenBy(x => x.PlayerId)\n    .Take(k)\n    .ToList();",
+        "linqNs": "24.8 ms",
+        "linqAlloc": "27.9 MB",
+        "linqVsCdb": "275,191\u00d7",
+        "linqVsSqlite": "1.4\u00d7 slower"
       },
       {
         "q": "Q21_OrderStatusDistinctStats",
@@ -246,7 +302,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | group o.Status (aggregate { OrderCount = count(o.Id), DistinctPlayers = count(distinct o.PlayerId), DistinctAmounts = count(distinct o.Amount) })\n            | select { Status = o.Status, OrderCount, DistinctPlayers, DistinctAmounts }\n            | sort -OrderCount, o.Status",
         "sql": "SELECT o.Status,\n       COUNT(o.Id) AS OrderCount,\n       COUNT(DISTINCT o.PlayerId) AS DistinctPlayers,\n       COUNT(DISTINCT o.Amount) AS DistinctAmounts\nFROM Orders o\nGROUP BY o.Status\nORDER BY OrderCount DESC, o.Status ASC",
         "summary": "Per order status: total orders, distinct players, and distinct amounts, most orders first.",
-        "linq": "var result = orders\n    .GroupBy(o => o.Status)\n    .Select(g => new\n    {\n        Status = g.Key,\n        OrderCount = g.Count(),\n        DistinctPlayers = g.Select(o => o.PlayerId).Distinct().Count(),\n        DistinctAmounts = g.Select(o => o.Amount).Distinct().Count()\n    })\n    .OrderByDescending(x => x.OrderCount)\n    .ThenBy(x => x.Status);"
+        "linq": "var result = orders\n    .GroupBy(o => o.Status)\n    .Select(g => new\n    {\n        Status = g.Key,\n        OrderCount = g.Count(),\n        DistinctPlayers = g.Select(o => o.PlayerId).Distinct().Count(),\n        DistinctAmounts = g.Select(o => o.Amount).Distinct().Count()\n    })\n    .OrderByDescending(x => x.OrderCount)\n    .ThenBy(x => x.Status);",
+        "linqNs": "8.79 ms",
+        "linqAlloc": "14.8 MB",
+        "linqVsCdb": "71,052\u00d7",
+        "linqVsSqlite": "5.0\u00d7 faster"
       },
       {
         "q": "Q30_OrderActivityLevelStatusDistinctStats",
@@ -260,7 +320,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | group p.IsActive, p.Level, o.Status (aggregate { OrderCount = count(o.Id), DistinctPlayers = count(distinct o.PlayerId), DistinctAmounts = count(distinct o.Amount) })\n            | sort -OrderCount, p.IsActive, p.Level, o.Status\n            | take @limit\n            | select { IsActive = p.IsActive, Level = p.Level, Status = o.Status, OrderCount, DistinctPlayers, DistinctAmounts }",
         "sql": "SELECT p.IsActive,\n       p.Level,\n       o.Status,\n       COUNT(o.Id) AS OrderCount,\n       COUNT(DISTINCT o.PlayerId) AS DistinctPlayers,\n       COUNT(DISTINCT o.Amount) AS DistinctAmounts\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nGROUP BY p.IsActive, p.Level, o.Status\nORDER BY OrderCount DESC, p.IsActive ASC, p.Level ASC, o.Status ASC\nLIMIT $limit",
         "summary": "Top order-activity buckets by active flag, player level and status, with order count and distinct player/amount counts.",
-        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .GroupBy(x => new { x.p.IsActive, x.p.Level, x.o.Status })\n    .Select(g => new\n    {\n        IsActive = g.Key.IsActive,\n        Level = g.Key.Level,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        DistinctPlayers = g.Select(x => x.o.PlayerId).Distinct().Count(),\n        DistinctAmounts = g.Select(x => x.o.Amount).Distinct().Count()\n    })\n    .OrderByDescending(r => r.OrderCount)\n    .ThenBy(r => r.IsActive)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .GroupBy(x => new { x.p.IsActive, x.p.Level, x.o.Status })\n    .Select(g => new\n    {\n        IsActive = g.Key.IsActive,\n        Level = g.Key.Level,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        DistinctPlayers = g.Select(x => x.o.PlayerId).Distinct().Count(),\n        DistinctAmounts = g.Select(x => x.o.Amount).Distinct().Count()\n    })\n    .OrderByDescending(r => r.OrderCount)\n    .ThenBy(r => r.IsActive)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "45.2 ms",
+        "linqAlloc": "36.1 MB",
+        "linqVsCdb": "34\u00d7",
+        "linqVsSqlite": "1.6\u00d7 faster"
       },
       {
         "q": "Q35_TopPlayersByCompletedOrderCount",
@@ -274,7 +338,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p\n            | filter p.IsActive == true && p.GuildId != null\n            | select { Id = p.Id, GuildId = p.GuildId, CompletedOrderCount = (from Order o | filter o.PlayerId == p.Id && o.Status == \"Completed\" | select count(o.Id)) }\n            | sort -CompletedOrderCount, p.Id\n            | take @limit",
         "sql": "SELECT p.Id,\n       p.GuildId,\n       (\n           SELECT COUNT(o.Id)\n           FROM Orders o\n           WHERE o.PlayerId = p.Id\n             AND o.Status = 'Completed'\n       ) AS CompletedOrderCount\nFROM Players p\nWHERE p.IsActive = 1\n  AND p.GuildId IS NOT NULL\nORDER BY CompletedOrderCount DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top players (active, in a guild) ranked by their number of completed orders, then by Id.",
-        "linq": "var result = players\n    .Where(p => p.IsActive == true && p.GuildId != null)\n    .Select(p => new\n    {\n        Id = p.Id,\n        GuildId = p.GuildId,\n        CompletedOrderCount = orders\n            .Where(o => o.PlayerId == p.Id && o.Status == \"Completed\")\n            .Count()\n    })\n    .OrderByDescending(x => x.CompletedOrderCount)\n    .ThenBy(x => x.Id)\n    .Take(limit);"
+        "linq": "var result = players\n    .Where(p => p.IsActive == true && p.GuildId != null)\n    .Select(p => new\n    {\n        Id = p.Id,\n        GuildId = p.GuildId,\n        CompletedOrderCount = orders\n            .Where(o => o.PlayerId == p.Id && o.Status == \"Completed\")\n            .Count()\n    })\n    .OrderByDescending(x => x.CompletedOrderCount)\n    .ThenBy(x => x.Id)\n    .Take(limit);",
+        "linqNs": "10.5 s",
+        "linqAlloc": "10.4 MB",
+        "linqVsCdb": "14,926,751\u00d7",
+        "linqVsSqlite": "1,184\u00d7 slower"
       },
       {
         "q": "Q42_TopPlayerStatusAggregates",
@@ -288,7 +356,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | group p.Id, o.Status (aggregate { OrderCount = count(o.Id), AvgAmount = avg(o.Amount) })\n            | filter OrderCount > @minOrderCount\n            | sort -OrderCount, p.Id, o.Status\n            | take @limit\n            | select { PlayerId = p.Id, Status = o.Status, OrderCount, AvgAmount }",
         "sql": "SELECT p.Id AS PlayerId,\n       o.Status AS Status,\n       COUNT(o.Id) AS OrderCount,\n       AVG(o.Amount * 1.0) AS AvgAmount\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nGROUP BY p.Id, o.Status\nHAVING COUNT(o.Id) > $minOrderCount\nORDER BY OrderCount DESC, p.Id ASC, o.Status ASC\nLIMIT $limit",
         "summary": "Top player+order-status groups (by order count) with order count and average amount, busiest first.",
-        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .GroupBy(x => new { PlayerId = x.p.Id, Status = x.o.Status })\n    .Select(g => new\n    {\n        PlayerId = g.Key.PlayerId,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        AvgAmount = g.Average(x => (double)x.o.Amount)\n    })\n    .Where(r => r.OrderCount > minOrderCount)\n    .OrderByDescending(r => r.OrderCount)\n    .ThenBy(r => r.PlayerId)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .GroupBy(x => new { PlayerId = x.p.Id, Status = x.o.Status })\n    .Select(g => new\n    {\n        PlayerId = g.Key.PlayerId,\n        Status = g.Key.Status,\n        OrderCount = g.Count(),\n        AvgAmount = g.Average(x => (double)x.o.Amount)\n    })\n    .Where(r => r.OrderCount > minOrderCount)\n    .OrderByDescending(r => r.OrderCount)\n    .ThenBy(r => r.PlayerId)\n    .ThenBy(r => r.Status)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "68.1 ms",
+        "linqAlloc": "39.9 MB",
+        "linqVsCdb": "54,359\u00d7",
+        "linqVsSqlite": "2.3\u00d7 slower"
       },
       {
         "q": "Q61_WalletRecentRowsWithBalanceStats",
@@ -302,7 +374,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from WalletTransaction wt\n            | filter wt.PlayerId == @playerId && wt.Currency == @currency && wt.CreatedAt >= @since\n            | sort -wt.CreatedAt, -wt.Id\n            | take @limit\n            | select {\n                Id = wt.Id,\n                PlayerId = wt.PlayerId,\n                Currency = wt.Currency,\n                Delta = wt.Delta,\n                CreatedAt = wt.CreatedAt,\n                Balance = (from WalletTransaction bal | filter bal.PlayerId == wt.PlayerId && bal.Currency == @currency | select sum(bal.Delta)),\n                EntryCount = (from WalletTransaction cnt | filter cnt.PlayerId == wt.PlayerId && cnt.Currency == @currency | select count(cnt.Id))\n            }",
         "sql": "SELECT wt.Id,\n       wt.PlayerId,\n       wt.Currency,\n       wt.Delta,\n       wt.CreatedAt,\n       (\n           SELECT SUM(bal.Delta)\n           FROM WalletTransactions bal\n           WHERE bal.PlayerId = wt.PlayerId\n             AND bal.Currency = $currency\n       ) AS Balance,\n       (\n           SELECT COUNT(cnt.Id)\n           FROM WalletTransactions cnt\n           WHERE cnt.PlayerId = wt.PlayerId\n             AND cnt.Currency = $currency\n       ) AS EntryCount\nFROM WalletTransactions wt\nWHERE wt.PlayerId = $playerId\n  AND wt.Currency = $currency\n  AND wt.CreatedAt >= $since\nORDER BY wt.CreatedAt DESC, wt.Id DESC\nLIMIT $limit",
         "summary": "Recent wallet transactions for a player and currency since a date, each tagged with the running total balance and entry count.",
-        "linq": "var result = wallet\n    .Where(wt => wt.PlayerId == playerId && wt.Currency == currency && wt.CreatedAt >= since)\n    .OrderByDescending(wt => wt.CreatedAt)\n    .ThenByDescending(wt => wt.Id)\n    .Take(limit)\n    .Select(wt => new\n    {\n        Id = wt.Id,\n        PlayerId = wt.PlayerId,\n        Currency = wt.Currency,\n        Delta = wt.Delta,\n        CreatedAt = wt.CreatedAt,\n        Balance = wallet\n            .Where(bal => bal.PlayerId == wt.PlayerId && bal.Currency == currency)\n            .Sum(bal => bal.Delta),\n        EntryCount = wallet\n            .Where(cnt => cnt.PlayerId == wt.PlayerId && cnt.Currency == currency)\n            .Count(cnt => true)\n    })\n    .ToList();"
+        "linq": "var result = wallet\n    .Where(wt => wt.PlayerId == playerId && wt.Currency == currency && wt.CreatedAt >= since)\n    .OrderByDescending(wt => wt.CreatedAt)\n    .ThenByDescending(wt => wt.Id)\n    .Take(limit)\n    .Select(wt => new\n    {\n        Id = wt.Id,\n        PlayerId = wt.PlayerId,\n        Currency = wt.Currency,\n        Delta = wt.Delta,\n        CreatedAt = wt.CreatedAt,\n        Balance = wallet\n            .Where(bal => bal.PlayerId == wt.PlayerId && bal.Currency == currency)\n            .Sum(bal => bal.Delta),\n        EntryCount = wallet\n            .Where(cnt => cnt.PlayerId == wt.PlayerId && cnt.Currency == currency)\n            .Count(cnt => true)\n    })\n    .ToList();",
+        "linqNs": "4.13 ms",
+        "linqAlloc": "2.0 KB",
+        "linqVsCdb": "221,740\u00d7",
+        "linqVsSqlite": "1,887\u00d7 slower"
       }
     ]
   },
@@ -324,7 +400,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | filter p.GuildId == @guildId | join Guild g (p.GuildId == g.Id) | select p.Id, p.Name, p.Level, GuildName = g.Name",
         "sql": "SELECT p.Id, p.Name, p.Level, g.Name as GuildName\nFROM Players p\nINNER JOIN Guilds g ON p.GuildId = g.Id\nWHERE g.Id = $guildId",
         "summary": "Players belonging to a given guild, with their id, name, level, and the guild's name.",
-        "linq": "var result = players\n    .Where(p => p.GuildId == guildId)\n    .Join(\n        guilds,\n        p => p.GuildId,\n        g => (int?)g.Id,\n        (p, g) => new\n        {\n            p.Id,\n            p.Name,\n            p.Level,\n            GuildName = g.Name\n        });"
+        "linq": "var result = players\n    .Where(p => p.GuildId == guildId)\n    .Join(\n        guilds,\n        p => p.GuildId,\n        g => (int?)g.Id,\n        (p, g) => new\n        {\n            p.Id,\n            p.Name,\n            p.Level,\n            GuildName = g.Name\n        });",
+        "linqNs": "1.22 ms",
+        "linqAlloc": "154.3 KB",
+        "linqVsCdb": "134\u00d7",
+        "linqVsSqlite": "1.4\u00d7 faster"
       },
       {
         "q": "Q7_ComplexJoin",
@@ -338,7 +418,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p\n            | filter p.Level > @minLevel\n            | join Order o (p.Id == o.PlayerId)\n            | filter o.Status == \"Completed\"\n            | group p.Id, p.Name, p.Level\n            | select p.Id, p.Name, p.Level, TotalSpent = sum(o.Amount)\n            | sort -TotalSpent\n            | take 20",
         "sql": "SELECT p.Id, p.Name, p.Level, SUM(o.Amount) as TotalSpent\nFROM Players p\nINNER JOIN Orders o ON p.Id = o.PlayerId\nWHERE p.Level > $level AND o.Status = 'Completed'\nGROUP BY p.Id, p.Name, p.Level\nORDER BY TotalSpent DESC\nLIMIT 20",
         "summary": "Top 20 players (by total completed-order spend) above a minimum level, with their name, level and total spent.",
-        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .Join(\n        orders.Where(o => o.Status == \"Completed\"),\n        p => p.Id,\n        o => o.PlayerId,\n        (p, o) => new { p, o })\n    .GroupBy(x => new { x.p.Id, x.p.Name, x.p.Level })\n    .Select(g => new\n    {\n        g.Key.Id,\n        g.Key.Name,\n        g.Key.Level,\n        TotalSpent = g.Sum(x => x.o.Amount)\n    })\n    .OrderByDescending(r => r.TotalSpent)\n    .Take(20)\n    .ToList();"
+        "linq": "var result = players\n    .Where(p => p.Level > minLevel)\n    .Join(\n        orders.Where(o => o.Status == \"Completed\"),\n        p => p.Id,\n        o => o.PlayerId,\n        (p, o) => new { p, o })\n    .GroupBy(x => new { x.p.Id, x.p.Name, x.p.Level })\n    .Select(g => new\n    {\n        g.Key.Id,\n        g.Key.Name,\n        g.Key.Level,\n        TotalSpent = g.Sum(x => x.o.Amount)\n    })\n    .OrderByDescending(r => r.TotalSpent)\n    .Take(20)\n    .ToList();",
+        "linqNs": "13.4 ms",
+        "linqAlloc": "8.0 MB",
+        "linqVsCdb": "21,562\u00d7",
+        "linqVsSqlite": "1.2\u00d7 slower"
       },
       {
         "q": "Q19_PlayersAboveWeaponItemScore",
@@ -353,7 +437,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT p.Id, p.Name, p.Level, p.Score\nFROM Players p\nWHERE p.IsActive = 1\n  AND p.Level >= $minLevel\n  AND p.Score > (\n      SELECT AVG((it.Quantity * it.Rarity) * 1.0)\n      FROM Items it\n      WHERE it.PlayerId = p.Id\n        AND it.ItemType = 'Weapon'\n  )\nORDER BY p.Score DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top active players (level >= minLevel) whose score beats their weapons' average item score, by score desc then id.",
         "linq": "var result = players\n    .Where(p => p.IsActive && p.Level >= minLevel)\n    .Where(p =>\n    {\n        var weaponScores = items\n            .Where(it => it.PlayerId == p.Id && it.ItemType == \"Weapon\")\n            .Select(it => (double)(it.Quantity * it.Rarity))\n            .ToList();\n        // SQL AVG over no rows is NULL, and `Score > NULL` is false -> exclude.\n        return weaponScores.Count > 0 && p.Score > weaponScores.Average();\n    })\n    .OrderByDescending(p => p.Score)\n    .ThenBy(p => p.Id)\n    .Take(limit)\n    .Select(p => new { p.Id, p.Name, p.Level, p.Score });",
-        "linqNote": "The correlated subquery uses SQL AVG semantics: over no matching Weapon items it is NULL and `Score > NULL` is false, so such players are excluded. LINQ Average() throws on an empty sequence, so the empty case is guarded explicitly to reproduce that exclusion."
+        "linqNote": "The correlated subquery uses SQL AVG semantics: over no matching Weapon items it is NULL and `Score > NULL` is false, so such players are excluded. LINQ Average() throws on an empty sequence, so the empty case is guarded explicitly to reproduce that exclusion.",
+        "linqNs": "9.81 s",
+        "linqAlloc": "11.0 MB",
+        "linqVsCdb": "54,687\u00d7",
+        "linqVsSqlite": "552\u00d7 slower"
       },
       {
         "q": "Q34_TopWeightedCompletedWeaponOrdersByGuildPolicy",
@@ -367,7 +455,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | join Item it (o.PlayerId == it.PlayerId)\n            | join Guild g (p.GuildId == g.Id)\n            | filter o.Status == \"Completed\" && p.IsActive == true && it.ItemType == \"Weapon\" && p.Level >= g.MinLevel\n            | derive { Weighted = o.Amount + it.ItemScore }\n            | sort -Weighted, o.PlayerId, o.Id, it.Id\n            | take @limit\n            | select { PlayerId = p.Id, OrderId = o.Id, ItemId = it.Id, GuildId = g.Id, Weighted }",
         "sql": "SELECT p.Id AS PlayerId,\n       o.Id AS OrderId,\n       it.Id AS ItemId,\n       g.Id AS GuildId,\n       (o.Amount + (it.Quantity * it.Rarity)) AS Weighted\nFROM Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\nINNER JOIN Players p ON o.PlayerId = p.Id\nINNER JOIN Items it INDEXED BY idx_Items_Weapon_PlayerId_Score_Id ON o.PlayerId = it.PlayerId\nINNER JOIN Guilds g ON p.GuildId = g.Id\nWHERE o.Status = 'Completed'\n  AND p.IsActive = 1\n  AND it.ItemType = 'Weapon'\n  AND p.Level >= g.MinLevel\nORDER BY Weighted DESC, o.PlayerId ASC, o.Id ASC, it.Id ASC\nLIMIT $limit",
         "summary": "Top-N completed weapon orders by active, guild-eligible players, ranked by order amount plus item score.",
-        "linq": "var result = orders\n    .Join(players, o => o.PlayerId, p => p.Id, (o, p) => new { o, p })\n    .Join(items, x => x.o.PlayerId, it => it.PlayerId, (x, it) => new { x.o, x.p, it })\n    .Join(guilds, x => x.p.GuildId, g => g.Id, (x, g) => new { x.o, x.p, x.it, g })\n    .Where(x => x.o.Status == \"Completed\"\n                && x.p.IsActive == true\n                && x.it.ItemType == \"Weapon\"\n                && x.p.Level >= x.g.MinLevel)\n    .Select(x => new\n    {\n        x.o,\n        x.p,\n        x.it,\n        x.g,\n        Weighted = x.o.Amount + x.it.ItemScore\n    })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        PlayerId = x.p.Id,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        GuildId = x.g.Id,\n        x.Weighted\n    });"
+        "linq": "var result = orders\n    .Join(players, o => o.PlayerId, p => p.Id, (o, p) => new { o, p })\n    .Join(items, x => x.o.PlayerId, it => it.PlayerId, (x, it) => new { x.o, x.p, it })\n    .Join(guilds, x => x.p.GuildId, g => g.Id, (x, g) => new { x.o, x.p, x.it, g })\n    .Where(x => x.o.Status == \"Completed\"\n                && x.p.IsActive == true\n                && x.it.ItemType == \"Weapon\"\n                && x.p.Level >= x.g.MinLevel)\n    .Select(x => new\n    {\n        x.o,\n        x.p,\n        x.it,\n        x.g,\n        Weighted = x.o.Amount + x.it.ItemScore\n    })\n    .OrderByDescending(x => x.Weighted)\n    .ThenBy(x => x.o.PlayerId)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        PlayerId = x.p.Id,\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        GuildId = x.g.Id,\n        x.Weighted\n    });",
+        "linqNs": "57.6 ms",
+        "linqAlloc": "172.1 MB",
+        "linqVsCdb": "613\u00d7",
+        "linqVsSqlite": "10\u00d7 slower"
       },
       {
         "q": "Q48_TopCompletedWeaponOrdersAboveGlobalWeaponAverage",
@@ -381,7 +473,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | join Item it (o.PlayerId == it.PlayerId)\n            | join Guild g (p.GuildId == g.Id)\n            | filter o.Status == \"Completed\" && p.Level >= @minPlayerLevel && it.ItemType == \"Weapon\"\n            | filter p.IsActive == true && p.Level >= g.MinLevel\n            | filter it.ItemScore > (from Item wi | filter wi.ItemType == \"Weapon\" | select average(wi.ItemScore))\n            | sort -o.Amount, -it.ItemScore, o.Id, it.Id\n            | take @limit\n            | select { OrderId = o.Id, PlayerId = p.Id, ItemId = it.Id, GuildId = g.Id, Amount = o.Amount, ItemScore = it.ItemScore }",
         "sql": "SELECT o.Id AS OrderId,\n       p.Id AS PlayerId,\n       it.Id AS ItemId,\n       g.Id AS GuildId,\n       o.Amount AS Amount,\n       (it.Quantity * it.Rarity) AS ItemScore\nFROM Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\nINNER JOIN Players p ON o.PlayerId = p.Id\nINNER JOIN Items it INDEXED BY idx_Items_Weapon_PlayerId_Score_Id ON o.PlayerId = it.PlayerId\nINNER JOIN Guilds g ON p.GuildId = g.Id\nWHERE o.Status = 'Completed'\n  AND p.Level >= $minPlayerLevel\n  AND it.ItemType = 'Weapon'\n  AND p.IsActive = 1\n  AND p.Level >= g.MinLevel\n  AND (it.Quantity * it.Rarity) > (\n        SELECT AVG(wi.Quantity * wi.Rarity * 1.0)\n        FROM Items wi\n        WHERE wi.ItemType = 'Weapon'\n  )\nORDER BY o.Amount DESC, ItemScore DESC, o.Id ASC, it.Id ASC\nLIMIT $limit",
         "summary": "Top completed weapon orders from active eligible players whose item score beats the global weapon average.",
-        "linq": "var weaponAvgScore = items\n    .Where(wi => wi.ItemType == \"Weapon\")\n    .Average(wi => (double)wi.ItemScore);\n\nvar result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(players, o => o.PlayerId, p => p.Id, (o, p) => new { o, p })\n    .Join(items, op => op.o.PlayerId, it => it.PlayerId, (op, it) => new { op.o, op.p, it })\n    .Join(guilds, opi => opi.p.GuildId, g => g.Id, (opi, g) => new { opi.o, opi.p, opi.it, g })\n    .Where(x => x.p.Level >= minPlayerLevel\n             && x.it.ItemType == \"Weapon\"\n             && x.p.IsActive == true\n             && x.p.Level >= x.g.MinLevel\n             && x.it.ItemScore > weaponAvgScore)\n    .OrderByDescending(x => x.o.Amount)\n    .ThenByDescending(x => x.it.ItemScore)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new {\n        OrderId = x.o.Id,\n        PlayerId = x.p.Id,\n        ItemId = x.it.Id,\n        GuildId = x.g.Id,\n        Amount = x.o.Amount,\n        ItemScore = x.it.ItemScore\n    })\n    .ToList();"
+        "linq": "var weaponAvgScore = items\n    .Where(wi => wi.ItemType == \"Weapon\")\n    .Average(wi => (double)wi.ItemScore);\n\nvar result = orders\n    .Where(o => o.Status == \"Completed\")\n    .Join(players, o => o.PlayerId, p => p.Id, (o, p) => new { o, p })\n    .Join(items, op => op.o.PlayerId, it => it.PlayerId, (op, it) => new { op.o, op.p, it })\n    .Join(guilds, opi => opi.p.GuildId, g => g.Id, (opi, g) => new { opi.o, opi.p, opi.it, g })\n    .Where(x => x.p.Level >= minPlayerLevel\n             && x.it.ItemType == \"Weapon\"\n             && x.p.IsActive == true\n             && x.p.Level >= x.g.MinLevel\n             && x.it.ItemScore > weaponAvgScore)\n    .OrderByDescending(x => x.o.Amount)\n    .ThenByDescending(x => x.it.ItemScore)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Take(limit)\n    .Select(x => new {\n        OrderId = x.o.Id,\n        PlayerId = x.p.Id,\n        ItemId = x.it.Id,\n        GuildId = x.g.Id,\n        Amount = x.o.Amount,\n        ItemScore = x.it.ItemScore\n    })\n    .ToList();",
+        "linqNs": "43.6 ms",
+        "linqAlloc": "63.7 MB",
+        "linqVsCdb": "4,443\u00d7",
+        "linqVsSqlite": "6.2\u00d7 slower"
       },
       {
         "q": "Q56_ClaimableQuestRewards",
@@ -395,7 +491,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from PlayerQuest pq\n            | filter pq.PlayerId == @playerId && pq.ClaimedAt == 0\n            | join Quest q (pq.QuestId == q.Id)\n            | filter q.IsActive == true && q.StartsAt <= @now && q.EndsAt >= @now && pq.Progress >= q.RequiredProgress\n            | sort -q.RewardAmount, pq.UpdatedAt, q.Id\n            | take @limit\n            | select { QuestId = q.Id, QuestType = q.QuestType, Progress = pq.Progress, RewardCurrency = q.RewardCurrency, RewardAmount = q.RewardAmount }",
         "sql": "SELECT q.Id AS QuestId,\n       q.QuestType,\n       pq.Progress,\n       q.RewardCurrency,\n       q.RewardAmount\nFROM PlayerQuests pq\nINNER JOIN Quests q ON pq.QuestId = q.Id\nWHERE pq.PlayerId = $playerId\n  AND pq.ClaimedAt = 0\n  AND q.IsActive = 1\n  AND q.StartsAt <= $now\n  AND q.EndsAt >= $now\n  AND pq.Progress >= q.RequiredProgress\nORDER BY q.RewardAmount DESC, pq.UpdatedAt ASC, q.Id ASC\nLIMIT $limit",
         "summary": "Top unclaimed, in-progress active quests for a player that are ready to claim, by best reward.",
-        "linq": "var result = playerQuests\n    .Where(pq => pq.PlayerId == playerId && pq.ClaimedAt == 0)\n    .Join(quests,\n        pq => pq.QuestId,\n        q => q.Id,\n        (pq, q) => new { pq, q })\n    .Where(x => x.q.IsActive == true\n        && x.q.StartsAt <= now\n        && x.q.EndsAt >= now\n        && x.pq.Progress >= x.q.RequiredProgress)\n    .OrderByDescending(x => x.q.RewardAmount)\n    .ThenBy(x => x.pq.UpdatedAt)\n    .ThenBy(x => x.q.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        QuestId = x.q.Id,\n        QuestType = x.q.QuestType,\n        Progress = x.pq.Progress,\n        RewardCurrency = x.q.RewardCurrency,\n        RewardAmount = x.q.RewardAmount\n    });"
+        "linq": "var result = playerQuests\n    .Where(pq => pq.PlayerId == playerId && pq.ClaimedAt == 0)\n    .Join(quests,\n        pq => pq.QuestId,\n        q => q.Id,\n        (pq, q) => new { pq, q })\n    .Where(x => x.q.IsActive == true\n        && x.q.StartsAt <= now\n        && x.q.EndsAt >= now\n        && x.pq.Progress >= x.q.RequiredProgress)\n    .OrderByDescending(x => x.q.RewardAmount)\n    .ThenBy(x => x.pq.UpdatedAt)\n    .ThenBy(x => x.q.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        QuestId = x.q.Id,\n        QuestType = x.q.QuestType,\n        Progress = x.pq.Progress,\n        RewardCurrency = x.q.RewardCurrency,\n        RewardAmount = x.q.RewardAmount\n    });",
+        "linqNs": "394 \u00b5s",
+        "linqAlloc": "82.2 KB",
+        "linqVsCdb": "33,367\u00d7",
+        "linqVsSqlite": "160\u00d7 slower"
       }
     ]
   },
@@ -417,7 +517,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | filter exists(from Order o | filter o.PlayerId == p.Id && o.Amount > @minAmount) | sort -Level",
         "sql": "SELECT p.Id, p.Name, p.Level\nFROM Players p\nWHERE EXISTS (\n    SELECT 1 FROM Orders o\n    WHERE o.PlayerId = p.Id AND o.Amount > $minAmount\n)\nORDER BY p.Level DESC",
         "summary": "Players who have at least one order over a minimum amount, ordered by level descending.",
-        "linq": "var result = players\n    .Where(p => orders.Any(o => o.PlayerId == p.Id && o.Amount > minAmount))\n    .OrderByDescending(p => p.Level);"
+        "linq": "var result = players\n    .Where(p => orders.Any(o => o.PlayerId == p.Id && o.Amount > minAmount))\n    .OrderByDescending(p => p.Level);",
+        "linqNs": "10.9 s",
+        "linqAlloc": "12.6 MB",
+        "linqVsCdb": "123,951\u00d7",
+        "linqVsSqlite": "300\u00d7 slower"
       },
       {
         "q": "Q8_Exists_Consume",
@@ -431,7 +535,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | filter exists(from Order o | filter o.PlayerId == p.Id && o.Amount > @minAmount) | sort -Level",
         "sql": "SELECT p.Id, p.Level\nFROM Players p\nWHERE EXISTS (\n    SELECT 1 FROM Orders o\n    WHERE o.PlayerId = p.Id AND o.Amount > $minAmount\n)\nORDER BY p.Level DESC",
         "summary": "Players who have at least one order above minAmount, ordered by level descending.",
-        "linq": "var result = players\n    .Where(p => orders.Any(o => o.PlayerId == p.Id && o.Amount > minAmount))\n    .OrderByDescending(p => p.Level);"
+        "linq": "var result = players\n    .Where(p => orders.Any(o => o.PlayerId == p.Id && o.Amount > minAmount))\n    .OrderByDescending(p => p.Level);",
+        "linqNs": "12.7 s",
+        "linqAlloc": "12.6 MB",
+        "linqVsCdb": "121,852\u00d7",
+        "linqVsSqlite": "795\u00d7 slower"
       },
       {
         "q": "Q16_ActiveNoOrders",
@@ -445,7 +553,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | filter p.IsActive == true | filter not exists(from Order o | filter o.PlayerId == p.Id) | sort -p.Level, p.Id | take @k | select p.Id, p.Level",
         "sql": "SELECT p.Id, p.Level\nFROM Players p\nWHERE p.IsActive = 1\n  AND NOT EXISTS (\n      SELECT 1 FROM Orders o WHERE o.PlayerId = p.Id\n  )\nORDER BY p.Level DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top k active players who have placed no orders, highest level first then lowest id.",
-        "linq": "var result = players\n    .Where(p => p.IsActive == true)\n    .Where(p => !orders.Any(o => o.PlayerId == p.Id))\n    .OrderByDescending(p => p.Level)\n    .ThenBy(p => p.Id)\n    .Take(k)\n    .Select(p => new { p.Id, p.Level });"
+        "linq": "var result = players\n    .Where(p => p.IsActive == true)\n    .Where(p => !orders.Any(o => o.PlayerId == p.Id))\n    .OrderByDescending(p => p.Level)\n    .ThenBy(p => p.Id)\n    .Take(k)\n    .Select(p => new { p.Id, p.Level });",
+        "linqNs": "10.3 s",
+        "linqAlloc": "8.6 MB",
+        "linqVsCdb": "9,636,074\u00d7",
+        "linqVsSqlite": "74,720\u00d7 slower"
       },
       {
         "q": "Q44_GuildsWithPlayersHavingOrders",
@@ -459,7 +571,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Guild g\n            | filter exists(\n                from Player p | filter p.GuildId == g.Id\n                | filter exists(from Order o | filter o.PlayerId == p.Id)\n            )\n            | select { Id = g.Id, Name = g.Name, MinLevel = g.MinLevel }",
         "sql": "SELECT g.Id,\n       g.Name,\n       g.MinLevel\nFROM Guilds g\nWHERE EXISTS (\n    SELECT 1\n    FROM Players p\n    WHERE p.GuildId = g.Id\n      AND EXISTS (\n          SELECT 1\n          FROM Orders o\n          WHERE o.PlayerId = p.Id\n      )\n)\nORDER BY g.Id ASC",
         "summary": "Guilds that have at least one player who has placed at least one order.",
-        "linq": "var result = guilds\n    .Where(g => players.Any(p =>\n        p.GuildId == g.Id &&\n        orders.Any(o => o.PlayerId == p.Id)))\n    .Select(g => new { Id = g.Id, Name = g.Name, MinLevel = g.MinLevel });"
+        "linq": "var result = guilds\n    .Where(g => players.Any(p =>\n        p.GuildId == g.Id &&\n        orders.Any(o => o.PlayerId == p.Id)))\n    .Select(g => new { Id = g.Id, Name = g.Name, MinLevel = g.MinLevel });",
+        "linqNs": "2.05 ms",
+        "linqAlloc": "14.1 KB",
+        "linqVsCdb": "34,947\u00d7",
+        "linqVsSqlite": "387\u00d7 slower"
       },
       {
         "q": "Q58_MissionBoardEligibility",
@@ -473,7 +589,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Quest q\n            | filter q.IsActive == true && q.StartsAt <= @now && q.EndsAt >= @now && q.RequiredLevel <= @playerLevel\n            | filter not exists(from PlayerQuest claimed | filter claimed.PlayerId == @playerId && claimed.QuestId == q.Id && claimed.ClaimedAt > 0)\n            | filter not exists(from PlayerQuest done | filter done.PlayerId == @playerId && done.QuestId == q.Id && done.Progress >= q.RequiredProgress)\n            | sort -q.RewardAmount, q.EndsAt, q.Id\n            | take @limit\n            | select { QuestId = q.Id, QuestType = q.QuestType, RequiredLevel = q.RequiredLevel, RewardAmount = q.RewardAmount, EndsAt = q.EndsAt }",
         "sql": "SELECT q.Id AS QuestId,\n       q.QuestType,\n       q.RequiredLevel,\n       q.RewardAmount,\n       q.EndsAt\nFROM Quests q\nWHERE q.IsActive = 1\n  AND q.StartsAt <= $now\n  AND q.EndsAt >= $now\n  AND q.RequiredLevel <= $playerLevel\n  AND NOT EXISTS (\n      SELECT 1\n      FROM PlayerQuests claimed\n      WHERE claimed.PlayerId = $playerId\n        AND claimed.QuestId = q.Id\n        AND claimed.ClaimedAt > 0\n  )\n  AND NOT EXISTS (\n      SELECT 1\n      FROM PlayerQuests done\n      WHERE done.PlayerId = $playerId\n        AND done.QuestId = q.Id\n        AND done.Progress >= q.RequiredProgress\n  )\nORDER BY q.RewardAmount DESC, q.EndsAt ASC, q.Id ASC\nLIMIT $limit",
         "summary": "Top quests a player is eligible for now (active, in window, level OK, not yet claimed or completed), best reward first.",
-        "linq": "var result = quests\n    .Where(q => q.IsActive\n        && q.StartsAt <= now\n        && q.EndsAt >= now\n        && q.RequiredLevel <= playerLevel)\n    .Where(q => !playerQuests.Any(claimed =>\n        claimed.PlayerId == playerId\n        && claimed.QuestId == q.Id\n        && claimed.ClaimedAt > 0))\n    .Where(q => !playerQuests.Any(done =>\n        done.PlayerId == playerId\n        && done.QuestId == q.Id\n        && done.Progress >= q.RequiredProgress))\n    .OrderByDescending(q => q.RewardAmount)\n        .ThenBy(q => q.EndsAt)\n        .ThenBy(q => q.Id)\n    .Take(limit)\n    .Select(q => new\n    {\n        QuestId = q.Id,\n        QuestType = q.QuestType,\n        RequiredLevel = q.RequiredLevel,\n        RewardAmount = q.RewardAmount,\n        EndsAt = q.EndsAt\n    });"
+        "linq": "var result = quests\n    .Where(q => q.IsActive\n        && q.StartsAt <= now\n        && q.EndsAt >= now\n        && q.RequiredLevel <= playerLevel)\n    .Where(q => !playerQuests.Any(claimed =>\n        claimed.PlayerId == playerId\n        && claimed.QuestId == q.Id\n        && claimed.ClaimedAt > 0))\n    .Where(q => !playerQuests.Any(done =>\n        done.PlayerId == playerId\n        && done.QuestId == q.Id\n        && done.Progress >= q.RequiredProgress))\n    .OrderByDescending(q => q.RewardAmount)\n        .ThenBy(q => q.EndsAt)\n        .ThenBy(q => q.Id)\n    .Take(limit)\n    .Select(q => new\n    {\n        QuestId = q.Id,\n        QuestType = q.QuestType,\n        RequiredLevel = q.RequiredLevel,\n        RewardAmount = q.RewardAmount,\n        EndsAt = q.EndsAt\n    });",
+        "linqNs": "217 ms",
+        "linqAlloc": "149.7 KB",
+        "linqVsCdb": "245,409\u00d7",
+        "linqVsSqlite": "1,843\u00d7 slower"
       }
     ]
   },
@@ -496,7 +616,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT Level, Id, Score, Rn\nFROM (\n    SELECT Level,\n           Id,\n           Score,\n           ROW_NUMBER() OVER (PARTITION BY Level ORDER BY Score DESC, Id ASC) AS Rn\n    FROM Players\n)\nWHERE Rn <= 3",
         "summary": "Per level, the top 3 players by highest score (ties broken by lowest Id), with their within-level rank.",
         "linq": "var result = players\n    .GroupBy(p => p.Level)\n    .SelectMany(g => g\n        .OrderByDescending(p => p.Score)\n        .ThenBy(p => p.Id)\n        .Select((p, i) => new { p.Level, p.Id, p.Score, Rn = i + 1 }))\n    .Where(x => x.Rn <= 3);",
-        "linqNote": "window by Level (Rn = row_number) has no LINQ operator: emulated by GroupBy(Level) then ordering each group by Score DESC, Id ASC and numbering with Select((x,i)=>i+1)."
+        "linqNote": "window by Level (Rn = row_number) has no LINQ operator: emulated by GroupBy(Level) then ordering each group by Score DESC, Id ASC and numbering with Select((x,i)=>i+1).",
+        "linqNs": "8.37 ms",
+        "linqAlloc": "9.6 MB",
+        "linqVsCdb": "65\u00d7",
+        "linqVsSqlite": "3.4\u00d7 faster"
       },
       {
         "q": "Q17_MovingAvg",
@@ -511,7 +635,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT Id, Score,\n       AVG(Score * 1.0) OVER (ORDER BY Score ASC, Id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS MovingAvg\nFROM Players\nORDER BY Score ASC, Id ASC",
         "summary": "Players sorted by ascending score, each with the average score of itself and the two preceding players.",
         "linq": "var ordered = players\n    .OrderBy(p => p.Score)\n    .ThenBy(p => p.Id)\n    .ToList();\n\nvar result = ordered\n    .Select((p, i) =>\n    {\n        int start = Math.Max(0, i - 2);\n        double movingAvg = ordered\n            .Skip(start)\n            .Take(i - start + 1)\n            .Average(w => w.Score * 1.0);\n        return new { p.Id, p.Score, MovingAvg = movingAvg };\n    })\n    .ToList();",
-        "linqNote": "Window has no LINQ operator: the moving average (frame -2..0) is hand-rolled by materializing the Score-asc, Id-asc ordered sequence and averaging each row's window of itself plus up to two preceding rows."
+        "linqNote": "Window has no LINQ operator: the moving average (frame -2..0) is hand-rolled by materializing the Score-asc, Id-asc ordered sequence and averaging each row's window of itself plus up to two preceding rows.",
+        "linqNs": "17.3 ms",
+        "linqAlloc": "14.5 MB",
+        "linqVsCdb": "222\u00d7",
+        "linqVsSqlite": "1.3\u00d7 faster"
       },
       {
         "q": "Q23_Top3OrdersPerLevelWithRunningAmount",
@@ -526,7 +654,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT Level, OrderId, Amount, Rn, RunningAmount\nFROM (\n    SELECT p.Level AS Level,\n           o.Id AS OrderId,\n           o.Amount AS Amount,\n           ROW_NUMBER() OVER (PARTITION BY p.Level ORDER BY o.Amount DESC, o.Id ASC) AS Rn,\n           SUM(o.Amount) OVER (PARTITION BY p.Level ORDER BY o.Amount DESC, o.Id ASC) AS RunningAmount\n    FROM Orders o\n    INNER JOIN Players p ON o.PlayerId = p.Id\n)\nWHERE Rn <= 3",
         "summary": "Top 3 highest orders per player level, each with its rank and a running amount total within the level.",
         "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .OrderByDescending(x => x.o.Amount)\n    .ThenBy(x => x.o.Id)\n    .GroupBy(x => x.p.Level)\n    .SelectMany(g =>\n    {\n        long running = 0;\n        int rn = 0;\n        var rows = new List<object>();\n        return g.Select(x =>\n        {\n            rn++;\n            running += x.o.Amount;\n            return new\n            {\n                Level = x.p.Level,\n                OrderId = x.o.Id,\n                Amount = x.o.Amount,\n                Rn = rn,\n                RunningAmount = running\n            };\n        }).ToList();\n    })\n    .Where(r => r.Rn <= 3);",
-        "linqNote": "Window emulated by hand: ROW_NUMBER/SUM OVER(PARTITION BY Level ORDER BY Amount DESC, Id ASC) have no LINQ operator, so each group is iterated in the sorted order with a stateful counter (Rn) and running total (RunningAmount). GroupBy preserves the prior global OrderByDescending/ThenBy ordering inside each group."
+        "linqNote": "Window emulated by hand: ROW_NUMBER/SUM OVER(PARTITION BY Level ORDER BY Amount DESC, Id ASC) have no LINQ operator, so each group is iterated in the sorted order with a stateful counter (Rn) and running total (RunningAmount). GroupBy preserves the prior global OrderByDescending/ThenBy ordering inside each group.",
+        "linqNs": "40.5 ms",
+        "linqAlloc": "30.9 MB",
+        "linqVsCdb": "98\u00d7",
+        "linqVsSqlite": "2.6\u00d7 faster"
       },
       {
         "q": "Q51_PlayersWithScoreRankById",
@@ -541,7 +673,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT Id,\n       Score,\n       Rnk\nFROM (\n    SELECT Id,\n           Score,\n           RANK() OVER (ORDER BY Score ASC) AS Rnk\n    FROM Players\n)\nORDER BY Id ASC",
         "summary": "Each player's id and score with their score rank (ties share a rank, gaps skipped), ordered by id.",
         "linq": "// RANK() OVER (ORDER BY Score ASC): order by Score, assign ranks where\n// ties share the same rank and the next distinct value skips ahead.\nvar ordered = players\n    .OrderBy(p => p.Score)\n    .ToList();\n\nvar ranked = new List<(int Id, int Score, int Rnk)>(ordered.Count);\nint rank = 0;\nint? prevScore = null;\nfor (int i = 0; i < ordered.Count; i++)\n{\n    var p = ordered[i];\n    if (prevScore is null || p.Score != prevScore.Value)\n    {\n        rank = i + 1; // SQL RANK: position (1-based) of the first row in this tie group\n        prevScore = p.Score;\n    }\n    ranked.Add((p.Id, p.Score, rank));\n}\n\nvar result = ranked\n    .OrderBy(r => r.Id)\n    .Select(r => new { r.Id, r.Score, Rnk = r.Rnk });",
-        "linqNote": "Window RANK() has no LINQ operator. Hand-rolled: order by Score asc, then a stateful pass assigns each tie group the 1-based position of its first row (ties share a rank, next distinct score skips the gap). Final OrderBy(Id) reproduces the outer sort."
+        "linqNote": "Window RANK() has no LINQ operator. Hand-rolled: order by Score asc, then a stateful pass assigns each tie group the 1-based position of its first row (ties share a rank, next distinct score skips the gap). Final OrderBy(Id) reproduces the outer sort.",
+        "linqNs": "12.7 ms",
+        "linqAlloc": "7.6 MB",
+        "linqVsCdb": "32\u00d7",
+        "linqVsSqlite": "2.4\u00d7 faster"
       }
     ]
   },
@@ -563,7 +699,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | filter p.Id <= 256 | select { Id = p.Id, Orders = collect p.Orders (sort -Id, take @orderTake, select { Id = Id, Amount = Amount }) }",
         "sql": "SELECT p.Id AS PlayerId,\n       o.Id AS OrderId,\n       o.Amount AS OrderAmount\nFROM Players p\nLEFT JOIN (\n    SELECT PlayerId,\n           Id,\n           Amount,\n           ROW_NUMBER() OVER (PARTITION BY PlayerId ORDER BY Id DESC) AS Rn\n    FROM Orders\n) o\n  ON o.PlayerId = p.Id\n AND o.Rn <= $orderTake\nWHERE p.Id <= $playerLimit\nORDER BY p.Id ASC, o.Id DESC",
         "summary": "For each player with Id up to 256, their top orders by newest Id (up to orderTake), each as Id and Amount.",
-        "linq": "var result = players\n    .Where(p => p.Id <= 256)\n    .Select(p => new\n    {\n        Id = p.Id,\n        Orders = orders\n            .Where(o => o.PlayerId == p.Id)\n            .OrderByDescending(o => o.Id)\n            .Take(orderTake)\n            .Select(o => new { Id = o.Id, Amount = o.Amount })\n            .ToList()\n    });"
+        "linq": "var result = players\n    .Where(p => p.Id <= 256)\n    .Select(p => new\n    {\n        Id = p.Id,\n        Orders = orders\n            .Where(o => o.PlayerId == p.Id)\n            .OrderByDescending(o => o.Id)\n            .Take(orderTake)\n            .Select(o => new { Id = o.Id, Amount = o.Amount })\n            .ToList()\n    });",
+        "linqNs": "38.1 ms",
+        "linqAlloc": "251.1 KB",
+        "linqVsCdb": "5,920\u00d7",
+        "linqVsSqlite": "2.2\u00d7 faster"
       }
     ]
   },
@@ -585,7 +725,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | derive { Tier = p.Level / 10 } | select { Tier } | intersect (from Item it | derive { Tier = it.Rarity } | select { Tier }) | sort Tier",
         "sql": "SELECT Tier\nFROM (\n    SELECT (Level / 10) AS Tier FROM Players\n    INTERSECT\n    SELECT Rarity AS Tier FROM Items\n)\nORDER BY Tier ASC",
         "summary": "Tier values that appear both as a player level-tier (Level/10) and as an item rarity, sorted ascending.",
-        "linq": "var playerTiers = players\n    .Select(p => p.Level / 10);\n\nvar itemTiers = items\n    .Select(it => it.Rarity);\n\nvar result = playerTiers\n    .Intersect(itemTiers)\n    .OrderBy(tier => tier)\n    .ToList();"
+        "linq": "var playerTiers = players\n    .Select(p => p.Level / 10);\n\nvar itemTiers = items\n    .Select(it => it.Rarity);\n\nvar result = playerTiers\n    .Intersect(itemTiers)\n    .OrderBy(tier => tier)\n    .ToList();",
+        "linqNs": "3.86 ms",
+        "linqAlloc": "1.4 KB",
+        "linqVsCdb": "42\u00d7",
+        "linqVsSqlite": "3.4\u00d7 faster"
       },
       {
         "q": "Q25_UnionAllTiers",
@@ -599,7 +743,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Player p | derive { Tier = p.Level / 10 } | select { Tier } | union all (from Item it | derive { Tier = it.Rarity } | select { Tier }) | sort Tier",
         "sql": "SELECT Tier\nFROM (\n    SELECT (Level / 10) AS Tier FROM Players\n    UNION ALL\n    SELECT Rarity AS Tier FROM Items\n)\nORDER BY Tier ASC",
         "summary": "All player tiers (Level/10) plus all item tiers (Rarity), keeping duplicates, sorted ascending by tier.",
-        "linq": "var result = players\n    .Select(p => new { Tier = p.Level / 10 })\n    .Concat(items.Select(it => new { Tier = it.Rarity }))\n    .OrderBy(x => x.Tier);"
+        "linq": "var result = players\n    .Select(p => new { Tier = p.Level / 10 })\n    .Concat(items.Select(it => new { Tier = it.Rarity }))\n    .OrderBy(x => x.Tier);",
+        "linqNs": "33.9 ms",
+        "linqAlloc": "11.4 MB",
+        "linqVsCdb": "72\u00d7",
+        "linqVsSqlite": "1.8\u00d7 faster"
       },
       {
         "q": "Q26_IntersectAllTiers",
@@ -614,7 +762,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "WITH left_rows AS (\n    SELECT (Level / 10) AS Tier,\n           ROW_NUMBER() OVER (PARTITION BY (Level / 10) ORDER BY Id ASC) AS Occurrence\n    FROM Players\n),\nright_rows AS (\n    SELECT Rarity AS Tier,\n           ROW_NUMBER() OVER (PARTITION BY Rarity ORDER BY Id ASC) AS Occurrence\n    FROM Items\n)\nSELECT l.Tier\nFROM left_rows l\nINNER JOIN right_rows r\n    ON r.Tier = l.Tier\n   AND r.Occurrence = l.Occurrence\nORDER BY l.Tier ASC",
         "summary": "Tier values (Level/10) shared by players and items, one row per shared occurrence, sorted ascending.",
         "linq": "var leftTiers = players\n    .Select(p => p.Level / 10);\n\nvar rightTiers = items\n    .Select(it => it.Rarity);\n\n// intersect all = multiset intersection: for each Tier value, keep\n// min(leftCount, rightCount) copies. Hand-rolled via per-value counts.\nvar rightCounts = rightTiers\n    .GroupBy(t => t)\n    .ToDictionary(g => g.Key, g => g.Count());\n\nvar result = leftTiers\n    .GroupBy(t => t)\n    .SelectMany(g =>\n        Enumerable.Repeat(\n            g.Key,\n            Math.Min(g.Count(), rightCounts.TryGetValue(g.Key, out var rc) ? rc : 0)))\n    .OrderBy(tier => tier);",
-        "linqNote": "`intersect all` is a bag (multiset) op with no built-in LINQ operator (.Intersect dedupes); hand-rolled by keeping min(left,right) occurrences per Tier value, matching the SQL's row-number occurrence pairing."
+        "linqNote": "`intersect all` is a bag (multiset) op with no built-in LINQ operator (.Intersect dedupes); hand-rolled by keeping min(left,right) occurrences per Tier value, matching the SQL's row-number occurrence pairing.",
+        "linqNs": "4.77 ms",
+        "linqAlloc": "3.4 MB",
+        "linqVsCdb": "14\u00d7",
+        "linqVsSqlite": "37\u00d7 faster"
       },
       {
         "q": "Q27_ExceptAllTiers",
@@ -629,7 +781,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "WITH left_rows AS (\n    SELECT (Level / 10) AS Tier,\n           ROW_NUMBER() OVER (PARTITION BY (Level / 10) ORDER BY Id ASC) AS Occurrence\n    FROM Players\n),\nright_rows AS (\n    SELECT Rarity AS Tier,\n           ROW_NUMBER() OVER (PARTITION BY Rarity ORDER BY Id ASC) AS Occurrence\n    FROM Items\n)\nSELECT l.Tier\nFROM left_rows l\nLEFT JOIN right_rows r\n    ON r.Tier = l.Tier\n   AND r.Occurrence = l.Occurrence\nWHERE r.Occurrence IS NULL\nORDER BY l.Tier ASC",
         "summary": "Player level tiers minus item rarity tiers as a multiset, keeping surplus duplicates, sorted ascending.",
         "linq": "// \"except all\" = bag (multiset) difference: each Tier appears\n// max(0, countInPlayers - countInItems) times. No built-in LINQ operator,\n// so we count occurrences on each side and emit the surplus.\nvar leftTiers = players.Select(p => p.Level / 10);\nvar rightCounts = items\n    .GroupBy(it => it.Rarity)\n    .ToDictionary(g => g.Key, g => g.Count());\n\nvar result = leftTiers\n    .GroupBy(tier => tier)\n    .SelectMany(g =>\n    {\n        var subtract = rightCounts.TryGetValue(g.Key, out var c) ? c : 0;\n        var keep = g.Count() - subtract;\n        return keep > 0 ? Enumerable.Repeat(g.Key, keep) : Enumerable.Empty<int>();\n    })\n    .OrderBy(tier => tier);",
-        "linqNote": "`except all` is a BAG (multiset) difference with no built-in LINQ operator; hand-rolled via per-Tier occurrence counts, emitting max(0, leftCount - rightCount) copies of each Tier."
+        "linqNote": "`except all` is a BAG (multiset) difference with no built-in LINQ operator; hand-rolled via per-Tier occurrence counts, emitting max(0, leftCount - rightCount) copies of each Tier.",
+        "linqNs": "5.98 ms",
+        "linqAlloc": "15.9 MB",
+        "linqVsCdb": "16\u00d7",
+        "linqVsSqlite": "29\u00d7 faster"
       },
       {
         "q": "Q28_IntersectPlayersByTierBucket",
@@ -644,7 +800,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "WITH right_keys AS (\n    SELECT DISTINCT\n           ((Rarity * 5) + (Quantity / 20)) AS TierBucketKey\n    FROM Items\n)\nSELECT ((((p.Level / 10) * 5) + (p.Score / 20000)) / 5) AS Tier,\n       ((((p.Level / 10) * 5) + (p.Score / 20000)) % 5) AS Bucket,\n       p.Id AS EntityId\nFROM Players p\nWHERE EXISTS (\n    SELECT 1\n    FROM right_keys rk\n    WHERE rk.TierBucketKey = (((p.Level / 10) * 5) + (p.Score / 20000))\n)\nORDER BY (((p.Level / 10) * 5) + (p.Score / 20000)) ASC, EntityId ASC",
         "summary": "Players whose tier-bucket key also occurs among items, returned as (TierBucketKey, EntityId) sorted ascending.",
         "linq": "var itemKeys = items\n    .Select(it => it.TierBucketKey)\n    .Distinct()\n    .ToHashSet();\n\nvar result = players\n    .Select(p => new { TierBucketKey = p.TierBucketKey, EntityId = p.Id })\n    .Where(x => itemKeys.Contains(x.TierBucketKey))\n    .OrderBy(x => x.TierBucketKey)\n    .ThenBy(x => x.EntityId)\n    .ToList();",
-        "linqNote": "`intersect ... by (TierBucketKey)` matches only on the named key column, so it is a semi-join: keep each player projection whose TierBucketKey appears in the distinct set of item TierBucketKeys (EntityId is the unique player Id, so no further dedup is needed)."
+        "linqNote": "`intersect ... by (TierBucketKey)` matches only on the named key column, so it is a semi-join: keep each player projection whose TierBucketKey appears in the distinct set of item TierBucketKeys (EntityId is the unique player Id, so no further dedup is needed).",
+        "linqNs": "8.00 ms",
+        "linqAlloc": "2.1 MB",
+        "linqVsCdb": "376\u00d7",
+        "linqVsSqlite": "1.3\u00d7 slower"
       },
       {
         "q": "Q29_ExceptPlayersByTierBucket",
@@ -659,7 +819,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "WITH right_keys AS (\n    SELECT DISTINCT\n           ((Rarity * 5) + (Quantity / 20)) AS TierBucketKey\n    FROM Items\n)\nSELECT ((((p.Level / 10) * 5) + (p.Score / 20000)) / 5) AS Tier,\n       ((((p.Level / 10) * 5) + (p.Score / 20000)) % 5) AS Bucket,\n       p.Id AS EntityId\nFROM Players p\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM right_keys rk\n    WHERE rk.TierBucketKey = (((p.Level / 10) * 5) + (p.Score / 20000))\n)\nORDER BY (((p.Level / 10) * 5) + (p.Score / 20000)) ASC, EntityId ASC",
         "summary": "Players whose tier-bucket key matches no item's tier-bucket key, sorted by that key then player id.",
         "linq": "var rightKeys = items\n    .Select(it => it.TierBucketKey)\n    .Distinct()\n    .ToHashSet();\n\nvar result = players\n    .Select(p => new { TierBucketKey = p.TierBucketKey, EntityId = p.Id })\n    .Where(row => !rightKeys.Contains(row.TierBucketKey))\n    .OrderBy(row => row.TierBucketKey)\n    .ThenBy(row => row.EntityId)\n    .ToList();",
-        "linqNote": "`except ... by (TierBucketKey)` is a key-based anti-semi-join (NOT EXISTS on the key), so it keeps every qualifying player row rather than distinct-ing the left side; the right side is distinct-ed into a key set."
+        "linqNote": "`except ... by (TierBucketKey)` is a key-based anti-semi-join (NOT EXISTS on the key), so it keeps every qualifying player row rather than distinct-ing the left side; the right side is distinct-ed into a key set.",
+        "linqNs": "5.54 ms",
+        "linqAlloc": "2.1 MB",
+        "linqVsCdb": "238\u00d7",
+        "linqVsSqlite": "1.1\u00d7 faster"
       },
       {
         "q": "Q53_ProductCategoryNameIntersectAllByCategory",
@@ -674,7 +838,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "WITH left_rows AS (\n    SELECT p.CategoryId,\n           p.Name,\n           ROW_NUMBER() OVER (PARTITION BY p.CategoryId ORDER BY p.CategoryId ASC, p.Name ASC) AS Occurrence\n    FROM Products p\n),\nright_rows AS (\n    SELECT x.CategoryId,\n           ROW_NUMBER() OVER (PARTITION BY x.CategoryId ORDER BY x.CategoryId ASC) AS Occurrence\n    FROM Products x\n    WHERE x.Stock >= $minStock\n)\nSELECT l.CategoryId,\n       l.Name\nFROM left_rows l\nINNER JOIN right_rows r\n    ON r.CategoryId = l.CategoryId\n   AND r.Occurrence = l.Occurrence\nORDER BY l.CategoryId ASC, l.Name ASC",
         "summary": "Per category, the product names that survive a multiset intersection with in-stock products, ordered by category then name.",
         "linq": "// \"intersect all ... by CategoryId\" is a BAG (multiset) intersection keyed on CategoryId.\n// For each CategoryId we keep min(leftCount, rightCount) of the left rows.\n// Right counts come from products with Stock >= minStock, grouped by CategoryId.\nvar rightCounts = products\n    .Where(x => x.Stock >= minStock)\n    .GroupBy(x => x.CategoryId)\n    .ToDictionary(g => g.Key, g => g.Count());\n\nvar result = products\n    .Select(p => new { p.CategoryId, p.Name })\n    .GroupBy(r => r.CategoryId)\n    .SelectMany(g =>\n    {\n        int rightCount = rightCounts.TryGetValue(g.Key, out var c) ? c : 0;\n        // Pair each left row with its 1-based occurrence (in sort order), keep occurrences\n        // up to min(leftCount, rightCount) -> equivalent to taking the first `rightCount` rows.\n        return g\n            .OrderBy(r => r.CategoryId)\n            .ThenBy(r => r.Name)\n            .Take(rightCount);\n    })\n    .OrderBy(r => r.CategoryId)\n    .ThenBy(r => r.Name);",
-        "linqNote": "`intersect all` is a multiset (bag) intersection with no built-in LINQ operator; it is hand-rolled by keeping min(leftCount, rightCount) rows per CategoryId. Per the SQL, occurrence pairing within each category reduces to taking the first `rightCount` left rows in (CategoryId, Name) order."
+        "linqNote": "`intersect all` is a multiset (bag) intersection with no built-in LINQ operator; it is hand-rolled by keeping min(leftCount, rightCount) rows per CategoryId. Per the SQL, occurrence pairing within each category reduces to taking the first `rightCount` left rows in (CategoryId, Name) order.",
+        "linqNs": "20.9 ms",
+        "linqAlloc": "9.9 MB",
+        "linqVsCdb": "107\u00d7",
+        "linqVsSqlite": "4.7\u00d7 faster"
       }
     ]
   },
@@ -697,7 +865,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT p.Id,\n       p.Name,\n       COUNT(o.Id) AS CompletedOrderCount,\n       SUM(o.Amount) AS CompletedOrderAmount\nFROM Players p\nLEFT JOIN Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\n  ON o.PlayerId = p.Id\n AND o.Status = 'Completed'\nGROUP BY p.Id, p.Name\nHAVING COUNT(o.Id) >= $minCompletedOrders\n   AND SUM(o.Amount) >= $minCompletedAmount\nORDER BY CompletedOrderAmount DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top players by total completed-order spend, kept only if they meet minimum completed order count and amount.",
         "linq": "var result = players\n    .GroupJoin(\n        orders.Where(o => o.Status == \"Completed\"),\n        p => p.Id,\n        o => o.PlayerId,\n        (p, os) => new { p, os })\n    .Select(g => new\n    {\n        g.p.Id,\n        g.p.Name,\n        CompletedOrderCount = g.os.Count(),\n        // SUM over a LEFT JOIN is NULL (not 0) when there are no matched rows,\n        // mirroring SQL SUM(o.Amount). Model it as long? so the >= filter below\n        // reproduces SQL three-valued HAVING (null >= x => false => excluded).\n        CompletedOrderAmount = g.os.Any() ? (long?)g.os.Sum(o => o.Amount) : (long?)null\n    })\n    .Where(x => x.CompletedOrderCount >= minCompletedOrders)\n    .Where(x => x.CompletedOrderAmount >= minCompletedAmount)\n    .OrderByDescending(x => x.CompletedOrderAmount)\n    .ThenBy(x => x.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        Id = x.Id,\n        Name = x.Name,\n        x.CompletedOrderCount,\n        CompletedOrderAmount = x.CompletedOrderAmount.Value\n    });",
-        "linqNote": "LEFT JOIN + GROUP BY p.Id,p.Name modeled via GroupJoin over only Completed orders. count(o.Id) = os.Count() (0 for unmatched). sum(o.Amount) is SQL-NULL for a player with no Completed orders, so it is modeled as long? (null when the group is empty); the >= minCompletedAmount filter then excludes unmatched players exactly like SQL's HAVING (null >= x is false in C# lifted comparison), regardless of threshold sign. Surviving rows always have a real sum, coalesced back to long in the final projection."
+        "linqNote": "LEFT JOIN + GROUP BY p.Id,p.Name modeled via GroupJoin over only Completed orders. count(o.Id) = os.Count() (0 for unmatched). sum(o.Amount) is SQL-NULL for a player with no Completed orders, so it is modeled as long? (null when the group is empty); the >= minCompletedAmount filter then excludes unmatched players exactly like SQL's HAVING (null >= x is false in C# lifted comparison), regardless of threshold sign. Surviving rows always have a real sum, coalesced back to long in the final projection.",
+        "linqNs": "11.5 ms",
+        "linqAlloc": "10.6 MB",
+        "linqVsCdb": "137\u00d7",
+        "linqVsSqlite": "1.5\u00d7 faster"
       },
       {
         "q": "Q32_SparseCompletedOrdersLeftJoin",
@@ -712,7 +884,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT p.Id AS PlayerId,\n       o.Id AS OrderId,\n       o.Amount AS OrderAmount\nFROM Players p\nLEFT JOIN Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\n  ON o.PlayerId = p.Id\n AND o.Status = 'Completed'\n AND o.Amount >= $minAmount",
         "summary": "Every player with their matching completed orders at or above minAmount, or nulls when none match.",
         "linq": "var result = players\n    .GroupJoin(\n        orders.Where(o => o.Status == \"Completed\" && o.Amount >= minAmount),\n        p => p.Id,\n        o => o.PlayerId,\n        (p, os) => new { p, os })\n    .SelectMany(\n        x => x.os.DefaultIfEmpty(),\n        (x, o) => new\n        {\n            PlayerId = x.p.Id,\n            OrderId = (int?)(o == null ? (int?)null : o.Id),\n            OrderAmount = (long?)(o == null ? (long?)null : o.Amount)\n        });",
-        "linqNote": "The join predicate's right-side conditions (Status==\"Completed\", Amount>=minAmount) are pre-filtered on Orders before the GroupJoin so they constrain matches rather than rows; unmatched players yield null OrderId/OrderAmount via DefaultIfEmpty."
+        "linqNote": "The join predicate's right-side conditions (Status==\"Completed\", Amount>=minAmount) are pre-filtered on Orders before the GroupJoin so they constrain matches rather than rows; unmatched players yield null OrderId/OrderAmount via DefaultIfEmpty.",
+        "linqNs": "8.31 ms",
+        "linqAlloc": "10.9 MB",
+        "linqVsCdb": "71\u00d7",
+        "linqVsSqlite": "1.6\u00d7 faster"
       },
       {
         "q": "Q33_TopPlayersBySparseCompletedOrders",
@@ -727,7 +903,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT p.Id,\n       p.Name,\n       COUNT(o.Id) AS CompletedOrderCount,\n       COALESCE(SUM(o.Amount), 0) AS CompletedOrderAmount\nFROM Players p\nLEFT JOIN Orders o INDEXED BY idx_Orders_Completed_PlayerId_Amount_Id\n  ON o.PlayerId = p.Id\n AND o.Status = 'Completed'\n AND o.Amount >= $minAmount\nGROUP BY p.Id, p.Name\nORDER BY CompletedOrderAmount DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top players ranked by their total high-value completed order amount (then by Id), with order count.",
         "linq": "var result = players\n    .GroupJoin(\n        orders.Where(o => o.Status == \"Completed\" && o.Amount >= minAmount),\n        p => p.Id,\n        o => o.PlayerId,\n        (p, matched) => new\n        {\n            Id = p.Id,\n            Name = p.Name,\n            CompletedOrderCount = matched.Count(),\n            CompletedOrderAmount = matched.Sum(o => o.Amount)\n        })\n    .OrderByDescending(x => x.CompletedOrderAmount)\n    .ThenBy(x => x.Id)\n    .Take(limit)\n    .Select(x => new\n    {\n        x.Id,\n        x.Name,\n        x.CompletedOrderCount,\n        x.CompletedOrderAmount\n    });",
-        "linqNote": "The LEFT JOIN's right-side predicates (Status, Amount) are pushed into the matched-orders filter, so unmatched players keep count 0 and Sum over an empty set yields 0 (matching COALESCE(SUM,0))."
+        "linqNote": "The LEFT JOIN's right-side predicates (Status, Amount) are pushed into the matched-orders filter, so unmatched players keep count 0 and Sum over an empty set yields 0 (matching COALESCE(SUM,0)).",
+        "linqNs": "4.38 ms",
+        "linqAlloc": "4.3 MB",
+        "linqVsCdb": "32\u00d7",
+        "linqVsSqlite": "3.6\u00d7 faster"
       },
       {
         "q": "Q36_TopPlayersByCompletedWeaponCount",
@@ -742,7 +922,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT p.Id,\n       p.Name,\n       COUNT(it.Id) AS CompletedWeaponCount\nFROM Players p\nLEFT JOIN Orders o\n  ON p.Id = o.PlayerId\n AND o.Status = 'Completed'\nINNER JOIN Items it\n  ON o.PlayerId = it.PlayerId\nWHERE it.ItemType = 'Weapon'\nGROUP BY p.Id, p.Name\nORDER BY CompletedWeaponCount DESC, p.Id ASC\nLIMIT $limit",
         "summary": "Top players by (completed-order count \u00d7 weapon-item count), positive only, highest first then by Id, limited.",
         "linq": "var result = players\n    .Select(p => new\n    {\n        p.Id,\n        p.Name,\n        CompletedWeaponCount =\n            orders.Count(o => o.PlayerId == p.Id && o.Status == \"Completed\")\n            * items.Count(it => it.PlayerId == p.Id && it.ItemType == \"Weapon\")\n    })\n    .Where(x => x.CompletedWeaponCount > 0)\n    .OrderByDescending(x => x.CompletedWeaponCount)\n    .ThenBy(x => x.Id)\n    .Take(limit)\n    .ToList();",
-        "linqNote": "The DSL defines CompletedWeaponCount as the product of two correlated count subqueries (completed orders \u00d7 weapon items), so the baseline multiplies them; the cross-reference SQL's join-based COUNT is only an approximate benchmark and is not the authored semantics."
+        "linqNote": "The DSL defines CompletedWeaponCount as the product of two correlated count subqueries (completed orders \u00d7 weapon items), so the baseline multiplies them; the cross-reference SQL's join-based COUNT is only an approximate benchmark and is not the authored semantics.",
+        "linqNs": "41.5 s",
+        "linqAlloc": "16.3 MB",
+        "linqVsCdb": "369,731\u00d7",
+        "linqVsSqlite": "3,861\u00d7 slower"
       }
     ]
   },
@@ -764,7 +948,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | select { LevelBucket = p.Level, IsActive = p.IsActive, AmountBucket = o.Amount }\n            | distinct\n            | sort -AmountBucket, LevelBucket, IsActive\n            | take @limit\n            | select { LevelBucket, IsActive, AmountBucket }",
         "sql": "SELECT DISTINCT\n       p.Level AS LevelBucket,\n       p.IsActive AS IsActive,\n       o.Amount AS AmountBucket\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nORDER BY AmountBucket DESC, LevelBucket ASC, IsActive ASC\nLIMIT $limit",
         "summary": "Top distinct (player level, active flag, order amount) buckets, highest amount first, limited to limit rows.",
-        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { LevelBucket = p.Level, IsActive = p.IsActive, AmountBucket = o.Amount })\n    .Distinct()\n    .OrderByDescending(x => x.AmountBucket)\n    .ThenBy(x => x.LevelBucket)\n    .ThenBy(x => x.IsActive)\n    .Take(limit)\n    .Select(x => new { x.LevelBucket, x.IsActive, x.AmountBucket });"
+        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { LevelBucket = p.Level, IsActive = p.IsActive, AmountBucket = o.Amount })\n    .Distinct()\n    .OrderByDescending(x => x.AmountBucket)\n    .ThenBy(x => x.LevelBucket)\n    .ThenBy(x => x.IsActive)\n    .Take(limit)\n    .Select(x => new { x.LevelBucket, x.IsActive, x.AmountBucket });",
+        "linqNs": "21.5 ms",
+        "linqAlloc": "19.1 MB",
+        "linqVsCdb": "91,370\u00d7",
+        "linqVsSqlite": "526\u00d7 slower"
       },
       {
         "q": "Q38_TopPlayersByDistinctWeaponCountAndAmount",
@@ -778,7 +966,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Item it (o.PlayerId == it.PlayerId)\n            | group o.PlayerId (aggregate { DistinctWeaponCount = count(distinct it.ItemType), TotalAmount = sum(o.Amount) })\n            | sort -DistinctWeaponCount, o.PlayerId\n            | take @limit\n            | select { PlayerId = o.PlayerId, DistinctWeaponCount, TotalAmount }",
         "sql": "SELECT o.PlayerId AS PlayerId,\n       COUNT(DISTINCT it.ItemType) AS DistinctWeaponCount,\n       SUM(o.Amount) AS TotalAmount\nFROM Orders o\nINNER JOIN Items it ON o.PlayerId = it.PlayerId\nGROUP BY o.PlayerId\nORDER BY DistinctWeaponCount DESC, o.PlayerId ASC\nLIMIT $limit",
         "summary": "Top players by number of distinct item types and total order amount, ranked by distinct-type count then player id.",
-        "linq": "var result = orders\n    .Join(items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .GroupBy(x => x.o.PlayerId)\n    .Select(g => new\n    {\n        PlayerId = g.Key,\n        DistinctWeaponCount = g.Select(r => r.it.ItemType).Distinct().Count(),\n        TotalAmount = g.Sum(r => r.o.Amount)\n    })\n    .OrderByDescending(x => x.DistinctWeaponCount)\n    .ThenBy(x => x.PlayerId)\n    .Take(limit)\n    .ToList();"
+        "linq": "var result = orders\n    .Join(items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .GroupBy(x => x.o.PlayerId)\n    .Select(g => new\n    {\n        PlayerId = g.Key,\n        DistinctWeaponCount = g.Select(r => r.it.ItemType).Distinct().Count(),\n        TotalAmount = g.Sum(r => r.o.Amount)\n    })\n    .OrderByDescending(x => x.DistinctWeaponCount)\n    .ThenBy(x => x.PlayerId)\n    .Take(limit)\n    .ToList();",
+        "linqNs": "125 ms",
+        "linqAlloc": "106.5 MB",
+        "linqVsCdb": "337\u00d7",
+        "linqVsSqlite": "1.6\u00d7 slower"
       },
       {
         "q": "Q52_JoinedDistinctItemPageResorted",
@@ -792,7 +984,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | left join Item it (o.PlayerId == it.PlayerId)\n            | filter it.Quantity >= @minQuantity\n            | select o.Id as OrderId, it.Id as ItemId, it.ItemType as ItemType, o.PlayerId as PlayerId\n            | distinct\n            | sort -PlayerId, OrderId, ItemId\n            | skip 3\n            | skip 6\n            | take 7\n            | skip 4\n            | select ItemId, ItemType, PlayerId\n            | sort ItemId, ItemType, PlayerId",
         "sql": "WITH distinct_rows AS (\n    SELECT DISTINCT\n           o.Id AS OrderId,\n           o.PlayerId AS PlayerId,\n           it.Id AS ItemId,\n           it.ItemType AS ItemType,\n           it.Quantity AS Quantity\n    FROM Orders o\n    LEFT JOIN Items it ON o.PlayerId = it.PlayerId\n    WHERE it.Quantity >= $minQuantity\n),\npaged_rows AS (\n    SELECT OrderId,\n           PlayerId,\n           ItemId,\n           ItemType\n    FROM distinct_rows\n    ORDER BY PlayerId DESC, OrderId ASC, ItemId ASC\n    LIMIT $pageLimit OFFSET $pageOffset\n)\nSELECT ItemId,\n       ItemType,\n       PlayerId\nFROM paged_rows\nORDER BY ItemId ASC, ItemType ASC, PlayerId ASC",
         "summary": "A re-sorted page of distinct (item, item-type, player) rows from orders joined to that player's items.",
-        "linq": "var result = orders\n    .GroupJoin(\n        items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, its) => new { o, its })\n    .SelectMany(\n        x => x.its.DefaultIfEmpty(),\n        (x, it) => new { x.o, it })\n    .Where(r => r.it != null && r.it.Quantity >= minQuantity)\n    .Select(r => new\n    {\n        OrderId = r.o.Id,\n        ItemId = r.it.Id,\n        ItemType = r.it.ItemType,\n        PlayerId = r.o.PlayerId\n    })\n    .Distinct()\n    .OrderByDescending(r => r.PlayerId)\n    .ThenBy(r => r.OrderId)\n    .ThenBy(r => r.ItemId)\n    .Skip(3)\n    .Skip(6)\n    .Take(7)\n    .Skip(4)\n    .Select(r => new\n    {\n        ItemId = r.ItemId,\n        ItemType = r.ItemType,\n        PlayerId = r.PlayerId\n    })\n    .OrderBy(r => r.ItemId)\n    .ThenBy(r => r.ItemType)\n    .ThenBy(r => r.PlayerId);"
+        "linq": "var result = orders\n    .GroupJoin(\n        items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, its) => new { o, its })\n    .SelectMany(\n        x => x.its.DefaultIfEmpty(),\n        (x, it) => new { x.o, it })\n    .Where(r => r.it != null && r.it.Quantity >= minQuantity)\n    .Select(r => new\n    {\n        OrderId = r.o.Id,\n        ItemId = r.it.Id,\n        ItemType = r.it.ItemType,\n        PlayerId = r.o.PlayerId\n    })\n    .Distinct()\n    .OrderByDescending(r => r.PlayerId)\n    .ThenBy(r => r.OrderId)\n    .ThenBy(r => r.ItemId)\n    .Skip(3)\n    .Skip(6)\n    .Take(7)\n    .Skip(4)\n    .Select(r => new\n    {\n        ItemId = r.ItemId,\n        ItemType = r.ItemType,\n        PlayerId = r.PlayerId\n    })\n    .OrderBy(r => r.ItemId)\n    .ThenBy(r => r.ItemType)\n    .ThenBy(r => r.PlayerId);",
+        "linqNs": "122 ms",
+        "linqAlloc": "147.9 MB",
+        "linqVsCdb": "189,199\u00d7",
+        "linqVsSqlite": "1.5\u00d7 faster"
       },
       {
         "q": "Q63_DistinctQuestRewardCurrencies",
@@ -806,7 +1002,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from PlayerQuest pq\n            | filter pq.PlayerId == @playerId\n            | join Quest q (pq.QuestId == q.Id)\n            | select { PlayerId = pq.PlayerId, RewardCurrency = q.RewardCurrency, QuestType = q.QuestType }\n            | distinct\n            | sort RewardCurrency, QuestType\n            | take @limit",
         "sql": "SELECT DISTINCT pq.PlayerId,\n       q.RewardCurrency,\n       q.QuestType\nFROM PlayerQuests pq\nINNER JOIN Quests q ON pq.QuestId = q.Id\nWHERE pq.PlayerId = $playerId\nORDER BY q.RewardCurrency ASC, q.QuestType ASC\nLIMIT $limit",
         "summary": "Distinct (player, reward currency, quest type) triples for a player's quests, sorted by currency then type, capped.",
-        "linq": "var result = playerQuests\n    .Where(pq => pq.PlayerId == playerId)\n    .Join(quests,\n        pq => pq.QuestId,\n        q => q.Id,\n        (pq, q) => new\n        {\n            PlayerId = pq.PlayerId,\n            RewardCurrency = q.RewardCurrency,\n            QuestType = q.QuestType\n        })\n    .Distinct()\n    .OrderBy(x => x.RewardCurrency)\n    .ThenBy(x => x.QuestType)\n    .Take(limit);"
+        "linq": "var result = playerQuests\n    .Where(pq => pq.PlayerId == playerId)\n    .Join(quests,\n        pq => pq.QuestId,\n        q => q.Id,\n        (pq, q) => new\n        {\n            PlayerId = pq.PlayerId,\n            RewardCurrency = q.RewardCurrency,\n            QuestType = q.QuestType\n        })\n    .Distinct()\n    .OrderBy(x => x.RewardCurrency)\n    .ThenBy(x => x.QuestType)\n    .Take(limit);",
+        "linqNs": "622 \u00b5s",
+        "linqAlloc": "82.1 KB",
+        "linqVsCdb": "7,854\u00d7",
+        "linqVsSqlite": "143\u00d7 slower"
       },
       {
         "q": "Q65_TopDistinctOrderBucketsForActivePlayers",
@@ -820,7 +1020,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | join Player p (o.PlayerId == p.Id)\n            | filter p.IsActive == true\n            | derive { AmountBucket = o.Amount / 1000 }\n            | select { Level = p.Level, AmountBucket, Status = o.Status }\n            | distinct\n            | sort -AmountBucket, Level, Status\n            | take @limit",
         "sql": "SELECT DISTINCT p.Level,\n       (o.Amount / 1000) AS AmountBucket,\n       o.Status\nFROM Orders o\nINNER JOIN Players p ON o.PlayerId = p.Id\nWHERE p.IsActive = 1\nORDER BY AmountBucket DESC, p.Level ASC, o.Status ASC\nLIMIT $limit",
         "summary": "Distinct (level, order-amount-bucket, status) rows for active players, biggest buckets first, capped to a limit.",
-        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.IsActive == true)\n    .Select(x => new\n    {\n        Level = x.p.Level,\n        AmountBucket = x.o.Amount / 1000,\n        Status = x.o.Status\n    })\n    .Distinct()\n    .OrderByDescending(r => r.AmountBucket)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit);"
+        "linq": "var result = orders\n    .Join(players,\n        o => o.PlayerId,\n        p => p.Id,\n        (o, p) => new { o, p })\n    .Where(x => x.p.IsActive == true)\n    .Select(x => new\n    {\n        Level = x.p.Level,\n        AmountBucket = x.o.Amount / 1000,\n        Status = x.o.Status\n    })\n    .Distinct()\n    .OrderByDescending(r => r.AmountBucket)\n    .ThenBy(r => r.Level)\n    .ThenBy(r => r.Status)\n    .Take(limit);",
+        "linqNs": "18.4 ms",
+        "linqAlloc": "21.8 MB",
+        "linqVsCdb": "53\u00d7",
+        "linqVsSqlite": "1.4\u00d7 faster"
       }
     ]
   },
@@ -842,7 +1046,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | derive { AmountBucket = o.Amount / 1000 }\n            | filter o.PlayerId >= @minPlayerId\n            | sort o.PlayerId, o.Id\n            | select { AmountBucket, Id = o.Id, PlayerId = o.PlayerId }\n            | sort AmountBucket, Id, PlayerId",
         "sql": "SELECT (Amount / 1000) AS AmountBucket,\n       Id,\n       PlayerId\nFROM (\n    SELECT o.Id,\n           o.PlayerId,\n           o.Amount\n    FROM Orders o\n    WHERE o.PlayerId >= $minPlayerId\n    ORDER BY o.PlayerId ASC, o.Id ASC\n)\nORDER BY AmountBucket ASC, Id ASC, PlayerId ASC",
         "summary": "Orders with player id at or above a minimum, each tagged with its amount-per-1000 bucket, ordered by bucket then id then player.",
-        "linq": "var result = orders\n    .Where(o => o.PlayerId >= minPlayerId)\n    .OrderBy(o => o.PlayerId)\n    .ThenBy(o => o.Id)\n    .Select(o => new\n    {\n        AmountBucket = o.Amount / 1000,\n        Id = o.Id,\n        PlayerId = o.PlayerId\n    })\n    .OrderBy(x => x.AmountBucket)\n    .ThenBy(x => x.Id)\n    .ThenBy(x => x.PlayerId);"
+        "linq": "var result = orders\n    .Where(o => o.PlayerId >= minPlayerId)\n    .OrderBy(o => o.PlayerId)\n    .ThenBy(o => o.Id)\n    .Select(o => new\n    {\n        AmountBucket = o.Amount / 1000,\n        Id = o.Id,\n        PlayerId = o.PlayerId\n    })\n    .OrderBy(x => x.AmountBucket)\n    .ThenBy(x => x.Id)\n    .ThenBy(x => x.PlayerId);",
+        "linqNs": "25.9 ms",
+        "linqAlloc": "17.2 MB",
+        "linqVsCdb": "49\u00d7",
+        "linqVsSqlite": "1.6\u00d7 faster"
       },
       {
         "q": "Q50_TopOrderAmountSliceResorted",
@@ -856,7 +1064,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | sort -o.Amount, o.Id\n            | skip 6\n            | take 6\n            | select o.Amount as Amount, o.Amount as AmountAgain, o.Id as Id\n            | sort Amount, AmountAgain, Id",
         "sql": "SELECT Amount,\n       Amount AS AmountAgain,\n       Id\nFROM (\n    SELECT o.Amount,\n           o.Id,\n           ROW_NUMBER() OVER (ORDER BY o.Amount DESC, o.Id ASC) AS Rn\n    FROM Orders o\n)\nWHERE Rn > $skip\n  AND Rn <= $take\nORDER BY Amount ASC, AmountAgain ASC, Id ASC",
         "summary": "Returns the 7th-12th largest orders by amount, re-sorted ascending, as (Amount, AmountAgain, Id).",
-        "linq": "var result = orders\n    .OrderByDescending(o => o.Amount)\n    .ThenBy(o => o.Id)\n    .Skip(6)\n    .Take(6)\n    .Select(o => new\n    {\n        Amount = o.Amount,\n        AmountAgain = o.Amount,\n        Id = o.Id\n    })\n    .OrderBy(x => x.Amount)\n    .ThenBy(x => x.AmountAgain)\n    .ThenBy(x => x.Id);"
+        "linq": "var result = orders\n    .OrderByDescending(o => o.Amount)\n    .ThenBy(o => o.Id)\n    .Skip(6)\n    .Take(6)\n    .Select(o => new\n    {\n        Amount = o.Amount,\n        AmountAgain = o.Amount,\n        Id = o.Id\n    })\n    .OrderBy(x => x.Amount)\n    .ThenBy(x => x.AmountAgain)\n    .ThenBy(x => x.Id);",
+        "linqNs": "2.03 ms",
+        "linqAlloc": "5.7 MB",
+        "linqVsCdb": "10,241\u00d7",
+        "linqVsSqlite": "21\u00d7 faster"
       },
       {
         "q": "Q55_ProductInventoryCatalogPage",
@@ -870,7 +1082,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Product p\n            | filter p.Id > @minProductId\n            | sort p.Id, p.Stock\n            | skip 10\n            | take 20\n            | join Inventory inv (inv.ProductId == p.Id)\n            | filter inv.Id > @minInventoryId\n            | filter inv.LastUpdated <= @maxLastUpdated\n            | select { CategoryId = p.CategoryId, Id = p.Id, Stock = p.Stock }\n            | sort Id, Stock",
         "sql": "SELECT p.CategoryId AS CategoryId,\n       p.Id AS Id,\n       p.Stock AS Stock\nFROM (\n    SELECT CategoryId, Id, Stock\n    FROM Products\n    WHERE Id > $minProductId\n    ORDER BY Id ASC, Stock ASC\n    LIMIT $take OFFSET $skip\n) p\nINNER JOIN Inventory inv ON inv.ProductId = p.Id\nWHERE inv.Id > $minInventoryId\n  AND inv.LastUpdated <= $maxLastUpdated\nORDER BY Id ASC, Stock ASC\n",
         "summary": "A page of products (sorted, offset 10, 20 rows) joined to their inventory rows, filtered and re-sorted.",
-        "linq": "var page = products\n    .Where(p => p.Id > minProductId)\n    .OrderBy(p => p.Id)\n    .ThenBy(p => p.Stock)\n    .Skip(10)\n    .Take(20);\n\nvar result = page\n    .Join(inventory,\n        p => p.Id,\n        inv => inv.ProductId,\n        (p, inv) => new { p, inv })\n    .Where(x => x.inv.Id > minInventoryId)\n    .Where(x => x.inv.LastUpdated <= maxLastUpdated)\n    .Select(x => new\n    {\n        CategoryId = x.p.CategoryId,\n        Id = x.p.Id,\n        Stock = x.p.Stock\n    })\n    .OrderBy(r => r.Id)\n    .ThenBy(r => r.Stock);"
+        "linq": "var page = products\n    .Where(p => p.Id > minProductId)\n    .OrderBy(p => p.Id)\n    .ThenBy(p => p.Stock)\n    .Skip(10)\n    .Take(20);\n\nvar result = page\n    .Join(inventory,\n        p => p.Id,\n        inv => inv.ProductId,\n        (p, inv) => new { p, inv })\n    .Where(x => x.inv.Id > minInventoryId)\n    .Where(x => x.inv.LastUpdated <= maxLastUpdated)\n    .Select(x => new\n    {\n        CategoryId = x.p.CategoryId,\n        Id = x.p.Id,\n        Stock = x.p.Stock\n    })\n    .OrderBy(r => r.Id)\n    .ThenBy(r => r.Stock);",
+        "linqNs": "1.02 ms",
+        "linqAlloc": "5.9 MB",
+        "linqVsCdb": "6,768\u00d7",
+        "linqVsSqlite": "71\u00d7 slower"
       },
       {
         "q": "Q57_PlayerWalletRecentDeltas",
@@ -884,7 +1100,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from WalletTransaction wt\n            | filter wt.PlayerId == @playerId && wt.Currency == @currency && wt.CreatedAt >= @since\n            | sort -wt.CreatedAt, -wt.Id\n            | take @limit\n            | select {\n                Id = wt.Id,\n                PlayerId = wt.PlayerId,\n                Currency = wt.Currency,\n                Delta = wt.Delta,\n                Reason = wt.Reason,\n                CreatedAt = wt.CreatedAt,\n                Balance = (from WalletTransaction bal | filter bal.PlayerId == wt.PlayerId && bal.Currency == @currency | select sum(bal.Delta))\n            }",
         "sql": "SELECT wt.Id,\n       wt.PlayerId,\n       wt.Currency,\n       wt.Delta,\n       wt.Reason,\n       wt.CreatedAt,\n       (\n           SELECT SUM(bal.Delta)\n           FROM WalletTransactions bal\n           WHERE bal.PlayerId = wt.PlayerId\n             AND bal.Currency = $currency\n       ) AS Balance\nFROM WalletTransactions wt\nWHERE wt.PlayerId = $playerId\n  AND wt.Currency = $currency\n  AND wt.CreatedAt >= $since\nORDER BY wt.CreatedAt DESC, wt.Id DESC\nLIMIT $limit",
         "summary": "A player's most recent wallet transactions for one currency since a date, newest first, each with the running balance.",
-        "linq": "var result = wallet\n    .Where(wt => wt.PlayerId == playerId && wt.Currency == currency && wt.CreatedAt >= since)\n    .OrderByDescending(wt => wt.CreatedAt)\n    .ThenByDescending(wt => wt.Id)\n    .Take(limit)\n    .Select(wt => new\n    {\n        Id = wt.Id,\n        PlayerId = wt.PlayerId,\n        Currency = wt.Currency,\n        Delta = wt.Delta,\n        Reason = wt.Reason,\n        CreatedAt = wt.CreatedAt,\n        Balance = wallet\n            .Where(bal => bal.PlayerId == wt.PlayerId && bal.Currency == currency)\n            .Sum(bal => bal.Delta)\n    })\n    .ToList();"
+        "linq": "var result = wallet\n    .Where(wt => wt.PlayerId == playerId && wt.Currency == currency && wt.CreatedAt >= since)\n    .OrderByDescending(wt => wt.CreatedAt)\n    .ThenByDescending(wt => wt.Id)\n    .Take(limit)\n    .Select(wt => new\n    {\n        Id = wt.Id,\n        PlayerId = wt.PlayerId,\n        Currency = wt.Currency,\n        Delta = wt.Delta,\n        Reason = wt.Reason,\n        CreatedAt = wt.CreatedAt,\n        Balance = wallet\n            .Where(bal => bal.PlayerId == wt.PlayerId && bal.Currency == currency)\n            .Sum(bal => bal.Delta)\n    })\n    .ToList();",
+        "linqNs": "1.15 ms",
+        "linqAlloc": "1.8 KB",
+        "linqVsCdb": "89,945\u00d7",
+        "linqVsSqlite": "631\u00d7 slower"
       },
       {
         "q": "Q64_PlayerTopOrdersPageThenItems",
@@ -898,7 +1118,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "dsl": "from Order o\n            | filter o.PlayerId == @playerId\n            | sort -o.Amount, -o.Id\n            | take @limit\n            | join Item it (o.PlayerId == it.PlayerId)\n            | filter it.ItemType == \"Weapon\"\n            | derive { PageItemScore = it.Quantity * it.Rarity }\n            | sort -o.Amount, -PageItemScore, o.Id, it.Id\n            | select { OrderId = o.Id, ItemId = it.Id, Amount = o.Amount, ItemScore = PageItemScore }",
         "sql": "WITH top_orders AS (\n    SELECT Id,\n           PlayerId,\n           Amount\n    FROM Orders\n    WHERE PlayerId = $playerId\n    ORDER BY Amount DESC, Id DESC\n    LIMIT $limit\n)\nSELECT o.Id AS OrderId,\n       it.Id AS ItemId,\n       o.Amount,\n       (it.Quantity * it.Rarity) AS ItemScore\nFROM top_orders o\nINNER JOIN Items it ON it.PlayerId = o.PlayerId\nWHERE it.ItemType = 'Weapon'\nORDER BY o.Amount DESC, ItemScore DESC, o.Id ASC, it.Id ASC",
         "summary": "For one player's top orders by amount, lists each order paired with its Weapon items and item scores.",
-        "linq": "var topOrders = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Take(limit);\n\nvar result = topOrders\n    .Join(items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .Where(x => x.it.ItemType == \"Weapon\")\n    .Select(x => new { x.o, x.it, PageItemScore = x.it.Quantity * x.it.Rarity })\n    .OrderByDescending(x => x.o.Amount)\n    .ThenByDescending(x => x.PageItemScore)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Select(x => new\n    {\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        Amount = x.o.Amount,\n        ItemScore = x.PageItemScore\n    });"
+        "linq": "var topOrders = orders\n    .Where(o => o.PlayerId == playerId)\n    .OrderByDescending(o => o.Amount)\n    .ThenByDescending(o => o.Id)\n    .Take(limit);\n\nvar result = topOrders\n    .Join(items,\n        o => o.PlayerId,\n        it => it.PlayerId,\n        (o, it) => new { o, it })\n    .Where(x => x.it.ItemType == \"Weapon\")\n    .Select(x => new { x.o, x.it, PageItemScore = x.it.Quantity * x.it.Rarity })\n    .OrderByDescending(x => x.o.Amount)\n    .ThenByDescending(x => x.PageItemScore)\n    .ThenBy(x => x.o.Id)\n    .ThenBy(x => x.it.Id)\n    .Select(x => new\n    {\n        OrderId = x.o.Id,\n        ItemId = x.it.Id,\n        Amount = x.o.Amount,\n        ItemScore = x.PageItemScore\n    });",
+        "linqNs": "16.5 ms",
+        "linqAlloc": "21.4 MB",
+        "linqVsCdb": "268,838\u00d7",
+        "linqVsSqlite": "4,611\u00d7 slower"
       }
     ]
   },
@@ -921,7 +1145,11 @@ export const BENCH_GROUPS: BenchGroup[] = [
         "sql": "SELECT CategoryId,\n       Id,\n       Stock\nFROM (\n    SELECT p.CategoryId AS CategoryId,\n           p.Id AS Id,\n           p.Stock AS Stock,\n           p.Name AS Name,\n           inv.Id AS InventoryId,\n           inv.LastUpdated AS LastUpdated,\n           (p.CategoryId * 2) AS CategoryTwice,\n           (p.Stock + 1) AS StockPlusOne\n    FROM Products p\n    LEFT JOIN Inventory inv ON inv.Quantity = p.CategoryId\n    WHERE p.Id > $minProductId\n      AND inv.Id > $minInventoryId\n    ORDER BY p.Name ASC, p.Id ASC, inv.Id ASC\n)\nWHERE LastUpdated <= $maxLastUpdated\nORDER BY CategoryId ASC, Id ASC, Stock ASC",
         "summary": "Lists CategoryId, Id and Stock of products matched to inventory by quantity, filtered by id and update time, sorted.",
         "linq": "var result = products\n    .GroupJoin(\n        inventory,\n        p => p.CategoryId,\n        inv => inv.Quantity,\n        (p, invs) => new { p, invs })\n    .SelectMany(\n        x => x.invs.Select(i => (Inventory?)i).DefaultIfEmpty(),\n        (x, inv) => new { x.p, inv })\n    .Where(x => x.p.Id > minProductId)\n    .Where(x => x.inv.HasValue && x.inv.Value.Id > minInventoryId)\n    .OrderBy(x => x.p.Name)\n    .ThenBy(x => x.p.Id)\n    .ThenBy(x => x.inv!.Value.Id)\n    .Where(x => x.inv!.Value.LastUpdated <= maxLastUpdated)\n    .Select(x => new\n    {\n        CategoryId = x.p.CategoryId,\n        Id = x.p.Id,\n        Stock = x.p.Stock\n    })\n    .OrderBy(r => r.CategoryId)\n    .ThenBy(r => r.Id)\n    .ThenBy(r => r.Stock);",
-        "linqNote": "Inventory is a record struct, so the LEFT JOIN's right side is modeled as Inventory? (DefaultIfEmpty over a nullable projection) to honor SQL NULL semantics: unmatched rows fail the inv.Id and inv.LastUpdated filters, matching the benchmarked SQL."
+        "linqNote": "Inventory is a record struct, so the LEFT JOIN's right side is modeled as Inventory? (DefaultIfEmpty over a nullable projection) to honor SQL NULL semantics: unmatched rows fail the inv.Id and inv.LastUpdated filters, matching the benchmarked SQL.",
+        "linqNs": "56.0 ms",
+        "linqAlloc": "33.8 MB",
+        "linqVsCdb": "235\u00d7",
+        "linqVsSqlite": "2.8\u00d7 slower"
       }
     ]
   }

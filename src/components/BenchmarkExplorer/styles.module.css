@@ -181,6 +181,35 @@
   max-width: 68ch;
 }
 
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  align-items: baseline;
+  margin: 0 0 0.7rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 9px;
+  background: var(--cdb-surface-2);
+}
+.metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.metricLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cdb-muted);
+}
+.metricVal {
+  font-family: var(--cdb-mono);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cdb-ink);
+}
+
 .formTabs {
   display: inline-flex;
   gap: 0.25rem;

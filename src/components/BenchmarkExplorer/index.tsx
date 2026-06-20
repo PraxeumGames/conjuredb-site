@@ -9,6 +9,44 @@ const FORMS: {key: FormKey; label: string; lang: string}[] = [
   {key: 'sql', label: 'SQLite SQL', lang: 'sql'},
 ];
 
+function Metric({label, value, accent}: {label: string; value: string; accent?: boolean}): ReactNode {
+  return (
+    <span className={styles.metric}>
+      <span className={styles.metricLabel}>{label}</span>
+      <span className={accent ? `${styles.metricVal} ${styles.win}` : styles.metricVal}>{value}</span>
+    </span>
+  );
+}
+
+function FormMetrics({row, form}: {row: BenchRow; form: FormKey}): ReactNode {
+  if (form === 'dsl') {
+    return (
+      <div className={styles.metrics}>
+        <Metric label="ConjureDB" value={row.cdb} accent />
+        <Metric label="alloc" value={row.alloc} />
+        {row.x && <Metric label="vs SQLite" value={row.x} />}
+      </div>
+    );
+  }
+  if (form === 'sql') {
+    return (
+      <div className={styles.metrics}>
+        <Metric label="SQLite" value={row.sqlite} />
+      </div>
+    );
+  }
+  // LINQ — measured separately on the same dataset; show its real cost.
+  if (!row.linqNs) return null;
+  return (
+    <div className={styles.metrics}>
+      <Metric label="LINQ" value={row.linqNs} />
+      {row.linqAlloc && <Metric label="alloc" value={row.linqAlloc} />}
+      {row.linqVsCdb && <Metric label="ConjureDB faster by" value={row.linqVsCdb} accent />}
+      {row.linqVsSqlite && <Metric label="vs SQLite" value={row.linqVsSqlite} />}
+    </div>
+  );
+}
+
 function CaseDetail({row}: {row: BenchRow}): ReactNode {
   // Default to LINQ — the relatable baseline for a game/Unity dev.
   const available = FORMS.filter((f) => row[f.key]);
@@ -33,6 +71,7 @@ function CaseDetail({row}: {row: BenchRow}): ReactNode {
           </button>
         ))}
       </div>
+      <FormMetrics row={row} form={active.key} />
       <pre className={styles.code} data-lang={active.lang}>
         <code>{row[active.key]}</code>
       </pre>
@@ -41,8 +80,9 @@ function CaseDetail({row}: {row: BenchRow}): ReactNode {
       )}
       {active.key === 'linq' && (
         <p className={styles.disclaimer}>
-          Illustrative hand-written equivalent over plain <code>List&lt;T&gt;</code> — shown for
-          readability, not separately benchmarked.
+          Hand-written equivalent over plain <code>List&lt;T&gt;</code>, no indexes. Measured on the
+          identical dataset and query parameters as the ConjureDB/SQLite figures (single machine,
+          in-process timing). The naive version a developer reaches for first — which is the point.
         </p>
       )}
     </div>
