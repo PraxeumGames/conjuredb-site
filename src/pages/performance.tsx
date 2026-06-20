@@ -75,11 +75,17 @@ function Why(): ReactNode {
 }
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
+// Measured on this machine via the DictBaselineRunner harness (50,000 records,
+// Dictionary<int,SimpleRecord> value-type baseline, in-process warmup + median).
 const VS_DICT: Row[] = [
-  {q: 'Search', what: 'Lookup over 50k items', sqlite: '698 µs', cdb: '54 µs', x: '12.85×'},
-  {q: 'Add (batched)', what: 'Insert 50k in a transaction', sqlite: '608 µs', cdb: '178 µs', x: '3.41×'},
-  {q: 'Iterate', what: 'Scan all 50k', sqlite: '80 µs', cdb: '66 µs', x: '1.21×'},
-  {q: 'Remove', what: 'Delete pass', sqlite: '113 µs', cdb: '235 µs', x: '2.1× slower'},
+  {q: 'Search', what: 'Look up 50k items by id', sqlite: '1.17 ms', cdb: '50 µs', x: '23× faster'},
+  {q: 'Iterate', what: 'Scan all 50k — contiguous span vs bucket walk', sqlite: '46.5 µs', cdb: '32.7 µs', x: '1.4× faster'},
+  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '722 µs', cdb: '733 µs', x: '≈ parity'},
+  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '722 µs', cdb: '23.6 ms', x: '33× slower'},
+  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '722 µs', cdb: '70.2 ms', x: '97× slower'},
+  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '140 µs', cdb: '579 µs', x: '4.1× slower'},
+  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '140 µs', cdb: '5.93 ms', x: '42× slower'},
+  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '140 µs', cdb: '45.4 ms', x: '324× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -175,7 +181,7 @@ function VsDict(): ReactNode {
         <div className={styles.dictCard}>
           <Table
             title="vs a plain Dictionary — raw collection ops"
-            head="50,000 items. Reads are aggressively optimized; the delete pass is slower because the engine maintains an index snapshot, a write-ahead journal and change tracking the Dictionary does not."
+            head="50,000 items. Reads beat a Dictionary outright — lookups 23× faster, and iteration is a flat contiguous-array scan that edges out a Dictionary's bucket walk. Writes are where the trade shows: every commit is a durability boundary (write-ahead journal + index snapshot a Dictionary skips), so batch them. A batched insert matches a plain Dictionary; commit once per row and you pay ~100×."
             rows={VS_DICT}
             baseline="Dictionary"
           />
