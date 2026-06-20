@@ -1,0 +1,107 @@
+/**
+ * ConjureDB theme. Infima provides the base; we override the palette and add a
+ * few global helpers used by the marketing pages. Page-specific layout lives in
+ * CSS modules next to each page/component.
+ */
+
+:root {
+  /* Brand: a "conjuring" teal with a violet accent. */
+  --ifm-color-primary: #0d9488;
+  --ifm-color-primary-dark: #0c857a;
+  --ifm-color-primary-darker: #0b7d73;
+  --ifm-color-primary-darkest: #09675f;
+  --ifm-color-primary-light: #0ea396;
+  --ifm-color-primary-lighter: #0fab9d;
+  --ifm-color-primary-lightest: #14c2b2;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --docusaurus-highlighted-code-line-bg: rgba(13, 148, 136, 0.12);
+
+  /* Marketing tokens (shared by page modules). */
+  --cdb-accent: #7c9bff;
+  --cdb-ink: #0b0e14;
+  --cdb-muted: #5b6b80;
+  --cdb-line: #e2e8f0;
+  --cdb-surface: #f8fafc;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #2dd4bf;
+  --ifm-color-primary-dark: #21c9b3;
+  --ifm-color-primary-darker: #1fbfaa;
+  --ifm-color-primary-darkest: #199c8b;
+  --ifm-color-primary-light: #45dac8;
+  --ifm-color-primary-lighter: #52ddcc;
+  --ifm-color-primary-lightest: #79e6d8;
+
+  --ifm-background-color: #0b0e14;
+  --ifm-background-surface-color: #11161f;
+  --docusaurus-highlighted-code-line-bg: rgba(45, 212, 191, 0.16);
+
+  --cdb-accent: #93abff;
+  --cdb-ink: #e6edf3;
+  --cdb-muted: #9aa7b8;
+  --cdb-line: #1f2937;
+  --cdb-surface: #11161f;
+}
+
+.navbar {
+  backdrop-filter: saturate(140%) blur(8px);
+}
+
+/* Shared marketing helpers ------------------------------------------------ */
+
+.cdb-section {
+  padding: 5rem 0;
+}
+.cdb-section--tight {
+  padding: 3.5rem 0;
+}
+.cdb-kicker {
+  color: var(--ifm-color-primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cdb-h2 {
+  font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0.4rem 0 0.8rem;
+}
+.cdb-lead {
+  color: var(--cdb-muted);
+  font-size: 1.1rem;
+  max-width: 46rem;
+}
+.cdb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.1rem;
+}
+@media (max-width: 996px) {
+  .cdb-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.cdb-card {
+  background: var(--cdb-surface);
+  border: 1px solid var(--cdb-line);
+  border-radius: 14px;
+  padding: 1.4rem;
+}
+.cdb-card h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.4rem;
+}
+.cdb-card p {
+  color: var(--cdb-muted);
+  margin: 0;
+  font-size: 0.96rem;
+}
+.cdb-center {
+  text-align: center;
+}
