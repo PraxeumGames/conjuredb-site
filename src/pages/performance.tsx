@@ -11,13 +11,37 @@ function Header(): ReactNode {
         <h1 className={styles.pageTitle}>Fast because of what it doesn't do</h1>
         <p className={styles.pageLead}>
           ConjureDB is fast for structural reasons, not tricks: compilation removes runtime
-          parsing, planning and reflection; declared indexes turn table scans into O(1) or
-          O(log n) lookups; hot paths allocate nothing; and reactive views apply deltas
-          instead of recomputing. The numbers below follow from that — and we tell you
-          exactly how they were measured.
+          parsing, planning and reflection; declared indexes turn the lists you'd loop over
+          every frame into O(1) or O(log n) lookups; hot paths allocate nothing, so no GC
+          churn; and reactive views apply deltas instead of recomputing. The numbers below
+          follow from that — and we tell you exactly how they were measured.
         </p>
       </div>
     </header>
+  );
+}
+
+const PERF_STATS: {n: string; l: string}[] = [
+  {n: '20 / 20', l: 'queries ≥50× vs SQLite'},
+  {n: '108×', l: 'PK lookup'},
+  {n: '662×', l: 'leaderboard top-N'},
+  {n: '0', l: 'queries slower than SQLite'},
+];
+
+function PerfStats(): ReactNode {
+  return (
+    <section className="cdb-section cdb-section--tight">
+      <div className="container">
+        <div className="cdb-stats">
+          {PERF_STATS.map((s) => (
+            <div className="cdb-stat" key={s.l}>
+              <b>{s.n}</b>
+              <span>{s.l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -163,6 +187,7 @@ export default function Performance(): ReactNode {
       description="ConjureDB is fast for structural reasons: compiled queries, declared indexes, zero-allocation paths and delta-based reactive maintenance. Honest, methodology-first benchmarks vs SQLite and a plain Dictionary.">
       <Header />
       <main>
+        <PerfStats />
         <Why />
         <Numbers />
         <Cta />

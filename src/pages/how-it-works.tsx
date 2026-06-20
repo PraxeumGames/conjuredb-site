@@ -8,39 +8,32 @@ import styles from './marketing.module.css';
 function Header(): ReactNode {
   return (
     <header className={styles.pageHead}>
-      <div className="container">
-        <span className="cdb-kicker">How it works</span>
-        <h1 className={styles.pageTitle}>Compile, don't interpret</h1>
-        <p className={styles.pageLead}>
-          A compiler is just a translator: it does at build time, mechanically and the same
-          way every time, what you'd otherwise do badly by hand at runtime. ConjureDB treats
-          the client data layer as a compiled program — parsed, bound, optimized, planned,
-          validated and emitted before it ever reaches a player's device.
-        </p>
-      </div>
-    </header>
-  );
-}
-
-function Translate(): ReactNode {
-  return (
-    <section className="cdb-section">
-      <div className="container">
-        <span className="cdb-kicker">From description to code</span>
-        <h2 className="cdb-h2">You describe the <em>what</em>. The compiler writes the <em>how</em>.</h2>
-        <p className="cdb-lead">
-          A declared query is a description of a result. ConjureDB turns it into the C#
-          method you would have written by hand — generated correctly, identically, every
-          build.
-        </p>
-        <div style={{maxWidth: '44rem', marginTop: '1.6rem'}}>
+      <div className={`container ${styles.splitHead}`}>
+        <div>
+          <span className="cdb-kicker">How it works</span>
+          <h1 className={styles.pageTitle}>Compile, don't interpret</h1>
+          <p className={styles.pageLead}>
+            You describe the result you want — a query. ConjureDB compiles it into the exact C#
+            method you'd have written by hand, the same way every build: parsed, optimized and
+            emitted before it ever reaches a player's device. Nothing is figured out at runtime.
+          </p>
+          <div className={styles.ctaRow} style={{marginTop: '1.6rem'}}>
+            <Link className="button button--primary button--lg" to="/docs/getting-started">
+              Start building
+            </Link>
+            <Link className="button button--secondary button--lg" to="/performance">
+              See performance
+            </Link>
+          </div>
+        </div>
+        <div>
           <CodeWindow tabs={HERO_TABS} />
-          <p style={{marginTop: '0.9rem', fontSize: '0.85rem', color: 'var(--cdb-muted)'}}>
-            Switch tabs: the same query, and the plain C# ConjureDB emits for it.
+          <p className={styles.codeCaption}>
+            Switch tabs: your query, and the plain C# ConjureDB emits for it.
           </p>
         </div>
       </div>
-    </section>
+    </header>
   );
 }
 
@@ -135,7 +128,6 @@ export default function HowItWorks(): ReactNode {
       description="ConjureDB compiles a declarative query DSL to zero-allocation C# through a five-stage pipeline: frontend, analysis, a Cascades cost-based optimizer, physical planning, and emission. Reactive views stay fresh with incremental view maintenance.">
       <Header />
       <main>
-        <Translate />
         <Pipeline />
         <Optimizer />
         <Ivm />

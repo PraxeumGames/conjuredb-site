@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -86,6 +87,7 @@ function Reframe(): ReactNode {
           compiler does once, correctly, what you'd otherwise do by hand, every frame,
           slightly wrong.
         </p>
+        <BuildPipeline />
       </div>
     </section>
   );
@@ -93,16 +95,20 @@ function Reframe(): ReactNode {
 
 const OUTCOMES: Item[] = [
   {
-    title: 'Player experience',
-    body: 'Correct, fresh screens — no stale offers, no impossible states, no refresh glitches — and durable saves, so progress survives crashes and restarts.',
+    title: 'Features that travel between games',
+    body: 'Behind a declarative schema, a feature owns its data on its own terms — not welded into one game\'s managers and presenters. Build a shop or inventory once and carry it into the next project.',
   },
   {
-    title: 'Developer velocity',
-    body: 'One home for data logic. Reusable queries written once and called from every screen. New features stop forcing an archaeology dig through hidden invalidation wiring.',
+    title: 'Fast without hand-optimizing',
+    body: 'A cost-based optimizer turns the lists you\'d loop over into index lookups, and picks the plan for you. You stop hand-tuning data code and the frame budget stops being the thing you fight.',
   },
   {
-    title: 'Reliability & confidence',
-    body: 'Refresh-order correctness is structural, not hand-wired. Unsupported reactive shapes are rejected at compile time, never silently degraded. Plans are inspectable.',
+    title: 'Screens that refresh themselves',
+    body: 'Incremental view maintenance keeps a view current by applying only what changed — no manual OnChanged wiring, no refresh-order bugs, no stale UI. Shapes it can\'t maintain are rejected at compile time, not silently degraded.',
+  },
+  {
+    title: 'It stays manageable as it grows',
+    body: 'One home for data logic instead of a tangle across scripts. The coupling that makes a growing game unmaintainable goes away — so the project stays workable from 3 systems to 30.',
   },
 ];
 
@@ -111,8 +117,8 @@ function Outcomes(): ReactNode {
     <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
       <div className="container">
         <span className="cdb-kicker">What it buys you</span>
-        <h2 className="cdb-h2">Outcomes, not features</h2>
-        <div className="cdb-grid" style={{marginTop: '1.6rem'}}>
+        <h2 className="cdb-h2">Four wins from one decision</h2>
+        <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '1.6rem'}}>
           {OUTCOMES.map((o) => (
             <div className="cdb-card" key={o.title}>
               <h3>{o.title}</h3>

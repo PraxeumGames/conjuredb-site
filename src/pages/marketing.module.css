@@ -1,21 +1,51 @@
 /* Shared styling for the standalone marketing pages (Why / How it works / Performance). */
 
 .pageHead {
-  padding: 4.5rem 0 2.5rem;
+  position: relative;
+  overflow: hidden;
+  padding: 4.5rem 0 2.8rem;
+  border-bottom: 1px solid var(--cdb-line);
   background:
-    radial-gradient(820px 380px at 85% -20%, rgba(124, 155, 255, 0.14), transparent 60%),
-    radial-gradient(640px 320px at 5% -10%, rgba(45, 212, 191, 0.12), transparent 55%);
+    radial-gradient(820px 380px at 85% -20%, rgba(68, 147, 248, 0.14), transparent 60%),
+    radial-gradient(640px 320px at 5% -10%, rgba(45, 212, 191, 0.13), transparent 55%);
+}
+.pageHead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(760px 460px at 50% 0%, black, transparent 75%);
+}
+
+/* Two-column hero (How it works): copy left, code window right. */
+.splitHead {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 1.1fr;
+  gap: 3rem;
+  align-items: center;
+}
+@media (max-width: 996px) {
+  .splitHead {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
 }
 
 .pageTitle {
-  font-size: clamp(2rem, 4.4vw, 3rem);
-  line-height: 1.08;
+  font-size: clamp(2.1rem, 4.6vw, 3.1rem);
+  line-height: 1.06;
   letter-spacing: -0.02em;
+  font-weight: 850;
   margin: 0.4rem 0 1rem;
 }
-
 .pageLead {
   font-size: clamp(1.05rem, 2vw, 1.2rem);
+  line-height: 1.65;
   color: var(--cdb-muted);
   max-width: 48rem;
 }
@@ -26,38 +56,10 @@
   flex-wrap: wrap;
 }
 
-/* Compiler pipeline (How it works) */
-.pipe {
-  display: flex;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  margin-top: 1.4rem;
-}
-.step {
-  flex: 1;
-  min-width: 8.5rem;
-  background: var(--cdb-surface);
-  border: 1px solid var(--cdb-line);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-.step b {
-  display: block;
-  font-size: 0.98rem;
-}
-.step small {
+.codeCaption {
+  margin: 0.9rem 0 0;
+  font-size: 0.84rem;
   color: var(--cdb-muted);
-}
-.arrow {
-  align-self: center;
-  color: var(--cdb-muted);
-  font-size: 1.2rem;
-}
-@media (max-width: 996px) {
-  .arrow {
-    display: none;
-  }
 }
 
 /* Performance table */
@@ -66,6 +68,7 @@
   overflow-x: auto;
   border: 1px solid var(--cdb-line);
   border-radius: 14px;
+  background: var(--cdb-surface-2);
 }
 .benchTable {
   width: 100%;
@@ -74,21 +77,28 @@
 }
 .benchTable th,
 .benchTable td {
-  padding: 0.8rem 1rem;
+  padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--cdb-line);
   text-align: left;
 }
 .benchTable th {
+  font-family: var(--cdb-mono);
   color: var(--cdb-muted);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.benchTable tbody tr:last-child td {
+  border-bottom: none;
+}
 .benchTable td.num {
   text-align: right;
+  font-family: var(--cdb-mono);
   font-variant-numeric: tabular-nums;
 }
 .win {
+  font-family: var(--cdb-mono);
   color: var(--ifm-color-primary);
   font-weight: 700;
 }
