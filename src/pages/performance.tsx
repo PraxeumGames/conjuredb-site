@@ -75,17 +75,17 @@ function Why(): ReactNode {
 }
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
-// Measured on this machine via the DictBaselineRunner harness (50,000 records,
-// Dictionary<int,SimpleRecord> value-type baseline, in-process warmup + median).
+// BenchmarkDotNet (InProcessEmitToolchain, .NET 8, 50,000 records, 4 warmup + 8 iterations).
+// Baseline = Dictionary<int,object> with preset capacity — the strongest, fairest dictionary.
 const VS_DICT: Row[] = [
-  {q: 'Search', what: 'Look up 50k items by id', sqlite: '1.17 ms', cdb: '50 µs', x: '23× faster'},
-  {q: 'Iterate', what: 'Scan all 50k — contiguous span vs bucket walk', sqlite: '46.5 µs', cdb: '32.7 µs', x: '1.4× faster'},
-  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '722 µs', cdb: '733 µs', x: '≈ parity'},
-  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '722 µs', cdb: '23.6 ms', x: '33× slower'},
-  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '722 µs', cdb: '70.2 ms', x: '97× slower'},
-  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '140 µs', cdb: '579 µs', x: '4.1× slower'},
-  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '140 µs', cdb: '5.93 ms', x: '42× slower'},
-  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '140 µs', cdb: '45.4 ms', x: '324× slower'},
+  {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '700 µs', cdb: '56.5 µs', x: '12× faster'},
+  {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '79.7 µs', cdb: '86.8 µs', x: '1.1× slower'},
+  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '258 µs', cdb: '806 µs', x: '3.1× slower'},
+  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '258 µs', cdb: '6.53 ms', x: '25× slower'},
+  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '258 µs', cdb: '50.1 ms', x: '194× slower'},
+  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '115 µs', cdb: '612 µs', x: '5.3× slower'},
+  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '115 µs', cdb: '6.66 ms', x: '58× slower'},
+  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '115 µs', cdb: '49.9 ms', x: '433× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -181,7 +181,7 @@ function VsDict(): ReactNode {
         <div className={styles.dictCard}>
           <Table
             title="vs a plain Dictionary — raw collection ops"
-            head="50,000 items. Reads beat a Dictionary outright — lookups 23× faster, and iteration is a flat contiguous-array scan that edges out a Dictionary's bucket walk. Writes are where the trade shows: every commit is a durability boundary (write-ahead journal + index snapshot a Dictionary skips), so batch them. A batched insert matches a plain Dictionary; commit once per row and you pay ~100×."
+            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no durability, no indexes, no change tracking. ConjureDB still wins lookups 12× (a dense-id index is a direct array hit, not a hash probe) and stays level on a full scan. Writes are where that work shows: every commit flushes a write-ahead journal and snapshots the index, so a batched insert costs ~3× a raw Dictionary — and committing once per row costs ~200×. Batch your writes."
             rows={VS_DICT}
             baseline="Dictionary"
           />
