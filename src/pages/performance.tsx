@@ -75,17 +75,18 @@ function Why(): ReactNode {
 }
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
-// BenchmarkDotNet (InProcessEmitToolchain, .NET 8, 50,000 records, 4 warmup + 8 iterations).
-// Baseline = Dictionary<int,object> with preset capacity — the strongest, fairest dictionary.
+// BenchmarkDotNet (.NET 8, 50,000 records, 4 warmup + 8 iterations). Baseline = Dictionary<int,object>
+// with preset capacity — the strongest, fairest dictionary. ConjureDB numbers are post-optimization:
+// a redundant per-commit index copy for index-free sets was removed (validated by the full test suite).
 const VS_DICT: Row[] = [
-  {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '700 µs', cdb: '56.5 µs', x: '12× faster'},
-  {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '79.7 µs', cdb: '86.8 µs', x: '1.1× slower'},
-  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '258 µs', cdb: '806 µs', x: '3.1× slower'},
-  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '258 µs', cdb: '6.53 ms', x: '25× slower'},
-  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '258 µs', cdb: '50.1 ms', x: '194× slower'},
-  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '115 µs', cdb: '612 µs', x: '5.3× slower'},
-  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '115 µs', cdb: '6.66 ms', x: '58× slower'},
-  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '115 µs', cdb: '49.9 ms', x: '433× slower'},
+  {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '760 µs', cdb: '56 µs', x: '13× faster'},
+  {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '74.5 µs', cdb: '75.8 µs', x: '≈ parity'},
+  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '261 µs', cdb: '637 µs', x: '2.4× slower'},
+  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '261 µs', cdb: '6.59 ms', x: '25× slower'},
+  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '261 µs', cdb: '54.9 ms', x: '210× slower'},
+  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '114 µs', cdb: '567 µs', x: '5.0× slower'},
+  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '114 µs', cdb: '5.92 ms', x: '52× slower'},
+  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '114 µs', cdb: '52.9 ms', x: '464× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -181,7 +182,7 @@ function VsDict(): ReactNode {
         <div className={styles.dictCard}>
           <Table
             title="vs a plain Dictionary — raw collection ops"
-            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no durability, no indexes, no change tracking. ConjureDB still wins lookups 12× (a dense-id index is a direct array hit, not a hash probe) and stays level on a full scan. Writes are where that work shows: every commit flushes a write-ahead journal and snapshots the index, so a batched insert costs ~3× a raw Dictionary — and committing once per row costs ~200×. Batch your writes."
+            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no transactions, no indexes, no change tracking, no snapshot-isolated reads. ConjureDB still wins lookups 13× (a dense-id index is a direct array hit, not a hash probe) and runs level on a full scan. Writes are where that work shows: every commit is a transaction — validated, buffered, and applied through a worker so reads stay snapshot-consistent and rollback stays possible — so a batched insert costs ~2.4× a raw Dictionary, while committing once per row costs ~200×. Batch your writes."
             rows={VS_DICT}
             baseline="Dictionary"
           />
