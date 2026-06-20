@@ -1,37 +1,22 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
+import {CodeWindow, PLAN_TABS} from '@site/src/components/CodeWindow';
 import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
   return (
     <header className={styles.pageHead}>
-      <div className={`container ${styles.splitHead}`}>
-        <div>
-          <span className="cdb-kicker">How it works</span>
-          <h1 className={styles.pageTitle}>Compile, don't interpret</h1>
-          <p className={styles.pageLead}>
-            You describe the result you want — a query. ConjureDB compiles it into the exact C#
-            method you'd have written by hand, the same way every build: parsed, optimized and
-            emitted before it ever reaches a player's device. Nothing is figured out at runtime.
-          </p>
-          <div className={styles.ctaRow} style={{marginTop: '1.6rem'}}>
-            <Link className="button button--primary button--lg" to="/docs/getting-started">
-              Start building
-            </Link>
-            <Link className="button button--secondary button--lg" to="/performance">
-              See performance
-            </Link>
-          </div>
-        </div>
-        <div>
-          <CodeWindow tabs={HERO_TABS} />
-          <p className={styles.codeCaption}>
-            Switch tabs: your query, and the plain C# ConjureDB emits for it.
-          </p>
-        </div>
+      <div className="container">
+        <span className="cdb-kicker">How it works</span>
+        <h1 className={styles.pageTitle}>Compile, don't interpret</h1>
+        <p className={styles.pageLead}>
+          ConjureDB treats your client's data layer as a compiled program. A query is parsed,
+          bound, optimized, planned and emitted as plain C# before the build ever leaves your
+          machine — so there's no query parser, no planner and no reflection on the device.
+          Here's each step, with nothing hidden.
+        </p>
       </div>
     </header>
   );
@@ -67,6 +52,12 @@ function Optimizer(): ReactNode {
           choice is inspectable. The plan is output you can read; the strategy names are real
           and finite; nothing is hidden.
         </p>
+        <div style={{maxWidth: '42rem', marginTop: '1.6rem'}}>
+          <CodeWindow tabs={PLAN_TABS} />
+          <p className={styles.codeCaption}>
+            Ask for the plan and read what it picked — an index walk, bounded, no sort, no allocations.
+          </p>
+        </div>
       </div>
     </section>
   );

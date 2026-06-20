@@ -1,7 +1,6 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -87,7 +86,6 @@ function Reframe(): ReactNode {
           compiler does once, correctly, what you'd otherwise do by hand, every frame,
           slightly wrong.
         </p>
-        <BuildPipeline />
       </div>
     </section>
   );

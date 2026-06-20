@@ -63,6 +63,23 @@ export function CodeWindow({tabs}: {tabs: CodeTab[]}) {
   );
 }
 
+// How-it-works signature: the plan the optimizer chose, the way an EXPLAIN reads.
+export const PLAN_TABS: CodeTab[] = [
+  {
+    name: 'query plan',
+    lang: 'explain',
+    lines: [
+      <C># the plan ConjureDB chose for TopScorers — inspectable, not hidden</C>,
+      <>{' '}</>,
+      <><T>TopK</T> <V>k</V>=count <K>by</K> Score <K>desc</K>            <C>~O(count), bounded</C></>,
+      <>└─ <T>IndexScan</T> <V>PlayersByScore</V> (<K>desc</K>)</>,
+      <>{'     '}<K>where</K> Score &gt; min</>,
+      <>{'     '}stop-early <C>✓</C>   sort <C>none</C>   full-scan <C>no</C></>,
+      <>{'     '}allocations <N>0</N></>,
+    ],
+  },
+];
+
 // The hero's "compile" story: a .conjure source file and the plain C# it emits.
 export const HERO_TABS: CodeTab[] = [
   {

@@ -2,7 +2,6 @@ import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
-import {Pipeline} from '@site/src/components/Pipeline';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -125,7 +124,6 @@ function OneIdea(): ReactNode {
           one place, and generates the fast C# that used to sprawl across a dozen MonoBehaviours. You
           get clean, reusable systems, and the speed comes for free.
         </p>
-        <Pipeline />
       </div>
     </section>
   );
