@@ -104,8 +104,8 @@ The background thread responsible for deferred secondary index synchronization, 
 
 A generated materialized-view component that processes base-table Z-deltas
 (inserts, updates, deletes) and incrementally updates a materialized relation
-and its indexes. Z-set maintenance executes in O(changes) time rather than
-re-executing the query over the full dataset.
+and its indexes. It is the executable component that performs the O(changes)
+incremental update described under [IVM (Incremental View Maintenance)](#ivm-incremental-view-maintenance).
 
 **See also:** [Reactive Queries](/docs/advanced/reactive-queries)
 

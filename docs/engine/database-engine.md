@@ -836,7 +836,7 @@ Monitor via `context.WorkerHealth` property and `context.WorkerHealthChanged` ev
 
 ## Reactive Queries
 
-`ReactiveQuery<TResult>` provides auto-maintaining query results with incremental view maintenance (IVM).
+`ReactiveQuery<TResult>` exposes auto-maintaining query results. For the IVM model (applying only the per-commit delta, O(changes) instead of O(N) re-execution), see [Reactive Queries](/docs/advanced/reactive-queries#the-ivm-solution).
 Reactive queries are declared in the schema DSL with `reactive query` and
 exposed through generated context/query methods. The generated method returns
 the public `ReactiveQuery<T>` facade; execution reads a compiler-owned Z-set
@@ -852,13 +852,11 @@ materialized relation or index slice.
 
 ### Priority Tiers
 
-| Priority | Use Case |
-|----------|----------|
-| `Critical` | UI-visible data that must be updated every frame |
-| `Normal` | Standard reactive queries |
-| `Background` | Low-priority queries that can tolerate stale data |
+Each reactive query carries a `Critical` / `Normal` / `Background` priority that the context's `ReactiveQueryRegistry` uses to schedule delta application. For the tier semantics and frame-budget meanings see [Reactive Queries](/docs/advanced/reactive-queries#priority-levels).
 
 ### Lifecycle
+
+Within `DbContext`, the registry drives reactive maintenance as follows:
 
 1. Delta application runs on the worker thread during `SyncReactiveQueries`.
 2. Notifications fire on the synchronization completion thread.
@@ -1013,7 +1011,7 @@ table Player(plural: Players, persistence: local) {
 
 ### `query` — Query Declaration
 
-Queries are declared in `.conjure` schema with the `query` keyword and compiled to optimized C# at build time. Parameters are referenced in the pipeline with a leading `@`. There is no C# query attribute; the generator emits a method on the entity's set, which you call from C#.
+Queries are declared in `.conjure` schema with the `query` keyword and compiled ahead of time to generated C#; see [Compiled Queries](/docs/query-language/compiled-queries). Parameters are referenced in the pipeline with a leading `@`. There is no C# query attribute; the generator emits a method on the entity's set, which you call from C#.
 
 ```text
 query GetTopPlayers(minLevel: int) -> Player[] {

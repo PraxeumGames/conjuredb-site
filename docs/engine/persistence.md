@@ -495,12 +495,7 @@ Implement this interface to integrate with any cloud storage provider
 
 ### RemoteSnapshotOptions Reference
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `RequestTimeout` | `TimeSpan?` | *(provider-specific)* | Timeout for individual remote operations |
-| `MaxRetryAttempts` | `int` | 3 | Retry count on transient failures |
-| `StateResolutionStrategy` | enum | `RemoteFirst` | Conflict resolution (see Recovery Phase 1) |
-| `RemoteSnapshotHandler` | `IRemoteSnapshotHandler` | `null` | Custom implementation |
+For the full `RemoteSnapshotOptions` parameter table (`RemoteHandler`, `RequestTimeout`, `MaxRetryAttempts`, `ResolutionStrategy`), see [Remote Sync Parameters Summary](/docs/engine/configuration#remote-sync-parameters-summary). `StateResolutionStrategy` conflict handling is described in [Recovery Phase 1](#phase-1--remote-snapshot-if-configured) above.
 
 ### Conflict Resolution Strategies
 
@@ -686,40 +681,7 @@ var db = await DbContextBuilder<GameDb>.Create()
 
 ## Backup and Restore
 
-### Manual Backup
-
-```csharp
-// Force a snapshot (can be done at any time)
-await context.SaveAsync();
-
-// The latest snapshot file is at:
-// <DataDirectory>/snapshots/snapshot_<timestamp>.dat
-```
-
-### File-Level Backup
-
-To create a cold backup:
-
-1. Call `context.Dispose()` to ensure all pending writes are flushed.
-2. Copy the entire `<DataDirectory>` (snapshots + journal).
-3. Include the encryption salt if encryption is enabled.
-
-### Restore from Backup
-
-1. Stop the application.
-2. Replace `<DataDirectory>` contents with the backup.
-3. Start the application — recovery runs automatically.
-
-### Cloud Restore
-
-```csharp
-// Force download from cloud storage
-var context = await DbContextBuilder<GameDbContext>.Create()
-    .WithRemoteSnapshot(rem => rem
-        .RemoteHandler(cloudHandler)
-        .ResolutionStrategy(StateResolutionStrategy.ForceRemote))
-    .BuildAsync();
-```
+For operational backup and restore strategies — manual and file-level (cold) backups, restoring from a backup, and cloud (remote) restore — see [Backup and Restore](/docs/engine/backup-restore).
 
 ---
 

@@ -109,35 +109,19 @@ table Item(plural: Items, persistence: local, capacity: 50000, type_id: 2) {
 
 ## Materialized View Sources
 
-Queries can read a `materialized view` as an ordinary source. The materialized
-view is derived in memory from base tables and is not persisted.
-
-```text
-query GetPlayerItems(player_id: int, max_count: int) -> PlayerItemRow[] =
-    from PlayerItemRow
-    | filter owner_id == @player_id
-    | sort -rarity, name
-    | take @max_count
-```
-
-When the source is a materialized view and the query shape matches a declared
-materialized index, the planner may use a materialized index seek instead of
-executing the source pipeline. With `rewrite: explicit`, this is direct-source
-only. With `rewrite: auto`, the view is an optimizer-visible materialized
-candidate for ordinary base-table queries whose typed normalized prefix is
-proven equivalent to the view source. Candidate substitution preserves
-residual predicates/projections and can still become
-`PhysicalMaterializedIndexSeek` when a declared materialized index matches.
-
-Reactive queries can also create hidden internal materialized views. These
-hidden `ReactiveAutoView` relations are not user-addressable schema sources, but
-they are optimizer-visible. If an ordinary query has the same normalized body as
-a reactive query, the compiler may plan the ordinary query over the already
-maintained hidden relation/index. This is a typed, costed optimizer
-substitution: failed equivalence proof leaves the base plan selected rather than
-raising a diagnostic. Plan explain reports the hidden origin, visibility, owner
-reactive query, proof kind, selected/base cost, and selected materialized access
-so this reuse is observable.
+A compiled query can read a `materialized view` as an ordinary source. From the
+query's perspective, when the source is a materialized view and the query shape
+matches a declared materialized index, the planner may emit a
+`PhysicalMaterializedIndexSeek` instead of executing the source pipeline. With
+`rewrite: auto`, candidate substitution preserves residual
+predicates/projections and can still become `PhysicalMaterializedIndexSeek` when
+a declared materialized index matches. Ordinary queries whose normalized body
+matches a reactive query's hidden `ReactiveAutoView` relation are planned over
+that already maintained relation/index when equivalence is proven; plan explain
+reports the hidden origin, proof kind, selected/base cost, and selected
+materialized access. See [Schema Language](/docs/schema/schema-language#65--views-and-materialized-views)
+for materialized-view declaration semantics, the `rewrite` option, in-memory
+derivation, and `ReactiveAutoView` visibility rules.
 
 ## Hints and PGO
 

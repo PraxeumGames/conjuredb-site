@@ -72,6 +72,10 @@ query GetTopScorers(minScore: int, count: int) -> Player[] {
 Queries compile at build time into generated C# methods. There is no runtime
 query parser on the hot path.
 
+> Note: This is the minimal teaching version of the top-N query and `Player`
+> table. For the indexed, reactive version that stays current as scores change,
+> see [Reactive Queries](/docs/advanced/reactive-queries#example-3-real-time-leaderboard).
+
 ## Add Mutations
 
 ```prql
@@ -84,6 +88,11 @@ mutation GrantItem(playerId: int, itemType: string, quantity: int) {
     }
 }
 ```
+
+> Note: This `GrantItem` is the simple insert-mutation form (`itemType: string`).
+> A different upsert mutation also named `GrantItem` appears in
+> [Mutations](/docs/query-language/mutations#upsert), and a `GrantItem` command appears in
+> [Build Your First Game](/docs/build-your-first-game); they are distinct examples.
 
 Use compiled mutations or compiled commands for write-side behavior. Normal game
 validation failures should be modeled as typed command outcomes.

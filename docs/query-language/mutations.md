@@ -42,6 +42,8 @@ mutation GrantItem(playerId: int, itemId: int, amount: int) {
 }
 ```
 
+> Note: This is the upsert-mutation form of `GrantItem`. It is distinct from the [`GrantItem` command](/docs/build-your-first-game#commands), which wraps this primitive with typed errors, `key`/`returning` contracts, and an event payload.
+
 ## Delete
 
 ```prql

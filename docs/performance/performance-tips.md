@@ -26,11 +26,9 @@ ConjureDB is an in-memory database designed for game clients where every microse
 
 ## Compiled Queries vs Runtime Queries
 
-The single most impactful performance decision is whether your queries are compiled at build time or interpreted at runtime.
+The single most impactful performance decision is whether your queries are compiled at build time or interpreted at runtime. Compiled (schema `query`) declarations are lowered into optimized C# methods during `dotnet build` with zero runtime parsing or planning, while runtime `context.Query(...)` calls pay the full compilation cost on every invocation — see [Compiled Queries](/docs/query-language/compiled-queries#basic-query) for the canonical reference.
 
 ### Always Use `query` for Production Code
-
-Compiled queries are transformed into optimized C# methods during `dotnet build`. The generated code uses direct index access, zero-reflection field reads, and pre-computed execution strategies. There is no parsing, no expression tree construction, and no runtime planning overhead.
 
 ```text
 // ✅ GOOD — declared in a .conjure schema, compiled at build time, zero overhead at runtime
@@ -44,7 +42,7 @@ query GetTopPlayers(minLevel: int, n: int) -> Player[] {
 Player[] top = context.Players.GetTopPlayers(minLevel, n);
 ```
 
-Runtime queries (ad-hoc `context.Query(...)` calls) pay the full cost of parsing, binding, optimization, and code generation on every invocation. They are useful for debugging and development tools, but should never appear in game loops.
+Runtime queries are useful for debugging and development tools, but should never appear in game loops.
 
 ```csharp
 // ❌ BAD — full compilation pipeline on every call
@@ -378,50 +376,7 @@ Address `UM7001` and `UM7002` warnings first — they indicate the most severe p
 
 ## PGO Workflow Summary
 
-Profile-Guided Optimization lets the compiler make data-driven decisions instead of relying on heuristics. PGO follows the same pattern as LLVM PGO and .NET Dynamic PGO.
-
-### Quick Start (4 Steps)
-
-**1. Instrument — Enable profile collection:**
-
-PGO collection is enabled through the code generator's emission options (`PgoMode = Collect` with a profile path), not via a C# attribute on the context. Run the generator in collect mode against your schema, then exercise the workload below.
-
-**2. Run — Execute a representative workload:**
-
-```csharp
-// Run realistic gameplay scenarios (not synthetic benchmarks)
-for (int i = 0; i < 10_000; i++)
-{
-    context.Players.GetTopPlayers(limit: 10);
-    context.Players.GetGuildStats();
-    context.Players.GetPlayerInventory(playerId: rng.Next(1, 1000));
-}
-```
-
-**3. Export — Save the profile:**
-
-```csharp
-context.SaveProfile("./profiles/game.json");
-```
-
-Then regenerate your query host against the collected profile:
-
-```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- ./Game.Data --profile=./profiles/game.json
-```
-
-Pass the source directory explicitly. If you omit it, `ConjureDB.CodeGen.Manual`
-falls back to `ConjureDB.CodeGen.Sandbox`, which is useful for local experiments
-but not for rebuilding your application with the collected profile.
-
-**4. Rebuild — Switch to Use mode and rebuild:**
-
-Re-run the generator with `PgoMode = Use` pointing at the collected profile, then rebuild:
-
-```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- ./Game.Data --profile=./profiles/game.json
-dotnet build -c Release
-```
+Profile-Guided Optimization lets the compiler make data-driven decisions instead of relying on heuristics. The four-step instrument → run → export → rebuild workflow, plus profile handling, is documented canonically in [PGO](/docs/performance/pgo#how-to-collect); from a performance standpoint, the table below shows what PGO improves.
 
 ### What PGO Improves
 
@@ -434,32 +389,7 @@ dotnet build -c Release
 | Output buffer | 4 resizes (grow-double) | Pre-allocated to average result count | 1.2–1.5× |
 | Packed-key width | Conservative `ulong` | Narrowest type for observed range | Memory savings |
 
-### When PGO Has Minimal Impact
-
-- Tables with < 100 rows (overhead is negligible)
-- Simple scan-filter-project without aggregation or joins
-- Queries where the heuristic default is already close to observed values
-
-### Manual Hints (Without Full PGO)
-
-Override individual decisions with a per-query `@planning(...)` hint block on the schema query header:
-
-```text
-query GetGuildStats() -> GuildStats[]
-@planning(max_group_key_value: 256) {
-    from Players | group GuildId (...)
-}
-```
-
-| Hint | Effect |
-|------|--------|
-| `MaxGroupKeyValue` | Force DenseArray aggregation if ≤ threshold |
-| `MaxKeyValue` | Override bounded comparison-key range for dense set-operation / DISTINCT strategies |
-| `NoOptimize = true` | Disable PGO optimizations (baseline comparison) |
-
-Join-strategy preference, sort skipping, and selectivity overrides come from planning profiles / PGO data rather than per-query `@planning(...)` hints.
-
-See [PGO](/docs/performance/pgo) for full documentation.
+PGO has minimal impact on small tables (< 100 rows) and simple scan-filter-project queries where the heuristic default is already close to observed values. For per-query `@planning(...)` manual hints (without full PGO) and the complete hint reference, see [PGO](/docs/performance/pgo#manual-hints).
 
 ---
 

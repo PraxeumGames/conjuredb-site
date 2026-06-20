@@ -723,31 +723,18 @@ void ProcessDamageQueue()
 
 ### Pattern 6: Reactive Queries for UI Updates
 
-Use reactive queries instead of polling — they update automatically after commit:
+Use reactive queries instead of polling — they update automatically after commit, so
+the UI always reflects the latest committed state.
 
-```text
-// Define a reactive query (compiled at build time)
-reactive query PlayerInventory(player_id: int) -> InventoryRow[] =
-    from Items
-    | filter OwnerId == @player_id
-    | select { Name = Name, Quantity = Quantity, Rarity = Rarity }
-```
+**Concurrency guarantee:** subscriber callbacks fire on the notification thread *after*
+the worker has applied the version's deltas and synced all secondary indices, so a
+reactive-query consumer never observes a partially-synced or uncommitted state. The
+update is delivered once per affecting commit — no polling loop is needed.
 
-```csharp
-// Access the materialized view (once)
-var inventoryQuery = db.PlayerInventory(playerId: localPlayerId);
-
-// Subscribe to changes
-inventoryQuery.SubscribeSpan(items =>
-{
-    // Called after each commit that affects the Items table
-    RefreshInventoryUI(items);
-});
-```
-
-Reactive queries eliminate the need for manual polling loops and ensure the UI always
-reflects the latest committed state. See [Reactive Queries](/docs/advanced/reactive-queries) for
-full details.
+For defining queries, accessing the materialized view, and the subscription modes
+(`Subscribe` / `SubscribeSpan` / `SubscribeChanged`), see
+[Reactive Queries — Quick Start](/docs/advanced/reactive-queries#quick-start) and
+[Subscription Modes](/docs/advanced/reactive-queries#subscription-modes).
 
 ---
 

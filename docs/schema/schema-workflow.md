@@ -41,11 +41,7 @@ dotnet run --project ConjureDB.Schema.Cli -- <schema-dir> <output-dir> \
     --context=GameDbContext --namespace=Game.Data
 ```
 
-| Option | Default | Description |
-|---|---|---|
-| `--context=Name` | `AppDbContext` | Generated DbContext class name |
-| `--namespace=Name` | `Generated` | Namespace for all emitted files |
-| `--validate` | — | Run parse/bind pipeline without emitting files |
+For the full CLI option reference (positional arguments, options, exit codes), see [Schema Tooling](/docs/schema/schema-tooling#1--cli-reference).
 
 ### Recommended Project Layout
 
@@ -294,16 +290,7 @@ jobs:
 
 ### Diagnostic Code Reference
 
-| Range | Phase | Examples |
-|---|---|---|
-| **SCH0xxx** | Lexer | `SCH0001` unterminated string, `SCH0003` unexpected character |
-| **SCH1xxx** | Parser | `SCH1001` unexpected token, `SCH1003` invalid table option, `SCH1007` empty body |
-| **SCH2xxx** | Binder | `SCH2002` unknown type, `SCH2005` missing `@id`, `SCH2011` duplicate field |
-| **SCH3xxx** | Multi-file merge | `SCH3001` duplicate declaration across files, `SCH3003` circular import |
-| **SCH4xxx** | Import resolution | `SCH4001` circular import chain, `SCH4002` file not found |
-| **SCH5xxx** | Semantic validation | `SCH5001` duplicate field, `SCH5004` fragment cycle, `SCH5008` multiple `@id` fields |
-
-The full diagnostic list is in [SchemaTooling.md — Diagnostic Reference](/docs/schema/schema-tooling).
+For the SCHxxxx diagnostic code ranges and the complete per-code list, see [Error Codes](/docs/reference/error-codes#schema-diagnostic-codes-schxxxx). The Common Mistakes below show how the most frequent of these codes surface in practice.
 
 ### Common Mistakes
 

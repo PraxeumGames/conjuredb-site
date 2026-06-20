@@ -87,6 +87,8 @@ kind local
 }
 ```
 
+> Note: This `GrantItem` is the compiled-command form (`require`/`upsert`/`returning`); it is distinct from the like-named [`GrantItem` mutation](/docs/query-language/mutations#upsert) in Mutations.md and the one in GettingStarted.md, which have different bodies.
+
 Compiled commands are state transitions. External dispatch owns transactions;
 subcommands compile to direct `ExecuteCore` calls.
 
