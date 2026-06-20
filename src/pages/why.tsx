@@ -41,7 +41,7 @@ const FIXES: Item[] = [
   },
   {
     title: 'Just embed SQLite or an ORM',
-    body: 'Now you pay at runtime for what a server pays for: query parsing, planning, reflection, allocations and millisecond latency — none of which fit IL2CPP or a per-frame budget measured in microseconds.',
+    body: 'Now you pay it all at runtime: query parsing, planning, reflection, allocations and millisecond latency — none of which fit IL2CPP or a per-frame budget measured in microseconds.',
   },
 ];
 
@@ -73,13 +73,12 @@ function Reframe(): ReactNode {
     <section className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">The reframe</span>
-        <h2 className="cdb-h2">A server doesn't know its queries in advance. You do.</h2>
+        <h2 className="cdb-h2">You already know every query before you ship.</h2>
         <p className="cdb-lead">
-          Your client ships with a fixed set of screens. The shop screen runs the same
-          offer-visibility query it ran yesterday. The entire catalog of questions your
-          game will ever ask is known before the build leaves your machine. Everything a
-          server pays for at runtime exists to cope with <em>not knowing</em> — so why are
-          you paying for it?
+          Your game ships with a fixed set of screens. The shop runs the same offer query it
+          ran yesterday; the inventory the same lookup. You know the whole catalogue of
+          questions your game will ever ask before the build leaves your machine — so there's
+          no reason to work them out again on the player's device, every frame.
         </p>
         <p className="cdb-lead" style={{marginTop: '1rem'}}>
           ConjureDB keeps the one good idea — describe data declaratively, in one place —

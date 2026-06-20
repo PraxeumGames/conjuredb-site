@@ -1,31 +1,9 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import CodeBlock from '@theme/CodeBlock';
+import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
+import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import styles from './marketing.module.css';
-
-const SCHEMA = `query GetTopScorers(minScore: int, count: int) -> Player[] {
-    from Players
-    | filter Score > minScore
-    | sort -Score
-    | take count
-}`;
-
-const GENERATED = `// Generated C# — illustrative shape. No reflection, no runtime
-// codegen, no dynamic. Pooled, allocation-free result path.
-public ReadOnlySpan<Player> GetTopScorers(int minScore, int count)
-{
-    // Walks the declared Score index instead of scanning the table,
-    // stops after \`count\` rows — the plan the optimizer chose, emitted
-    // as ordinary code you can step through.
-    var heap = _topN.Rent(count);
-    foreach (ref readonly var p in _players.ByScoreDescending())
-    {
-        if (p.Score <= minScore) break;
-        if (!heap.TryOffer(in p)) break;
-    }
-    return heap.AsSpan();
-}`;
 
 function Header(): ReactNode {
   return (
@@ -55,15 +33,11 @@ function Translate(): ReactNode {
           method you would have written by hand — generated correctly, identically, every
           build.
         </p>
-        <div className="cdb-grid" style={{gridTemplateColumns: '1fr 1fr', gap: '1.4rem', marginTop: '1.6rem'}}>
-          <div>
-            <p className="cdb-kicker" style={{marginBottom: '0.5rem'}}>You write</p>
-            <CodeBlock language="text">{SCHEMA}</CodeBlock>
-          </div>
-          <div>
-            <p className="cdb-kicker" style={{marginBottom: '0.5rem'}}>You get (and can read)</p>
-            <CodeBlock language="csharp">{GENERATED}</CodeBlock>
-          </div>
+        <div style={{maxWidth: '44rem', marginTop: '1.6rem'}}>
+          <CodeWindow tabs={HERO_TABS} />
+          <p style={{marginTop: '0.9rem', fontSize: '0.85rem', color: 'var(--cdb-muted)'}}>
+            Switch tabs: the same query, and the plain C# ConjureDB emits for it.
+          </p>
         </div>
       </div>
     </section>
@@ -80,17 +54,7 @@ function Pipeline(): ReactNode {
           Nothing on this path runs on the player's device. The output is plain C# (or a
           portable artifact) — there is no query parser on the hot path.
         </p>
-        <div className={styles.pipe}>
-          <div className={styles.step}><b>Frontend</b><small>parse the DSL</small></div>
-          <div className={styles.arrow}>→</div>
-          <div className={styles.step}><b>Analysis</b><small>bind &amp; type</small></div>
-          <div className={styles.arrow}>→</div>
-          <div className={styles.step}><b>Cascades</b><small>cost-based optimize</small></div>
-          <div className={styles.arrow}>→</div>
-          <div className={styles.step}><b>Planning</b><small>physical plan</small></div>
-          <div className={styles.arrow}>→</div>
-          <div className={styles.step}><b>Emission</b><small>generate C#</small></div>
-        </div>
+        <BuildPipeline />
       </div>
     </section>
   );

@@ -1,11 +1,11 @@
 /**
- * ConjureDB theme. Infima provides the base; we override the palette and add a
- * few global helpers used by the marketing pages. Page-specific layout lives in
- * CSS modules next to each page/component.
+ * ConjureDB theme — dark-first, inspired by VSCode (Dark+ palette, editor blue)
+ * and GitKraken (rich gradients, depth, glow). Infima is the base; page layout
+ * lives in CSS modules next to each page/component.
  */
 
 :root {
-  /* Brand: a "conjuring" teal with a violet accent. */
+  /* Light mode kept usable, but the site is designed dark-first. */
   --ifm-color-primary: #0d9488;
   --ifm-color-primary-dark: #0c857a;
   --ifm-color-primary-darker: #0b7d73;
@@ -15,16 +15,20 @@
   --ifm-color-primary-lightest: #14c2b2;
 
   --ifm-code-font-size: 92%;
-  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
+  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  --cdb-mono: 'SF Mono', ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo,
+    Consolas, monospace;
+  --ifm-heading-font-weight: 700;
   --docusaurus-highlighted-code-line-bg: rgba(13, 148, 136, 0.12);
 
-  /* Marketing tokens (shared by page modules). */
-  --cdb-accent: #7c9bff;
+  --cdb-accent: #4493f8; /* VSCode editor blue */
+  --cdb-violet: #a371f7; /* GitKraken-ish violet for gradients */
   --cdb-ink: #0b0e14;
   --cdb-muted: #5b6b80;
   --cdb-line: #e2e8f0;
   --cdb-surface: #f8fafc;
+  --cdb-surface-2: #ffffff;
 }
 
 [data-theme='dark'] {
@@ -36,47 +40,101 @@
   --ifm-color-primary-lighter: #52ddcc;
   --ifm-color-primary-lightest: #79e6d8;
 
-  --ifm-background-color: #0b0e14;
-  --ifm-background-surface-color: #11161f;
+  /* Deep, slightly blue-black — closer to a code editor than pure grey. */
+  --ifm-background-color: #0a0d13;
+  --ifm-background-surface-color: #0f141c;
+  --ifm-navbar-background-color: rgba(10, 13, 19, 0.72);
+  --ifm-footer-background-color: #0c1017;
   --docusaurus-highlighted-code-line-bg: rgba(45, 212, 191, 0.16);
 
-  --cdb-accent: #93abff;
+  --cdb-accent: #4493f8;
+  --cdb-violet: #a371f7;
   --cdb-ink: #e6edf3;
-  --cdb-muted: #9aa7b8;
-  --cdb-line: #1f2937;
-  --cdb-surface: #11161f;
+  --cdb-muted: #93a1b5;
+  --cdb-line: #1c2430;
+  --cdb-surface: #0f141c;
+  --cdb-surface-2: #121925;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+/* ---- Navbar: glassy, subtle bottom hairline ---------------------------- */
 .navbar {
-  backdrop-filter: saturate(140%) blur(8px);
+  backdrop-filter: saturate(160%) blur(12px);
+  border-bottom: 1px solid var(--cdb-line);
+  box-shadow: none;
+}
+.navbar__title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.navbar__link {
+  font-weight: 500;
 }
 
-/* Shared marketing helpers ------------------------------------------------ */
+/* ---- Buttons: premium, with glow on the primary CTA -------------------- */
+.button.button--primary {
+  --ifm-button-background-color: var(--ifm-color-primary);
+  border: none;
+  font-weight: 650;
+  color: #04231d;
+  box-shadow: 0 8px 24px -8px rgba(45, 212, 191, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.button.button--primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 30px -8px rgba(45, 212, 191, 0.7);
+}
+.button.button--secondary {
+  background: transparent;
+  color: var(--cdb-ink);
+  border: 1px solid var(--cdb-line);
+  font-weight: 600;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.button.button--secondary:hover {
+  border-color: var(--ifm-color-primary);
+  background: rgba(45, 212, 191, 0.06);
+}
 
+/* ---- Shared marketing helpers ----------------------------------------- */
 .cdb-section {
-  padding: 5rem 0;
+  padding: 5.5rem 0;
+  position: relative;
 }
 .cdb-section--tight {
   padding: 3.5rem 0;
 }
 .cdb-kicker {
+  display: inline-block;
   color: var(--ifm-color-primary);
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.cdb-kicker::before {
+  content: '// ';
+  opacity: 0.55;
+}
 .cdb-h2 {
-  font-size: clamp(1.7rem, 3.4vw, 2.4rem);
-  line-height: 1.12;
-  letter-spacing: -0.01em;
-  margin: 0.4rem 0 0.8rem;
+  font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0.5rem 0 0.9rem;
+  font-weight: 800;
 }
 .cdb-lead {
   color: var(--cdb-muted);
   font-size: 1.1rem;
+  line-height: 1.65;
   max-width: 46rem;
 }
+
 .cdb-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -87,21 +145,138 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Cards: layered surface, hairline border, hover lift + accent edge. */
 .cdb-card {
-  background: var(--cdb-surface);
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
+    var(--cdb-surface-2);
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
-  padding: 1.4rem;
+  border-radius: 16px;
+  padding: 1.6rem;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.cdb-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
 }
 .cdb-card h3 {
-  font-size: 1.1rem;
-  margin: 0 0 0.4rem;
+  font-size: 1.12rem;
+  margin: 0 0 0.45rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 .cdb-card p {
   color: var(--cdb-muted);
   margin: 0;
-  font-size: 0.96rem;
+  font-size: 0.97rem;
+  line-height: 1.6;
 }
 .cdb-center {
   text-align: center;
+}
+
+/* A soft gradient backdrop used behind alternating sections. */
+.cdb-surface {
+  background:
+    radial-gradient(1100px 480px at 50% -30%, rgba(68, 147, 248, 0.07), transparent 70%),
+    var(--cdb-surface);
+}
+
+/* ---- Hi-tech, database-flavored polish --------------------------------- */
+
+/* Glowing gradient hairline between major sections. */
+.cdb-section + .cdb-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 92%);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(45, 212, 191, 0.35),
+    rgba(68, 147, 248, 0.35),
+    transparent
+  );
+}
+
+/* Cards get a faint gradient ring that ignites on hover. */
+[data-theme='dark'] .cdb-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--cdb-surface-2);
+}
+.cdb-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(45, 212, 191, 0.4), rgba(68, 147, 248, 0.25), transparent 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.cdb-card:hover::after {
+  opacity: 1;
+}
+
+/* Stat band — a database-dashboard row of glowing mono metrics. */
+.cdb-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--cdb-line);
+  border: 1px solid var(--cdb-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+@media (max-width: 768px) {
+  .cdb-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.cdb-stat {
+  background: var(--cdb-surface-2);
+  padding: 1.5rem 1.2rem;
+  text-align: center;
+}
+.cdb-stat b {
+  display: block;
+  font-family: var(--cdb-mono);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(120deg, var(--ifm-color-primary), var(--cdb-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.cdb-stat span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--cdb-muted);
+}
+
+@keyframes cdb-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -18px, 0); }
+}
+@keyframes cdb-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px 1px var(--ifm-color-primary); }
+  50% { opacity: 0.55; box-shadow: 0 0 4px 0 var(--ifm-color-primary); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+  }
 }

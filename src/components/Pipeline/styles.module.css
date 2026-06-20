@@ -1,0 +1,74 @@
+/* A glowing build-pipeline: schema → … → emit C#. Database/compiler-flavored. */
+
+.pipe {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 2.4rem auto 0;
+  max-width: 60rem;
+}
+
+.node {
+  flex: 1 1 8.5rem;
+  min-width: 8rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+    var(--cdb-surface-2);
+  border: 1px solid var(--cdb-line);
+  border-radius: 12px;
+  padding: 0.95rem 0.8rem;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.04), 0 14px 30px -24px rgba(0, 0, 0, 0.8);
+}
+.node b {
+  display: block;
+  font-family: var(--cdb-mono);
+  font-size: 0.92rem;
+  color: var(--cdb-ink);
+}
+.node span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.74rem;
+  color: var(--cdb-muted);
+}
+
+.link {
+  align-self: center;
+  flex: 0 0 1.6rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(45, 212, 191, 0.5), rgba(68, 147, 248, 0.5));
+  position: relative;
+  overflow: hidden;
+}
+.link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: cdb-flow 2.4s linear infinite;
+}
+@keyframes cdb-flow {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
+/* On narrow screens the row wraps; hide the short connectors to avoid orphans. */
+@media (max-width: 768px) {
+  .link {
+    display: none;
+  }
+  .node {
+    flex-basis: 45%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .link::after {
+    animation: none;
+  }
+}

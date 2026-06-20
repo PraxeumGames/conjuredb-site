@@ -1,110 +1,108 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
+import {Pipeline} from '@site/src/components/Pipeline';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
   return (
     <header className={styles.hero}>
-      <div className="container">
-        <span className={styles.eyebrow}>In-memory data layer · built for game clients</span>
-        <h1 className={styles.title}>
-          You already have a database in your game.
-          <br />
-          <span className={styles.grad}>ConjureDB compiles it.</span>
-        </h1>
-        <p className={styles.subtitle}>
-          The data logic in a game client is real — it's just smeared by hand across
-          presenters, managers and ad-hoc caches. ConjureDB lets you describe it
-          declaratively and compiles it to zero-allocation C# at build time: clean,
-          reusable architecture that still fits inside a frame.
-        </p>
-        <div className={styles.ctaRow}>
-          <Link className="button button--primary button--lg" to="/how-it-works">
-            See how it works
-          </Link>
-          <Link className="button button--secondary button--lg" to="/docs/getting-started">
-            Read the docs
-          </Link>
+      <div className={styles.heroGlow} aria-hidden="true" />
+      <div className={`container ${styles.heroGrid}`}>
+        <div className={styles.heroCopy}>
+          <span className={styles.eyebrow}>
+            <span className={styles.eyebrowDot} /> In-memory database · Unity &amp; .NET game clients
+          </span>
+          <h1 className={styles.title}>
+            Stop fighting
+            <br />
+            <span className={styles.grad}>your own game data.</span>
+          </h1>
+          <p className={styles.subtitle}>
+            Right now it's hand-wired across managers, ScriptableObjects and OnChanged events until a
+            simple shop or inventory owns your week — and a year later it's a tangle you're scared to
+            touch. ConjureDB lets you describe your data once and generates the fast C# instead: clean
+            systems you build once and reuse, with no spaghetti and no GC spikes.
+          </p>
+          <div className={styles.ctaRow}>
+            <Link className="button button--primary button--lg" to="/docs/getting-started">
+              Get started
+            </Link>
+            <Link className="button button--secondary button--lg" to="/why">
+              Why ConjureDB
+            </Link>
+          </div>
+          <div className={styles.chips}>
+            <span className={styles.chip}>Unity 2021.3+ · IL2CPP &amp; Mono</span>
+            <span className={styles.chip}>.NET 8+</span>
+            <span className={styles.chip}>Index-aware optimizer</span>
+            <span className={styles.chip}>Reactive views · IVM</span>
+          </div>
         </div>
-        <div className={styles.chips}>
-          <span className={styles.chip}>.NET 8+</span>
-          <span className={styles.chip}>Unity 2021.3+ · IL2CPP &amp; Mono</span>
-          <span className={styles.chip}>Zero-allocation hot paths</span>
-          <span className={styles.chip}>No reflection · AOT-safe</span>
+        <div className={styles.heroCode}>
+          <CodeWindow tabs={HERO_TABS} />
+          <p className={styles.heroCodeCaption}>
+            You write the schema &amp; query. ConjureDB emits the C# — switch the tab and read it.
+          </p>
         </div>
       </div>
     </header>
   );
 }
 
-function Problem(): ReactNode {
+type Stat = {n: string; l: string};
+const STATS: Stat[] = [
+  {n: '50×+', l: 'faster than SQLite*'},
+  {n: 'O(1)', l: 'indexed lookups'},
+  {n: '0', l: 'GC on hot paths'},
+  {n: '1', l: 'build step · no runtime parser'},
+];
+
+function StatBand(): ReactNode {
   return (
-    <section className="cdb-section">
+    <section className="cdb-section cdb-section--tight">
       <div className="container">
-        <span className="cdb-kicker">The hidden cost</span>
-        <h2 className="cdb-h2">The shop screen that depends on everything</h2>
-        <p className="cdb-lead">
-          A single screen's offers depend on the wallet, owned items, offer config, the
-          current time, the player segment, and purchase history — each changing
-          independently. Wire the refreshes by hand and you get the bugs every large
-          client ships:
-        </p>
-        <div className="cdb-grid" style={{marginTop: '1.6rem'}}>
-          <div className="cdb-card">
-            <h3>Stale &amp; wrong UI</h3>
-            <p>Missed invalidation leaves prices, sold-out offers and reward badges showing impossible state.</p>
-          </div>
-          <div className="cdb-card">
-            <h3>Refresh-order bugs</h3>
-            <p>Intermittent glitches from a dependency graph nobody can see, let alone order correctly.</p>
-          </div>
-          <div className="cdb-card">
-            <h3>Drifting duplicate logic</h3>
-            <p>The same join lives in three presenters, in three slightly different, slightly broken ways.</p>
-          </div>
+        <div className="cdb-stats">
+          {STATS.map((s) => (
+            <div className="cdb-stat" key={s.l}>
+              <b>{s.n}</b>
+              <span>{s.l}</span>
+            </div>
+          ))}
         </div>
-        <p className="cdb-lead" style={{marginTop: '1.6rem'}}>
-          That's a database — indexes as dictionaries, queries as service methods, joins as
-          nested loops, invalidation as <code>OnChanged</code> spaghetti — built by hand,
-          badly. The only real question is whether you keep hand-building it, or compile it.
+        <p style={{textAlign: 'center', marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--cdb-muted)'}}>
+          * 20-query game-workload benchmark vs SQLite (50,000 players).{' '}
+          <Link to="/performance">See the methodology →</Link>
         </p>
       </div>
     </section>
   );
 }
 
-type Pillar = {title: string; body: string};
-const PILLARS: Pillar[] = [
-  {
-    title: 'Architecture without the frame tax',
-    body: 'Describe data once in a declarative query; reuse it from every screen. The cost of the abstraction is paid at build time, not in your frame budget.',
-  },
-  {
-    title: 'Zero-allocation at runtime',
-    body: 'Queries compile to ordinary C# over struct storage with pooled, no-alloc result paths — no reflection, no runtime codegen, no surprise GC spikes.',
-  },
-  {
-    title: 'Reactive views that stay fresh',
-    body: 'Incremental view maintenance updates a result by applying only the change, so keeping a leaderboard or inventory current scales with edits, not data size.',
-  },
-  {
-    title: 'Ships where games ship',
-    body: 'Targets .NET Standard 2.1 and survives IL2CPP and a tight mobile frame precisely because nothing is dynamic. Read the generated code if you do not trust it.',
-  },
+const PAINS: string[] = [
+  "A shop or inventory that should've taken a day takes a week.",
+  'The same systems — inventory, quests, progression — rewritten from scratch in every new project.',
+  'Game data spread across managers, ScriptableObjects and singletons — impossible to follow.',
+  'OnChanged events wired by hand; miss one subscription and the UI shows the wrong thing.',
+  'Touch one feature and three others break — and nobody is sure why.',
+  'Lists you loop over every frame, until the GC starts spiking.',
 ];
 
-function Pillars(): ReactNode {
+function Problems(): ReactNode {
   return (
-    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
+    <section className="cdb-section">
       <div className="container">
-        <span className="cdb-kicker">What you get</span>
-        <h2 className="cdb-h2">A real database engine, tuned for the client</h2>
-        <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '1.6rem'}}>
-          {PILLARS.map((p) => (
-            <div className="cdb-card" key={p.title}>
-              <h3>{p.title}</h3>
-              <p>{p.body}</p>
+        <span className="cdb-kicker">Sound familiar?</span>
+        <h2 className="cdb-h2">The features that quietly eat your sprints</h2>
+        <p className="cdb-lead">
+          It always starts simple. Then the data spreads across scripts, the edge cases pile up, and
+          the "quick" feature owns your week — the same way, every project:
+        </p>
+        <div className="cdb-grid" style={{marginTop: '2rem'}}>
+          {PAINS.map((p) => (
+            <div className={`cdb-card ${styles.pain}`} key={p}>
+              <p>{p}</p>
             </div>
           ))}
         </div>
@@ -113,43 +111,93 @@ function Pillars(): ReactNode {
   );
 }
 
-type Role = {who: string; gets: string; link: string; cta: string};
-const ROLES: Role[] = [
+function OneIdea(): ReactNode {
+  return (
+    <section className="cdb-section cdb-surface">
+      <div className="container cdb-center">
+        <span className="cdb-kicker">There's a calmer way</span>
+        <h2 className="cdb-h2" style={{maxWidth: '20ch', margin: '0.5rem auto 0.9rem'}}>
+          Describe your data — don't wire it by hand
+        </h2>
+        <p className="cdb-lead" style={{margin: '0 auto'}}>
+          Underneath, every one of those is the same thing: game data hand-wired across your scripts.
+          ConjureDB lets you describe your data and the queries you need — players, items, scores — in
+          one place, and generates the fast C# that used to sprawl across a dozen MonoBehaviours. You
+          get clean, reusable systems, and the speed comes for free.
+        </p>
+        <Pipeline />
+      </div>
+    </section>
+  );
+}
+
+type Benefit = {tag: string; title: string; body: string; link: string; cta: string};
+const BENEFITS: Benefit[] = [
   {
-    who: 'CEOs & Producers',
-    gets: 'Fewer "my progress vanished" tickets and stale-UI bugs; a codebase that keeps moving as the game grows from 3 systems to 30.',
+    tag: 'Architecture & reuse',
+    title: 'Features that travel between games',
+    body: "Behind a declarative schema, a feature owns its data on its own terms — not welded into one game's managers and presenters. Build a shop or inventory once and carry it into the next project.",
     link: '/why',
     cta: 'Why it matters →',
   },
   {
-    who: 'CTOs & Tech Leads',
-    gets: 'A cost-based optimizer and incremental view maintenance — server-grade ideas — with explicit, honest limits and inspectable plans.',
+    tag: 'Performance',
+    title: 'Fast lookups, not per-frame loops',
+    body: "ConjureDB indexes your data and picks the fast path for every query, so the lookups you'd otherwise write as loops over lists don't cost you frames. You say what you want; it finds the quickest way there.",
     link: '/how-it-works',
     cta: 'How it works →',
   },
   {
-    who: 'Senior Developers',
-    gets: 'A schema-first DSL, compiled queries and mutations, indexing you control, and zero-allocation editors — with examples to copy from.',
-    link: '/docs/getting-started',
-    cta: 'Get started →',
+    tag: 'Reactivity · IVM',
+    title: 'Views that stay fresh by themselves',
+    body: 'Incremental view maintenance keeps leaderboards and inventories current by applying only what changed — no manual invalidation, no refresh-order bugs, cost that scales with edits not data size.',
+    link: '/docs/advanced/reactive-queries',
+    cta: 'Reactive queries →',
+  },
+  {
+    tag: 'Frame budget',
+    title: 'Zero-allocation, AOT-safe C#',
+    body: 'It all compiles to plain C# with no reflection and no runtime codegen, so it survives IL2CPP and a tight mobile frame. If you do not trust it, read the generated code.',
+    link: '/performance',
+    cta: 'See performance →',
   },
 ];
 
-function Roles(): ReactNode {
+function Benefits(): ReactNode {
   return (
     <section className="cdb-section">
       <div className="container">
-        <span className="cdb-kicker">Who it's for</span>
-        <h2 className="cdb-h2">One project, read at every altitude</h2>
-        <div className="cdb-grid" style={{marginTop: '1.6rem'}}>
-          {ROLES.map((r) => (
-            <div className="cdb-card" key={r.who}>
-              <h3>{r.who}</h3>
-              <p style={{marginBottom: '1rem'}}>{r.gets}</p>
-              <Link to={r.link}>{r.cta}</Link>
+        <span className="cdb-kicker">What that one move buys you</span>
+        <h2 className="cdb-h2">Four wins from the same decision</h2>
+        <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '2rem'}}>
+          {BENEFITS.map((b) => (
+            <div className={`cdb-card ${styles.benefit}`} key={b.title}>
+              <span className={styles.benefitTag}>{b.tag}</span>
+              <h3>{b.title}</h3>
+              <p style={{marginBottom: '1rem'}}>{b.body}</p>
+              <Link to={b.link}>{b.cta}</Link>
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function Cost(): ReactNode {
+  return (
+    <section className="cdb-section cdb-surface">
+      <div className="container cdb-center">
+        <span className="cdb-kicker">The bottom line</span>
+        <h2 className="cdb-h2" style={{maxWidth: '24ch', margin: '0.5rem auto 0.9rem'}}>
+          Less to reinvent. Less to untangle.
+        </h2>
+        <p className="cdb-lead" style={{margin: '0 auto'}}>
+          Features stop being from-scratch rebuilds and become things you declare once and reuse
+          across titles. The coupling that makes a growing game unmanageable goes away — so your team
+          spends its time on the game, not on rebuilding its plumbing. Better architecture that costs
+          you neither frames nor the same feature twice.
+        </p>
       </div>
     </section>
   );
@@ -157,15 +205,14 @@ function Roles(): ReactNode {
 
 function Proof(): ReactNode {
   return (
-    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
-      <div className="container cdb-center">
+    <section className="cdb-section cdb-center">
+      <div className="container">
         <span className="cdb-kicker">Measured, not asserted</span>
-        <h2 className="cdb-h2">Built to be fast — and to show its work</h2>
+        <h2 className="cdb-h2">Fast — and willing to show its work</h2>
         <p className="cdb-lead" style={{margin: '0 auto'}}>
-          In a 20-query game-workload benchmark against SQLite (50,000 players), every
-          query ran <strong>50× or faster</strong>, none slower. Numbers depend on your
-          workload and hardware — so we publish the methodology and tell you to benchmark
-          your own scenario.
+          In a 20-query game-workload benchmark against SQLite (50,000 players), every query ran{' '}
+          <strong>50× or faster</strong>, none slower. Numbers depend on your workload and hardware —
+          so we publish the methodology and tell you to benchmark your own scenario.
         </p>
         <div className={styles.proofCta}>
           <Link className="button button--primary button--lg" to="/performance">
@@ -177,20 +224,56 @@ function Proof(): ReactNode {
   );
 }
 
+type Role = {who: string; gets: string};
+const ROLES: Role[] = [
+  {
+    who: 'CEOs & Producers',
+    gets: 'Build a system once and reuse it across every title, instead of paying to rebuild the same features for each new game.',
+  },
+  {
+    who: 'CTOs & Tech Leads',
+    gets: 'A cost-based optimizer and incremental view maintenance, with explicit, honest limits and inspectable, generated code you can read.',
+  },
+  {
+    who: 'Senior Developers',
+    gets: 'A schema-first DSL, compiled queries and mutations, indexing you control, and zero-allocation editors — with examples to copy from.',
+  },
+];
+
+function Roles(): ReactNode {
+  return (
+    <section className="cdb-section">
+      <div className="container">
+        <span className="cdb-kicker">Who it's for</span>
+        <h2 className="cdb-h2">One project, read at every altitude</h2>
+        <div className="cdb-grid" style={{marginTop: '2rem'}}>
+          {ROLES.map((r) => (
+            <div className="cdb-card" key={r.who}>
+              <h3>{r.who}</h3>
+              <p>{r.gets}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FinalCta(): ReactNode {
   return (
     <section className="cdb-section cdb-center">
       <div className="container">
-        <h2 className="cdb-h2">Stop hand-rolling your data layer</h2>
-        <p className="cdb-lead" style={{margin: '0 auto 1.6rem'}}>
-          Describe a schema, write a query, and call compiled, allocation-free code from C#.
+        <h2 className="cdb-h2">Read the full argument</h2>
+        <p className="cdb-lead" style={{margin: '0 auto 2rem'}}>
+          From the shop screen that depends on everything to a compiled data layer — the case for
+          ConjureDB, and the honest limits, in one read.
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center'}}>
-          <Link className="button button--primary button--lg" to="/docs/getting-started">
-            Get started
+          <Link className="button button--primary button--lg" to="/why">
+            Why ConjureDB
           </Link>
-          <Link className="button button--secondary button--lg" to="/why">
-            Read the case for it
+          <Link className="button button--secondary button--lg" to="/docs/getting-started">
+            Get started
           </Link>
         </div>
       </div>
@@ -201,14 +284,17 @@ function FinalCta(): ReactNode {
 export default function Home(): ReactNode {
   return (
     <Layout
-      title="ConjureDB — a compiled data layer for game clients"
-      description="ConjureDB is an in-memory database for game clients that compiles a declarative query DSL to zero-allocation C# at build time. Clean architecture, ACID transactions, reactive views, and full Unity support.">
+      title="ConjureDB — an in-memory data layer for game clients"
+      description="ConjureDB is an in-memory database for game clients. Describe your data and queries declaratively and compile them into fast, reactive, reusable C#. Better architecture, index-driven performance, reactive views, and lower development cost — for Unity & .NET.">
       <Hero />
       <main>
-        <Problem />
-        <Pillars />
-        <Roles />
+        <StatBand />
+        <Problems />
+        <OneIdea />
+        <Benefits />
+        <Cost />
         <Proof />
+        <Roles />
         <FinalCta />
       </main>
     </Layout>
