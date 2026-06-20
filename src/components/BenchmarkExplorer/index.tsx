@@ -33,6 +33,13 @@ function LinqCallout({row}: {row: BenchRow}): ReactNode {
             The naive LINQ is itself <b>{row.linqVsSqlite}</b> than SQLite here.
           </>
         )}
+        {row.idxWin && (
+          <>
+            {' '}
+            That gap is a <b>declared-index hit</b>: ConjureDB answers this from an index — an
+            O(1)/O(log n) probe — instead of the full scan the LINQ walks.
+          </>
+        )}
       </span>
     </div>
   );

@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {BenchmarkExplorer} from '@site/src/components/BenchmarkExplorer';
+import {BenchVerdict} from '@site/src/components/BenchVerdict';
 import {BENCH_SUMMARY} from '@site/src/data/benchmarks';
 import styles from './marketing.module.css';
 
@@ -150,6 +151,22 @@ function Numbers(): ReactNode {
   );
 }
 
+function Verdict(): ReactNode {
+  return (
+    <section className="cdb-section">
+      <div className="container">
+        <span className="cdb-kicker">The verdict</span>
+        <h2 className="cdb-h2">LINQ vs SQLite vs ConjureDB</h2>
+        <p className="cdb-lead">
+          The same queries, the same 50,000-row data, three ways to run them: the hand-written LINQ a
+          developer reaches for first, embedded SQLite, and ConjureDB. Here is how they stack up.
+        </p>
+        <BenchVerdict />
+      </div>
+    </section>
+  );
+}
+
 function Cta(): ReactNode {
   return (
     <section className="cdb-section cdb-center">
@@ -182,6 +199,7 @@ export default function Performance(): ReactNode {
         <PerfStats />
         <Why />
         <Numbers />
+        <Verdict />
         <Cta />
       </main>
     </Layout>
