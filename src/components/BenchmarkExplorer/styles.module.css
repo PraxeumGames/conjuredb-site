@@ -121,6 +121,9 @@
   color: var(--ifm-color-primary);
   font-weight: 700;
 }
+.linqCol {
+  color: #c98a3c;
+}
 .alloc {
   color: var(--cdb-muted);
 }
@@ -181,31 +184,29 @@
   max-width: 68ch;
 }
 
-.metrics {
+/* LINQ punchline callout (shown under the LINQ code tab) */
+.callout {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.1rem;
-  align-items: baseline;
-  margin: 0 0 0.7rem;
-  padding: 0.55rem 0.8rem;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--cdb-line);
+  border-left: 3px solid var(--ifm-color-primary);
   border-radius: 9px;
-  background: var(--cdb-surface-2);
+  background: rgba(45, 212, 191, 0.05);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--cdb-ink);
+  max-width: 78ch;
 }
-.metric {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
+.calloutBolt {
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
-.metricLabel {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--cdb-muted);
-}
-.metricVal {
+.cnum {
   font-family: var(--cdb-mono);
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   font-variant-numeric: tabular-nums;
   color: var(--cdb-ink);
 }

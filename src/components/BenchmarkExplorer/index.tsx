@@ -9,40 +9,31 @@ const FORMS: {key: FormKey; label: string; lang: string}[] = [
   {key: 'sql', label: 'SQLite SQL', lang: 'sql'},
 ];
 
-function Metric({label, value, accent}: {label: string; value: string; accent?: boolean}): ReactNode {
+function LinqCallout({row}: {row: BenchRow}): ReactNode {
+  if (!row.linqNs || !row.linqVsCdb) return null;
   return (
-    <span className={styles.metric}>
-      <span className={styles.metricLabel}>{label}</span>
-      <span className={accent ? `${styles.metricVal} ${styles.win}` : styles.metricVal}>{value}</span>
-    </span>
-  );
-}
-
-function FormMetrics({row, form}: {row: BenchRow; form: FormKey}): ReactNode {
-  if (form === 'dsl') {
-    return (
-      <div className={styles.metrics}>
-        <Metric label="ConjureDB" value={row.cdb} accent />
-        <Metric label="alloc" value={row.alloc} />
-        {row.x && <Metric label="vs SQLite" value={row.x} />}
-      </div>
-    );
-  }
-  if (form === 'sql') {
-    return (
-      <div className={styles.metrics}>
-        <Metric label="SQLite" value={row.sqlite} />
-      </div>
-    );
-  }
-  // LINQ — measured separately on the same dataset; show its real cost.
-  if (!row.linqNs) return null;
-  return (
-    <div className={styles.metrics}>
-      <Metric label="LINQ" value={row.linqNs} />
-      {row.linqAlloc && <Metric label="alloc" value={row.linqAlloc} />}
-      {row.linqVsCdb && <Metric label="ConjureDB faster by" value={row.linqVsCdb} accent />}
-      {row.linqVsSqlite && <Metric label="vs SQLite" value={row.linqVsSqlite} />}
+    <div className={styles.callout}>
+      <span className={styles.calloutBolt} aria-hidden>
+        ⚡
+      </span>
+      <span>
+        ConjureDB runs this <b className={styles.win}>{row.linqVsCdb}</b> faster than the
+        hand-written LINQ — <span className={styles.cnum}>{row.cdb}</span> vs{' '}
+        <span className={styles.cnum}>{row.linqNs}</span>
+        {row.alloc && row.linqAlloc && (
+          <>
+            , and allocates <span className={styles.cnum}>{row.alloc}</span> vs{' '}
+            <span className={styles.cnum}>{row.linqAlloc}</span>
+          </>
+        )}
+        .
+        {row.linqVsSqlite && (
+          <>
+            {' '}
+            The naive LINQ is itself <b>{row.linqVsSqlite}</b> than SQLite here.
+          </>
+        )}
+      </span>
     </div>
   );
 }
@@ -71,18 +62,16 @@ function CaseDetail({row}: {row: BenchRow}): ReactNode {
           </button>
         ))}
       </div>
-      <FormMetrics row={row} form={active.key} />
+      {active.key === 'linq' && <LinqCallout row={row} />}
       <pre className={styles.code} data-lang={active.lang}>
         <code>{row[active.key]}</code>
       </pre>
-      {active.key === 'linq' && row.linqNote && (
-        <p className={styles.note}>{row.linqNote}</p>
-      )}
+      {active.key === 'linq' && row.linqNote && <p className={styles.note}>{row.linqNote}</p>}
       {active.key === 'linq' && (
         <p className={styles.disclaimer}>
-          Hand-written equivalent over plain <code>List&lt;T&gt;</code>, no indexes. Measured on the
-          identical dataset and query parameters as the ConjureDB/SQLite figures (single machine,
-          in-process timing). The naive version a developer reaches for first — which is the point.
+          Hand-written equivalent over plain <code>List&lt;T&gt;</code>, no indexes — the naive
+          version a developer reaches for first. Measured on the identical dataset and query
+          parameters as the ConjureDB/SQLite figures (single machine, in-process timing).
         </p>
       )}
     </div>
@@ -125,16 +114,20 @@ export function BenchmarkExplorer(): ReactNode {
             {g.range ? ` · ${g.range} vs SQLite` : ''}
           </span>
         </div>
-        <p className={styles.hint}>Select a query to see its ConjureDB, LINQ and SQL form.</p>
+        <p className={styles.hint}>
+          Three baselines, same 50,000-row dataset. Select a query for its ConjureDB, LINQ and SQL
+          form.
+        </p>
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>Query</th>
+                <th className={styles.num}>LINQ</th>
                 <th className={styles.num}>SQLite</th>
                 <th className={styles.num}>ConjureDB</th>
-                <th className={styles.num}>Speedup</th>
+                <th className={styles.num}>vs SQLite</th>
                 <th className={styles.num}>Alloc</th>
               </tr>
             </thead>
@@ -143,9 +136,8 @@ export function BenchmarkExplorer(): ReactNode {
                 const isOpen = open === r.q;
                 const expandable = Boolean(r.dsl || r.linq || r.sql);
                 return (
-                  <>
+                  <Fragment key={r.q}>
                     <tr
-                      key={r.q}
                       className={`${expandable ? styles.rowClickable : ''} ${isOpen ? styles.rowOpen : ''}`}
                       onClick={expandable ? () => toggleRow(r.q) : undefined}
                       aria-expanded={expandable ? isOpen : undefined}>
@@ -158,19 +150,20 @@ export function BenchmarkExplorer(): ReactNode {
                         {r.label}
                         {r.cls === 'StressRare' && <span className={styles.badge}>stress-rare</span>}
                       </td>
+                      <td className={`${styles.num} ${styles.linqCol}`}>{r.linqNs ?? '—'}</td>
                       <td className={styles.num}>{r.sqlite}</td>
                       <td className={styles.num}>{r.cdb}</td>
                       <td className={`${styles.num} ${styles.win}`}>{r.x}</td>
                       <td className={`${styles.num} ${styles.alloc}`}>{r.alloc}</td>
                     </tr>
                     {isOpen && (
-                      <tr key={`${r.q}-detail`} className={styles.detailRow}>
-                        <td colSpan={5}>
+                      <tr className={styles.detailRow}>
+                        <td colSpan={6}>
                           <CaseDetail row={r} />
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

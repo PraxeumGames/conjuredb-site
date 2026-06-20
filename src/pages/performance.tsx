@@ -127,7 +127,9 @@ function Numbers(): ReactNode {
           aggregation, windows, semi/anti/exists, set operations, outer joins, distinct and
           sort/pagination. All <strong>{BENCH_SUMMARY.releaseCommon} production-tier cases run
           ≥{BENCH_SUMMARY.target}×</strong>, none slower; the weakest is {BENCH_SUMMARY.weakest}×.
-          Browse the coverage by family:
+          Each case carries three baselines side by side — the hand-written LINQ a developer would
+          write by hand, embedded SQLite, and ConjureDB — measured on the same dataset. Browse by
+          family:
         </p>
         <BenchmarkExplorer />
         <Table
