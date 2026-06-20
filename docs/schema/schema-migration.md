@@ -317,7 +317,7 @@ The logs report the detected `CompatibilityVerdict`, list of `SchemaChange` entr
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `SchemaMigrationException`: fingerprint mismatch without version bump | Schema changed but `schema_version` was not incremented | Increment the `schema_version` table option and register a migration if breaking |
+| `SchemaMigrationException`: fingerprint mismatch without version bump | Schema changed but `schema_version` was not incremented | Increment `schema_version` and register a migration if breaking |
 | `SchemaMigrationException`: stored schema is newer than current | Downgrading to an older application version | Not supported; use the version that created the snapshot |
 | `SchemaMigrationException`: no migration chain registered | Breaking change detected but no migration covers the version gap | Register migrations via `MigrationRegistry.Register()` in `OnBeforeBuild()` |
 | `SchemaMigrationException`: migration chain contains a cycle | Migration steps form a loop (e.g., v1→v2→v1) | Ensure all steps are forward-only with `ToVersion > FromVersion` |

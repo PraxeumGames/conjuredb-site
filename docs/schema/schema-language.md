@@ -149,7 +149,7 @@ All declarations are **globally visible** regardless of where they are defined â
 
 #### Example
 
-```unimem
+```text
 // Global shared types
 enum Rarity { Common = 0, Uncommon = 1, Rare = 2, Epic = 3, Legendary = 4 }
 type PlayerDto { id: int, name: string, level: int }
@@ -582,7 +582,7 @@ table Guild {
 }
 ```
 
-Table options use `key: value` syntax only; each option key is followed by a colon.
+**Alternative option separator:** both `key: value` and `key = value` syntax are accepted for table options.
 
 ### 6.3  Struct Tables
 
@@ -652,15 +652,12 @@ public record Player
     public int Id { get; set; }
 
     [Key(1)]
-    [ForeignKey(nameof(Guild))]
     public int? GuildId { get; set; }
 
     [Key(2)]
-    [Index("Player_ByName", Type = IndexType.Lookup)]
     public string Name { get; set; } = string.Empty;
 
     [Key(3)]
-    [Index("Player_ByLevel", Type = IndexType.SortedSet)]
     public int Level { get; set; }
 
     [Key(4)]
@@ -683,7 +680,7 @@ public record Player
 but their source query is always written after the declaration body with
 `= <pipeline>`.
 
-```unimem
+```text
 view ActiveItemRow {
     owner_id : int
     item_id  : int
@@ -704,7 +701,7 @@ view ActiveItemRow {
 A `view` is virtual: it stores no rows, has no indexes, and expands as a
 named reusable pipeline source.
 
-```unimem
+```text
 materialized view PlayerItemRow(
     capacity: 50000,
     refresh: incremental,
@@ -749,7 +746,7 @@ Options:
 
 Queries read both virtual and materialized views as ordinary sources:
 
-```unimem
+```text
 query GetPlayerItems(player_id: int, max_count: int) -> PlayerItemRow[] =
     from PlayerItemRow
     | filter owner_id == @player_id
@@ -950,7 +947,7 @@ When `kind` is omitted, the default index type is `lookup`.
 
 | Option | Value Type | Applicable Index Types | Description |
 |--------|------------|----------------------|-------------|
-| `name` | `"string"` | All | Index name (used in generated `[Index("â€¦")]`). Defaults to field PascalCase name |
+| `name` | `"string"` | All | Index name (used by the generated index structure). Defaults to field PascalCase name |
 | `kind` | identifier | All | Index type (see table above). Defaults to `lookup` |
 | `value` | field name | `aggregation`, `universal_aggregation` | Value property for aggregation computation |
 | `keys` | `[field1, field2]` | All | Additional composite key fields |
@@ -1063,11 +1060,10 @@ Keep `@relation(...)` declarations single-field. Composite `fields: [...]` lists
 
 **Generated C#:**
 
-The `@relation` annotation generates a `[ForeignKey(nameof(TargetEntity))]` attribute:
+The `@relation` annotation records the foreign-key relationship as compiler metadata (used for bounds inference and join planning); it is not emitted as a C# attribute. The generated entity field carries only its MessagePack `[Key]`:
 
 ```csharp
 [Key(1)]
-[ForeignKey(nameof(Guild))]
 public int? GuildId { get; set; }
 ```
 
@@ -1177,7 +1173,7 @@ Declares an explicit parent-side child collection navigation for Option 2 schema
 
 **Syntax:**
 
-```unimem
+```text
 @@navigation(
     name: "Orders",
     references: Order.customer_id
@@ -1193,7 +1189,7 @@ Declares an explicit parent-side child collection navigation for Option 2 schema
 
 **Example:**
 
-```unimem
+```text
 table Customer {
   id: int @id
 
@@ -1206,12 +1202,7 @@ table Order {
 }
 ```
 
-**Generated C#:**
-
-```csharp
-[NavigationCollection(nameof(Order), nameof(Order.CustomerId))]
-public IReadOnlyList<Order>? Orders => null;
-```
+**Generates** a child-collection navigation accessor on the parent entity, reachable through the generated `CollectionHandle` API and backed by a lookup index on the child's foreign-key field.
 
 **Validation rules:**
 
@@ -1310,7 +1301,7 @@ Supported options:
 
 Example:
 
-```unimem
+```text
 query GetTopStatusBuckets(limit: int) -> StatusBucketView[]
 @planning(
     aggregate_group_key_string_value_sets: ["Pending|Completed|Cancelled"],
@@ -1398,10 +1389,8 @@ namespace Generated;
 
 public interface IPlayerQueries : IRepository<Player>
 {
-    [CompiledQueryAttribute("from Player\n| filter level > @min_level\n| sort -score\n| take 10")]
     Player[] GetTopPlayers(int minLevel);
 
-    [CompiledQueryAttribute("from Player\n| filter name == @name")]
     Player FindPlayer(string name);
 }
 ```
@@ -1505,13 +1494,10 @@ namespace Generated;
 
 public interface IPlayerMutations : IRepository<Player>
 {
-    [CompiledMutationAttribute("update Player | filter id == @player_id | set status = 1")]
     void BanPlayer(int playerId);
 
-    [CompiledMutationAttribute("delete Player | filter status == 2")]
     int DeleteInactivePlayers();
 
-    [CompiledMutationAttribute("insert Player | values { name = @name, level = @level, score = 0, status = 0 }")]
     Player CreatePlayer(string name, int level);
 }
 ```
@@ -1562,7 +1548,7 @@ Object-like command payloads use `field: expression` syntax. `set` remains assig
 
 Writes are command statements, not `var` pipelines. Upsert binds the inserted-or-updated row through `returning ... into <name>`:
 
-```unimem
+```text
 upsert InventorySlot
 | key { PlayerId: playerId, ItemId: itemId }
 | set Amount += quantity
@@ -1582,7 +1568,7 @@ var wallet =
 
 Single-row write statements use explicit keys or values instead of filters:
 
-```unimem
+```text
 update Wallet
 | key { Id: wallet.Id } else WalletMissing { playerId: playerId }
 | require Balance >= cost else InsufficientFunds { balance: Balance, cost: cost }
@@ -1644,7 +1630,7 @@ Generated command code is output of the schema compiler. Do not edit generated c
 
 ### 12.6  Example
 
-```unimem
+```text
 module Shop {
     table Wallet {
         id: int @id

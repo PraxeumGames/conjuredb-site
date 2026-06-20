@@ -32,10 +32,16 @@ The single most impactful performance decision is whether your queries are compi
 
 Compiled queries are transformed into optimized C# methods during `dotnet build`. The generated code uses direct index access, zero-reflection field reads, and pre-computed execution strategies. There is no parsing, no expression tree construction, and no runtime planning overhead.
 
+```text
+// ✅ GOOD — declared in a .conjure schema, compiled at build time, zero overhead at runtime
+query GetTopPlayers(minLevel: int, n: int) -> Player[] {
+    from Players | filter Level > @minLevel | sort -Score | take @n
+}
+```
+
 ```csharp
-// ✅ GOOD — compiled at build time, zero overhead at runtime
-schema query "from Players | filter Level > @minLevel | sort -Score | take @n")]
-IEnumerable<Player> GetTopPlayers(int minLevel, int n);
+// Call the generated method on the entity set
+Player[] top = context.Players.GetTopPlayers(minLevel, n);
 ```
 
 Runtime queries (ad-hoc `context.Query(...)` calls) pay the full cost of parsing, binding, optimization, and code generation on every invocation. They are useful for debugging and development tools, but should never appear in game loops.
@@ -194,14 +200,22 @@ When a `take` limit is present, the compiler can use a heap-based TopN algorithm
 
 The compiler selects indexes automatically when available. Ensure the columns you filter on have appropriate indexes:
 
-```csharp
+```text
 // ✅ With a LookupIndex on GuildId — O(1) hash lookup
-schema query "from Players | filter GuildId == @guildId")]
-IEnumerable<Player> GetGuildPlayers(int guildId);
+query GetGuildPlayers(guildId: int) -> Player[] {
+    from Players | filter GuildId == @guildId
+}
 
 // ❌ Without an index on Name — O(n) full scan
-schema query "from Players | filter Name == @name")]
-IEnumerable<Player> FindByName(string name);
+query FindByName(name: string) -> Player[] {
+    from Players | filter Name == @name
+}
+```
+
+```csharp
+// Call the generated methods on the entity set
+Player[] guildPlayers = context.Players.GetGuildPlayers(guildId);
+Player[] byName = context.Players.FindByName(name);
 ```
 
 If you see compiler warning `UM7001` (full scan on large table), add an index on the filtered column.
@@ -210,38 +224,42 @@ If you see compiler warning `UM7001` (full scan on large table), add an index on
 
 When you have a `SortedSetIndex` on the sort column, the compiler eliminates the sort operator entirely:
 
-```csharp
+```text
 // SortedSetIndex on Score → sort is free (pre-cached ordering)
-schema query "from Players | sort -Score | take @n")]
-IEnumerable<Player> GetTopPlayers(int n);
+query GetTopPlayers(n: int) -> Player[] {
+    from Players | sort -Score | take @n
+}
 
 // GroupedSortedIndex on (GuildId, Score) → group access + pre-sorted iteration
-schema query "from Players | filter GuildId == @g | sort -Score | take @n")]
-IEnumerable<Player> GetTopGuildPlayers(int g, int n);
+query GetTopGuildPlayers(g: int, n: int) -> Player[] {
+    from Players | filter GuildId == @g | sort -Score | take @n
+}
 ```
 
 ### Use Aggregation Indexes for Metrics
 
 Don't scan tables to compute sums and counts. Use pre-computed aggregation indexes:
 
-```csharp
-// ❌ BAD — scans all players to compute sum
-schema query "from Players | aggregate { Total = sum Score }")]
-long GetTotalScore();
+```text
+// ❌ BAD — scans all players to compute sum (declared as a query)
+query GetTotalScore() -> long {
+    from Players | aggregate { Total = sum Score }
+}
 
-// ✅ GOOD — declare a GlobalAggregationIndex, O(1) read
-[Index(Name = "GlobalScore", Type = IndexType.Aggregation, ValueProperty = "Score")]
-public int Score { get; set; }
+// ✅ GOOD — declare a GlobalAggregationIndex on the Score column, O(1) read
+struct table Player(plural: Players, persistence: local) {
+    Score: int @index(name: "GlobalScore", kind: aggregation)
+}
 // O(1): context.Players.SyncIndex.GlobalScore.GetGlobalSum()
 ```
 
 For grouped aggregations, use `UniversalAggregationIndex`:
 
-```csharp
+```text
 // O(1) per guild — no GROUP BY scan required
-[Index(Name = "ScoreByGuild", Type = IndexType.UniversalAggregation,
-       Keys = new[] { "GuildId" }, ValueProperty = "Score")]
-public int GuildId { get; set; }
+struct table Player(plural: Players, persistence: local) {
+    GuildId: int @index(name: "ScoreByGuild", kind: universal_aggregation, value: Score)
+}
 ```
 
 ---
@@ -310,14 +328,16 @@ foreach (ref readonly var player in refResults) { /* ... */ }
 
 For scalar queries, prefer value-type returns to avoid boxing:
 
-```csharp
+```text
 // Returns int directly — no boxing, no allocation
-schema query "from Players | aggregate { MaxLevel = max Level }")]
-int GetMaxLevel();
+query GetMaxLevel() -> int {
+    from Players | aggregate { MaxLevel = max Level }
+}
 
 // Returns long — no boxing
-schema query "from Players | filter GuildId == @g | aggregate { Total = sum Score }")]
-long GetGuildTotalScore(int g);
+query GetGuildTotalScore(g: int) -> long {
+    from Players | filter GuildId == @g | aggregate { Total = sum Score }
+}
 ```
 
 ---
@@ -378,10 +398,7 @@ Profile-Guided Optimization lets the compiler make data-driven decisions instead
 
 **1. Instrument — Enable profile collection:**
 
-```csharp
-[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
-public class GameDbContext : DbContext { ... }
-```
+PGO collection is enabled through the code generator's emission options (`PgoMode = Collect` with a profile path), not via a C# attribute on the context. Run the generator in collect mode against your schema, then exercise the workload below.
 
 **2. Run — Execute a representative workload:**
 
@@ -413,12 +430,10 @@ but not for rebuilding your application with the collected profile.
 
 **4. Rebuild — Switch to Use mode and rebuild:**
 
-```csharp
-[PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
-public class GameDbContext : DbContext { ... }
-```
+Re-run the generator with `PgoMode = Use` pointing at the collected profile, then rebuild:
 
 ```bash
+dotnet run --project ConjureDB.CodeGen.Manual -- ./Game.Data --profile=./profiles/game.json
 dotnet build -c Release
 ```
 
@@ -441,11 +456,13 @@ dotnet build -c Release
 
 ### Manual Hints (Without Full PGO)
 
-Override individual decisions with `query` attributes:
+Override individual decisions with a per-query `@planning(...)` hint block on the schema query header:
 
-```csharp
-schema query "from Players | group GuildId (...)", MaxGroupKeyValue = 256)]
-IEnumerable<GuildStats> GetGuildStats();
+```text
+query GetGuildStats() -> GuildStats[]
+@planning(max_group_key_value: 256) {
+    from Players | group GuildId (...)
+}
 ```
 
 | Hint | Effect |
@@ -454,7 +471,7 @@ IEnumerable<GuildStats> GetGuildStats();
 | `MaxKeyValue` | Override bounded comparison-key range for dense set-operation / DISTINCT strategies |
 | `NoOptimize = true` | Disable PGO optimizations (baseline comparison) |
 
-Join-strategy preference, sort skipping, and selectivity overrides come from planning profiles / PGO data rather than `CompiledQueryAttribute`.
+Join-strategy preference, sort skipping, and selectivity overrides come from planning profiles / PGO data rather than per-query `@planning(...)` hints.
 
 See [PGO](/docs/performance/pgo) for full documentation.
 
@@ -464,16 +481,14 @@ See [PGO](/docs/performance/pgo) for full documentation.
 
 ### Capacity Pre-allocation
 
-Set accurate initial capacities in `table` attributes to avoid runtime resizing. The primary index doubles capacity when exhausted — each doubling copies the entire array:
+Set accurate initial capacities in your `struct table` schema declarations to avoid runtime resizing. The primary index doubles capacity when exhausted — each doubling copies the entire array:
 
-```csharp
+```text
 // ❌ BAD — default capacity, resizes multiple times as players join
-[Table("Players", PersistenceType.Local)]
-public class Player { ... }
+struct table Player(plural: Players, persistence: local) { ... }
 
 // ✅ GOOD — pre-allocate for expected steady-state count
-[Table("Players", PersistenceType.Local, capacity: 10_000)]
-public class Player { ... }
+struct table Player(plural: Players, persistence: local, capacity: 10000) { ... }
 ```
 
 For secondary indexes, use `PrewarmIndexAllocator`:
@@ -570,10 +585,13 @@ Typical frame budgets:
 
 1. **Pre-compute with reactive queries** — let the worker thread maintain query results. Read `Current` in the game loop (O(1), zero allocation):
 
-```csharp
-[ReactiveQuery("from Players | filter Level > 10 | sort -Score | take 20")]
-ReactiveQuery<Player> TopPlayers { get; }
+```text
+reactive query TopPlayers() -> Player[] {
+    from Players | filter Level > 10 | sort -Score | take 20
+}
+```
 
+```csharp
 // In Update() — O(1) read, zero allocation
 ReadOnlySpan<Player> top = context.TopPlayers.Current;
 ```
@@ -677,23 +695,17 @@ context.Commit();
 
 #### Over-Indexing
 
-```csharp
-// ❌ BAD — indexes on columns never used in queries
-[Index(Name = "ByName", Type = IndexType.Lookup)]
-public string Name { get; set; }      // Never filtered
+```text
+struct table Player(plural: Players, persistence: local) {
+    // ❌ BAD — indexes on columns never used in queries
+    Name: string @index(name: "ByName", kind: lookup)            // Never filtered
+    Email: string @index(name: "ByEmail", kind: lookup)          // Never filtered
+    CreatedAt: DateTime @index(name: "ByCreatedAt", kind: sorted_set) // Never sorted
 
-[Index(Name = "ByEmail", Type = IndexType.Lookup)]
-public string Email { get; set; }     // Never filtered
-
-[Index(Name = "ByCreatedAt", Type = IndexType.SortedSet)]
-public DateTime CreatedAt { get; set; } // Never sorted
-
-// ✅ GOOD — only index what you query
-[Index(Name = "ByGuild", Type = IndexType.Lookup)]
-public int GuildId { get; set; }       // Used in: filter GuildId == @g
-
-[Index(Name = "ByScore", Type = IndexType.SortedSet)]
-public int Score { get; set; }         // Used in: sort -Score | take 10
+    // ✅ GOOD — only index what you query
+    GuildId: int @index(name: "ByGuild", kind: lookup)           // Used in: filter GuildId == @g
+    Score: int @index(name: "ByScore", kind: sorted_set)         // Used in: sort -Score | take 10
+}
 ```
 
 ---
@@ -702,14 +714,11 @@ public int Score { get; set; }         // Used in: sort -Score | take 10
 
 ### `[DebugGeneration]` Trace Levels
 
-Use the `[DebugGeneration]` attribute to inspect the compiler's decisions:
+Enable generator trace output via the code generator's debug trace level to inspect the compiler's decisions. With trace enabled, the generated diagnostics describe the plan chosen for each declared query, for example:
 
-```csharp
-[DebugGeneration(TraceLevel = DebugTraceLevel.Verbose, OutputPath = "./debug")]
-public interface IPlayerRepository : IRepository<Player>
-{
-    schema query "from Players | sort -Score | take 10")]
-    IEnumerable<Player> GetTopPlayers();
+```text
+query GetTopPlayers() -> Player[] {
+    from Players | sort -Score | take 10
 }
 ```
 
@@ -809,29 +818,14 @@ dotnet run -c Release --project ConjureDB.Benchmarks
 
 **Entity design:**
 
-```csharp
-[Table("Inventory", PersistenceType.Local, capacity: 50_000)]
-public record InventoryItem
-{
-    public int Id { get; set; }
-
-    [Index(Name = "ByPlayer", Type = IndexType.Lookup)]
-    public int PlayerId { get; set; }
-
-    [Index(Name = "ByPlayerAndRarity",
-           Type = IndexType.GroupedSorted,
-           Keys = new[] { "PlayerId" },
-           RangeProperty = "Rarity")]
-    public int Rarity { get; set; }
-
-    [Index(Name = "ItemCount",
-           Type = IndexType.UniversalAggregation,
-           Keys = new[] { "PlayerId" },
-           ValueProperty = "Quantity")]
-    public int Quantity { get; set; }
-
-    public int ItemTemplateId { get; set; }
-    public int EnchantLevel { get; set; }
+```text
+struct table InventoryItem(plural: Inventory, persistence: local, capacity: 50000) {
+    Id: int @id
+    PlayerId: int @index(name: "ByPlayer", kind: lookup)
+    Rarity: int @index(name: "ByPlayerAndRarity", kind: grouped_sorted, keys: [PlayerId], range: Rarity)
+    Quantity: int @index(name: "ItemCount", kind: universal_aggregation, keys: [PlayerId], value: Quantity)
+    ItemTemplateId: int
+    EnchantLevel: int
 }
 ```
 
@@ -839,16 +833,19 @@ public record InventoryItem
 
 ```csharp
 // All items for a player — O(1) lookup
-schema query "from Inventory | filter PlayerId == @pid")]
-IEnumerable<InventoryItem> GetPlayerItems(int pid);
+query GetPlayerItems(pid: int) -> InventoryItem[] {
+    from Inventory | filter PlayerId == @pid
+}
 
 // Total item count — O(1) aggregation
-schema query "from Inventory | filter PlayerId == @pid | aggregate { Total = sum Quantity }")]
-int GetTotalItemCount(int pid);
+query GetTotalItemCount(pid: int) -> int {
+    from Inventory | filter PlayerId == @pid | aggregate { Total = sum Quantity }
+}
 
 // Rarest items first — O(1) group + O(k) iteration, pre-sorted
-schema query "from Inventory | filter PlayerId == @pid | sort -Rarity | take @n")]
-IEnumerable<InventoryItem> GetRarestItems(int pid, int n);
+query GetRarestItems(pid: int, n: int) -> InventoryItem[] {
+    from Inventory | filter PlayerId == @pid | sort -Rarity | take @n
+}
 ```
 
 **Performance characteristics:**
@@ -860,27 +857,13 @@ IEnumerable<InventoryItem> GetRarestItems(int pid, int n);
 
 **Entity design:**
 
-```csharp
-[Table("Players", PersistenceType.Local, capacity: 100_000)]
-public record Player
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-
-    [Index(Name = "Score_Sorted", Type = IndexType.SortedSet)]
-    public int Score { get; set; }
-
-    [Index(Name = "ScoresByGuild",
-           Type = IndexType.GroupedSorted,
-           Keys = new[] { "GuildId" },
-           RangeProperty = "Score")]
-    public int GuildId { get; set; }
-
-    [Index(Name = "GuildTotalScore",
-           Type = IndexType.UniversalAggregation,
-           Keys = new[] { "GuildId" },
-           ValueProperty = "Score")]
-    public int _GuildId_Agg { get; set; } // alias to avoid duplicate property
+```text
+struct table Player(plural: Players, persistence: local, capacity: 100000) {
+    Id: int @id
+    Name: string
+    Score: int @index(name: "Score_Sorted", kind: sorted_set)
+    GuildId: int @index(name: "ScoresByGuild", kind: grouped_sorted, keys: [GuildId], range: Score)
+        @index(name: "GuildTotalScore", kind: universal_aggregation, keys: [GuildId], value: Score)
 }
 ```
 
@@ -888,26 +871,31 @@ public record Player
 
 ```csharp
 // Global Top-N — O(n) with SortedSet pre-sorted, O(k) iteration
-schema query "from Players | sort -Score | take @n")]
-IEnumerable<Player> GetGlobalLeaderboard(int n);
+query GetGlobalLeaderboard(n: int) -> Player[] {
+    from Players | sort -Score | take @n
+}
 
 // Guild Top-N — O(1) group + O(k), zero sorting
-schema query "from Players | filter GuildId == @g | sort -Score | take @n")]
-IEnumerable<Player> GetGuildLeaderboard(int g, int n);
+query GetGuildLeaderboard(g: int, n: int) -> Player[] {
+    from Players | filter GuildId == @g | sort -Score | take @n
+}
 
 // Top guilds by total score — O(k) from pre-ranked aggregation
-schema query
-    "from Players | group GuildId (aggregate { Total = sum Score }) | sort -Total | take @n",
-    MaxGroupKeyValue = 10000)]
-IEnumerable<GuildRanking> GetTopGuilds(int n);
+query GetTopGuilds(n: int) -> GuildRanking[]
+@planning(max_group_key_value: 10000) {
+    from Players | group GuildId (aggregate { Total = sum Score }) | sort -Total | take @n
+}
 ```
 
 **For reactive leaderboards** (auto-updating UI):
 
-```csharp
-[ReactiveQuery("from Players | sort -Score | take 20")]
-ReactiveQuery<Player> TopPlayersLive { get; }
+```text
+reactive query TopPlayersLive() -> Player[] {
+    from Players | sort -Score | take 20
+}
+```
 
+```csharp
 // In Update() — always current, zero allocation
 ReadOnlySpan<Player> top = context.TopPlayersLive.Current;
 ```
@@ -916,22 +904,17 @@ ReadOnlySpan<Player> top = context.TopPlayersLive.Current;
 
 Game config (item templates, level requirements, skill trees) is loaded once and read frequently:
 
-```csharp
-[Table("ItemTemplates", PersistenceType.None, capacity: 5_000)]
-public record ItemTemplate
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public int Rarity { get; set; }
-    public int BasePrice { get; set; }
-
-    [Index(Name = "ByRarity", Type = IndexType.SortedSet)]
-    public int _Rarity { get; set; }
+```text
+struct table ItemTemplate(plural: ItemTemplates, persistence: none, capacity: 5000) {
+    Id: int @id
+    Name: string
+    Rarity: int @index(name: "ByRarity", kind: sorted_set)
+    BasePrice: int
 }
 ```
 
 **Optimization tips for config tables:**
-- Use `PersistenceType.None` — no snapshot/journal overhead since data is loaded from game files.
+- Use `persistence: none` — no snapshot/journal overhead since data is loaded from game files.
 - Set capacity exactly — no resizing since the dataset is fixed.
 - Use `UniqueIndex` for lookups by external ID (e.g., template string ID).
 - Prefer `SortedListIndex` over `SortedSetIndex` for small, never-mutated tables — dense array iteration is cache-friendlier.
@@ -991,11 +974,14 @@ context.Players.Subscribe((in StateChange<Player> change) =>
 
 **Use reactive queries for derived state:**
 
-```csharp
+```text
 // Nearby enemies — auto-maintained by worker thread
-[ReactiveQuery("from Enemies | filter IsAlive == true | sort Distance | take 10")]
-ReactiveQuery<Enemy> NearestEnemies { get; }
+reactive query NearestEnemies() -> Enemy[] {
+    from Enemies | filter IsAlive == true | sort Distance | take 10
+}
+```
 
+```csharp
 // In Update() — current snapshot, zero allocation, O(1)
 var enemies = context.NearestEnemies.Current;
 ```
@@ -1026,7 +1012,7 @@ Before shipping, verify every item:
 ## See Also
 
 - [Indexing Reference](/docs/schema/indexing) — comprehensive index type documentation
-- [Compiled Queries](/docs/query-language/compiled-queries) — `query` attribute reference and patterns
+- [Compiled Queries](/docs/query-language/compiled-queries) — schema `query` declaration reference and patterns
 - [PGO](/docs/performance/pgo) — full Profile-Guided Optimization workflow
 - [Database Engine](/docs/engine/database-engine) — `DbContext`, `DbSet<T>`, transactions, persistence
 - [Reactive Queries](/docs/advanced/reactive-queries) — incremental view maintenance

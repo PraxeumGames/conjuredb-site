@@ -2,7 +2,7 @@
 
 ## Overview
 
-ConjureDB provides a rich set of **built-in functions** (scalar, aggregate, and window) and supports extending the DSL with user-defined C# functions via an `extern function` declaration in the schema. All functions are resolved at compile time and emit direct static method calls — no reflection, no delegates, no runtime overhead.
+ConjureDB provides a rich set of **built-in functions** (scalar, aggregate, and window) and supports extending the DSL with user-defined C# functions via an `extern function` declaration in your `.conjure` schema. All functions are resolved at compile time and emit direct static method calls — no reflection, no delegates, no runtime overhead.
 
 ---
 
@@ -332,13 +332,9 @@ from Players
 
 ### extern function Declaration
 
-A custom function has two parts: a plain **`public static` method** in C# (no attribute) and an `extern function` declaration in your `.conjure` schema that maps a DSL name to that fully-qualified method:
+Custom functions are bound in two parts: a plain **`public static` C# method** (no attribute is needed or supported), and an `extern function` declaration in your `.conjure` schema that maps a DSL name to that method's fully qualified name.
 
-```
-extern function calculateDamage(baseDamage: int, enchantLevel: int) -> int = GameMath.CalculateDamage
-extern function xpForLevel(level: int) -> long = GameMath.XpForLevel
-extern function clampScore(score: int, min: int, max: int) -> int = GameMath.ClampScore
-```
+Write the C# methods normally:
 
 ```csharp
 public static class GameMath
@@ -360,18 +356,22 @@ public static class GameMath
 }
 ```
 
-### Declaration Form
+Then declare them in the schema. The form is `extern function dslName(param: Type, ...) -> ReturnType = Fully.Qualified.MethodName`:
 
+```text
+extern function calculateDamage(baseDamage: int, enchantLevel: int) -> int = GameMath.CalculateDamage
+extern function xpForLevel(level: int) -> long = GameMath.XpForLevel
+extern function clampScore(score: int, min: int, max: int) -> int = GameMath.ClampScore
 ```
-extern function <dslName>(<param>: <Type>, ...) -> <ReturnType> = <Fully.Qualified.Static.Method>
-```
+
+### Declaration Parts
 
 | Part | Description |
 |------|-------------|
-| `<dslName>` | Name used in DSL expressions. |
-| parameters | Comma-separated `name: Type` list; types use the schema type grammar (`int`, `string`, `extern Some.Clr.Type`, `T[]`, `T?`, generics). |
-| `-> <ReturnType>` | Return type of the function. |
-| `= <method>` | Fully-qualified name of the target `public static` C# method. |
+| `dslName` | Name used in DSL expressions (the identifier after `extern function`). Required. |
+| `(param: Type, ...)` | Typed parameter list; types must match the C# method signature. |
+| `-> ReturnType` | DSL return type. Use `-> extern CLR.Type` to bind an external CLR type. |
+| `= Fully.Qualified.MethodName` | The fully qualified name of the plain `public static` C# method to call. |
 
 ---
 
@@ -405,7 +405,7 @@ Custom function methods **must** satisfy all of the following:
 
 | Requirement | Validation |
 |-------------|-----------|
-| Be `public static` | Instance / non-public methods cannot be referenced by an `extern function` declaration |
+| Be `static` | Instance methods are rejected with a compile-time warning |
 | Not be generic | Generic methods are rejected |
 | No `ref` / `out` / `in` parameters | `RefKind != RefKind.None` → rejected per parameter |
 | No `params` parameters | `IsParams` → rejected |
@@ -435,9 +435,9 @@ Custom function methods **must** satisfy all of the following:
 
 ## Discovery Mechanism
 
-Functions are registered by `extern function` declarations in your `.conjure` schema. Each declaration names the DSL function and the fully-qualified C# static method it maps to, so no attribute scanning or manual runtime registration is needed.
+Custom functions are registered by `extern function` declarations in your `.conjure` schema — there is no attribute-based auto-discovery. Each declaration explicitly maps a DSL function name to a fully qualified C# method name, which the compiler resolves and binds at compile time.
 
-Each declaration produces a mapping from a DSL function name to a fully qualified C# method name (e.g., `calculateDamage` → `GameMath.CalculateDamage`), which the compiler uses for direct code generation.
+The declaration produces a mapping from DSL function names to their fully qualified C# method names (e.g., `calculateDamage` → `GameMath.CalculateDamage`), which the compiler uses for direct code generation.
 
 ---
 
@@ -482,7 +482,7 @@ public static class StringHelpers
 }
 ```
 
-```
+```text
 extern function initials(firstName: string, lastName: string) -> string = StringHelpers.Initials
 extern function truncate(value: string, maxLength: int) -> string = StringHelpers.Truncate
 ```
@@ -504,7 +504,7 @@ public static class NullableHelpers
 }
 ```
 
-```
+```text
 extern function safeLength(value: string) -> int = NullableHelpers.SafeLength
 ```
 
@@ -535,7 +535,7 @@ public static class GameLogic
 }
 ```
 
-```
+```text
 extern function tierForLevel(level: int) -> string = GameLogic.TierForLevel
 extern function combatPower(attack: int, defense: int, speed: int) -> double = GameLogic.CombatPower
 ```
@@ -564,7 +564,7 @@ from Players
 
 ## See Also
 
-- [Compiled Queries](/docs/query-language/compiled-queries) — `query` attribute and code generation
+- [Compiled Queries](/docs/query-language/compiled-queries) — schema `query` declarations and code generation
 - [Query Language](/docs/query-language/reference) — DSL syntax reference
 - [Mutations](/docs/query-language/mutations) — using functions in mutation `set` clauses
 - [PGO](/docs/performance/pgo) — profile-guided optimization

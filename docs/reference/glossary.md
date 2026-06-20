@@ -48,19 +48,19 @@ The operation that atomically applies all buffered mutations in the current tran
 
 ### Compiled Mutation
 
-A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method via the `mutation` keyword in a `.conjure` schema. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
+A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method. Declared schema-first with the `mutation` keyword in a `.conjure` file (e.g. `mutation DeductGold(pid: string, amount: long) -> int = update PlayerProfiles | filter PlayerId == @pid | set SoftCurrency = SoftCurrency - @amount`); the generator emits a method on the target entity's set, called as `context.PlayerProfiles.DeductGold(pid, amount)` and returning the affected-row count. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
 
 **See also:** [Mutations](/docs/query-language/mutations)
 
 ### Compiled Query
 
-A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method via the `query` keyword in a `.conjure` schema. The compiler selects optimal indexes, applies predicate pushdown, and emits zero-allocation code.
+A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method. Declared schema-first with the `query` keyword in a `.conjure` file (e.g. `query GetTopPlayersByScore(limit: int) -> Player[] { from Player | sort -Score | take @limit }`); the generator emits a method on the entity's generated set (also exposed on the `I<Entity>Queries` interface), called as `context.Players.GetTopPlayersByScore(limit)`. The compiler selects optimal indexes, applies predicate pushdown, and emits zero-allocation code.
 
 **See also:** [Compiled Queries](/docs/query-language/compiled-queries)
 
 ### Composite Index
 
-An index defined over multiple columns (a composite key). Declared via the `Keys` parameter of the `schema index` attribute or `@@index(fields: [...])` in schema files. Composite indexes enable efficient equality lookups on multi-column predicates.
+An index defined over multiple columns (a composite key). Declared via the table-level `@@index(fields: [...])` annotation in a `.conjure` schema file. Composite indexes enable efficient equality lookups on multi-column predicates.
 
 **See also:** [Indexing](/docs/schema/indexing)
 
@@ -129,7 +129,7 @@ ConjureDB's pipeline-based query language for defining compiled queries and muta
 
 ### Entity
 
-A C# record annotated with the `table` attribute that represents a row in a ConjureDB table. Entities are identified by an `int` primary key (`Id`) and serialized via MessagePack attributes. Each entity type occupies a dedicated `DbSet<T>`.
+A C# record generated from a `table` declaration in a `.conjure` schema, representing a row in a ConjureDB table. Entities are identified by an `int` primary key (`Id`) and serialized via MessagePack attributes. Each entity type occupies a dedicated `DbSet<T>`.
 
 **See also:** [Getting Started — Defining Entities](/docs/getting-started#defining-entities)
 
@@ -255,7 +255,7 @@ A write operation that modifies database state. ConjureDB supports five mutation
 
 ### Navigation Editor
 
-A generated `ref struct` type that provides zero-allocation, type-safe access to parent-child entity relationships. Navigation editors are generated from `[InjectReference]` and `[Index(Lookup)]` metadata, enabling fluent traversal and cascading mutations without heap allocations.
+A generated `ref struct` type that provides zero-allocation, type-safe access to parent-child entity relationships. Navigation editors are generated from `@@navigation(...)` and `@@index(..., kind: lookup)` metadata in a `.conjure` schema, enabling fluent traversal and cascading mutations without heap allocations.
 
 **See also:** [Navigation Editors](/docs/advanced/navigation-editors)
 
@@ -273,7 +273,7 @@ The null coalescing operator in the query DSL, equivalent to SQL `COALESCE`. Ret
 
 ### Parameter (@param)
 
-A query or mutation parameter, prefixed with `@` in the DSL. Parameters are bound to C# method arguments on the `IRepository<T>` interface and are type-checked at compile time. Example: `filter Level > @minLevel`.
+A query or mutation parameter, prefixed with `@` in the DSL. Parameters are declared in the schema header as `name: Type` and referenced in pipeline expressions with a leading `@`; they bind to the arguments of the generated method on the entity set and are type-checked at compile time. Example: `filter Level > @minLevel`.
 
 **See also:** [Query Language — Parameters](/docs/query-language/reference#parameters)
 
@@ -331,7 +331,7 @@ The declarative domain-specific language for defining data models in `.conjure` 
 
 ### SchemaVersion
 
-An explicit version number assigned to an entity via the `[SchemaVersion(n)]` attribute. Combined with `TypeId` and field descriptors, it forms the schema fingerprint used to detect breaking changes during snapshot loading.
+An explicit version number assigned to a table via the `schema_version: N` table option in a `.conjure` schema. Combined with `TypeId` and field descriptors, it forms the schema fingerprint used to detect breaking changes during snapshot loading.
 
 **See also:** [Schema Migration](/docs/schema/schema-migration)
 
@@ -371,7 +371,7 @@ A nested pipeline expression used as a data source, a scalar value, or a set mem
 
 ### table (Schema Declaration)
 
-The `.conjure` schema declaration that defines a ConjureDB entity table. Specifies the table name and options such as persistence type and capacity. Example: `table Player(persistence: local, capacity: 1024)`.
+The schema-first declaration that defines a ConjureDB entity table in a `.conjure` file. Specifies the table name, persistence type, capacity, and `type_id`. Example: `table Player(plural: Players, persistence: local, capacity: 1024, type_id: 1) { ... }`.
 
 **See also:** [Getting Started — Defining Entities](/docs/getting-started#defining-entities), [Database Engine](/docs/engine/database-engine)
 

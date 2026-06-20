@@ -63,13 +63,16 @@ Internal errors indicate compiler bugs or infrastructure problems. Users should 
 | `UM0004` | `MissingSchema` | Error | Schema metadata is missing or empty | No schema was provided to the compiler, or the schema contains zero table definitions. | Ensure your `.conjure` schema file is present and contains at least one `table` declaration. |
 
 **Example triggering UM0004:**
-```csharp
-// No schema file referenced — compiler has no metadata
-public interface IUserRepository : IRepository<User>
-{
-  [Query("from Users | select Name")]  // UM0004: Schema metadata is missing
-  IEnumerable<string> GetUserNames();
+```text
+// No schema file referenced — compiler has no metadata.
+// Declare the query in a .conjure schema (which also supplies the schema metadata):
+query GetUserNames() -> string[] {
+    from Users | select Name
 }
+```
+```csharp
+// Then call the generated method on the entity set:
+string[] names = context.Users.GetUserNames();  // UM0004 occurs when no schema metadata exists
 ```
 
 ---
@@ -112,7 +115,7 @@ from Userz
 |---|---|---|---|---|---|
 | `UM1010` | `DuplicateLetBinding` | Error | Let binding already defined | A `let` variable with the same name is declared twice in the same scope. | Rename one of the bindings to a unique name. |
 | `UM1011` | `LetBindingNullRoot` | Error | Let binding produced null root | Internal: the let binding resolved to a null expression tree. | Simplify the let expression or report as bug if the expression looks valid. |
-| `UM1012` | `UntypedParameter` | Error | Parameter type cannot be inferred | A query parameter was used but its CLR type could not be determined. | Specify parameter types explicitly via `[QueryParameter(typeof(int))]` or equivalent. |
+| `UM1012` | `UntypedParameter` | Error | Parameter type cannot be inferred | A query parameter was used but its CLR type could not be determined. | Declare the parameter with an explicit type in the schema query header: `query GetById(id: int) -> ...`. |
 | `UM1013` | `CaseTypeMismatch` | Error | CASE expression has incompatible branch types | The THEN/ELSE branches of a CASE return different types that cannot be unified. | Ensure all branches return the same type, or add explicit CASTs. |
 | `UM1014` | `AmbiguousColumn` | Error | Column reference is ambiguous between multiple tables | Same as UM1002 but raised during binding phase. Column matches multiple sources. | Qualify with table alias. |
 | `UM1015` | `UnknownNavigationProperty` | Error | Navigation property not found on entity | A navigation (foreign key traversal) path references a property that doesn't exist. | Check the navigation property name and verify the FK relationship in schema. |
@@ -256,7 +259,7 @@ Emission errors occur during C# code generation from the physical plan.
 | Code | Name | Severity | Message | Description | Action |
 |---|---|---|---|---|---|
 | `UM6001` | `EmissionError` | Error | Code emission failed | Generic emission failure — the code generator could not produce valid C# from the physical plan. | Report as bug with full query and schema. |
-| `UM6002` | `MissingParameterTypes` | Error | Parameter types not specified | Query uses parameters but their CLR types were not declared. | Add `[QueryParameter]` attributes or specify types in the query declaration. |
+| `UM6002` | `MissingParameterTypes` | Error | Parameter types not specified | Query uses parameters but their CLR types were not declared. | Declare each parameter with an explicit type in the schema query header, e.g. `query GetById(id: int) -> ...`. |
 | `UM6010` | `ReactiveUnsupportedMaintainerRejected` | Error | No supported reactive materialized maintainer | A reactive query reached emission without a supported Z-set materialized maintainer. | Use a maintainable query shape, add the needed materialized index/view, or keep the query as a non-reactive compiled query. |
 | `UM6011` | `ReactiveUnsupportedShape` | Error | Reactive query shape unsupported | The reactive query contains a shape outside the current Z-set materialized maintainer matrix. | Rewrite the query to a supported materialized maintainer shape or wait for the missing maintainer family to be implemented. |
 

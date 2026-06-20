@@ -2,9 +2,9 @@
 
 Navigation Editors provide a **zero-allocation-by-default, type-safe API** for
 navigating and mutating parent-child entity relationships. They are generated
-at build time from parent-side `[NavigationCollection]` declarations or from
-legacy inferred child-side metadata, producing `ref struct` types that live
-entirely on the stack.
+at build time from parent-side `@@navigation` declarations in your `.conjure`
+schema or from legacy inferred child-side metadata, producing `ref struct`
+types that live entirely on the stack.
 
 **See also:** [Transactions](/docs/engine/transactions) · [Reactive Queries](/docs/advanced/reactive-queries) · [Query Language](/docs/query-language/reference)
 
@@ -40,56 +40,43 @@ path stays allocation-free and boxing-free. Explicit snapshot helpers such as
 
 ### 1. Define Entities with Relationships
 
-```csharp
-[Table("Customers", PersistenceType.Local, capacity: 10_000)]
-public record Customer
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
+```text
+table Customer(persistence: local, capacity: 10000) {
+    Id: int @id
+    Name: string
 
-    [NavigationCollection(nameof(Order), nameof(Order.CustomerId))]
-    public IReadOnlyList<Order>? Orders => null;
+    @@navigation(name: "Orders", references: Order.CustomerId)
 }
 
-[Table("Orders", PersistenceType.Local, capacity: 50_000)]
-public record Order
-{
-    public int Id { get; set; }
+table Order(persistence: local, capacity: 50000) {
+    Id: int @id
+    CustomerId: int @relation(references: Customer.Id)
+    TotalAmount: decimal
+    Status: string
 
-    [ForeignKey(nameof(Customer))]
-    [Index("Order_Customer", Type = IndexType.Lookup)]
-    public int CustomerId { get; set; }
-
-    [NavigationCollection(nameof(OrderItem), nameof(OrderItem.OrderId))]
-    public IReadOnlyList<OrderItem>? OrderItems => null;
-
-    public decimal TotalAmount { get; set; }
-    public string Status { get; set; } = string.Empty;
+    @@index(fields: [CustomerId], name: "Order_Customer", kind: lookup)
+    @@navigation(name: "OrderItems", references: OrderItem.OrderId)
 }
 
-[Table("OrderItems", PersistenceType.Local, capacity: 200_000)]
-public record OrderItem
-{
-    public int Id { get; set; }
+table OrderItem(persistence: local, capacity: 200000) {
+    Id: int @id
+    OrderId: int @relation(references: Order.Id)
+    ProductId: int
+    Quantity: int
+    UnitPrice: decimal
 
-    [ForeignKey(nameof(Order))]
-    [Index("OrderItem_Order", Type = IndexType.Lookup)]
-    public int OrderId { get; set; }
-
-    public int ProductId { get; set; }
-    public int Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
+    @@index(fields: [OrderId], name: "OrderItem_Order", kind: lookup)
 }
 ```
 
-**Key attributes:**
+**Key schema annotations:**
 
-| Attribute | Purpose |
-|-----------|---------|
-| `[NavigationCollection]` | Preferred parent-side declaration for generated child collection navigation |
-| `[ForeignKey]` | Declares the FK relationship for compiler/optimizer metadata |
-| `[Index(..., Type = IndexType.Lookup)]` | Creates the lookup index used by `CollectionHandle` |
-| `[InjectReference]` | Immutable-config injection on child entities; legacy fallback for inferred navigation generation |
+| Annotation | Purpose |
+|------------|---------|
+| `@@navigation(name: ..., references: Child.Fk)` | Preferred parent-side declaration for generated child collection navigation |
+| `@relation(references: Parent.Id)` | Declares the FK relationship for compiler/optimizer metadata |
+| `@@index(fields: [Fk], kind: lookup)` | Creates the lookup index used by `CollectionHandle` |
+| `@id` | Marks the primary-key field used by Editors and CollectionHandles |
 
 ### 2. Generate Code
 
@@ -108,7 +95,7 @@ This produces:
 If the relationship metadata identifies a child FK but no explicit lookup index
 exists, the generator calls `SynthesizeMissingLookupIndexes()` to create the
 required lookup index automatically. This works both for explicit
-`[NavigationCollection]` declarations and for legacy inferred relationships.
+`@@navigation` declarations and for legacy inferred relationships.
 
 ---
 
@@ -402,22 +389,13 @@ Context.Commit();
 When a child entity has FK references to multiple parents, handles are
 disambiguated with the parent name:
 
-```csharp
-[Table("Reviews")]
-public record Review
-{
-    public int Id { get; set; }
-
-    [ForeignKey(nameof(Customer))]
-    [InjectReference]
-    public int CustomerId { get; set; }
-
-    [ForeignKey(nameof(Product))]
-    [InjectReference]
-    public int ProductId { get; set; }
-
-    public int Rating { get; set; }
-    public string Text { get; set; }
+```text
+table Review(persistence: local) {
+    Id: int @id
+    CustomerId: int @relation(references: Customer.Id)
+    ProductId: int @relation(references: Product.Id)
+    Rating: int
+    Text: string
 }
 ```
 

@@ -97,7 +97,7 @@ this drops to 300 evaluations per second — a **2000x reduction**.
 
 ### 1. Define a Reactive Query
 
-```unimem
+```text
 reactive query TopPlayersByGuild(guild_id: int) -> Player[] =
     from Players
     | filter GuildId == @guild_id
@@ -440,7 +440,7 @@ Priority can be driven by PGO hints — see [PGO — Reactive Query PGO Hints](/
 
 ### Example 1: Live Inventory View
 
-```unimem
+```text
 reactive query PlayerInventory(player_id: int) -> InventoryRow[] =
     from Items
     | filter OwnerId == @player_id
@@ -478,7 +478,7 @@ context.Commit();
 
 ### Example 2: Dashboard Counters
 
-```unimem
+```text
 reactive query GuildStats() -> GuildStatsRow[] =
     from Players
     | group (GuildId) (aggregate {
@@ -502,7 +502,7 @@ guildStats.Subscribe(_ =>
 
 ### Example 3: Real-Time Leaderboard
 
-```unimem
+```text
 reactive query TopPlayers() -> LeaderboardRow[] =
     from Players
     | join Guilds g (GuildId == g.Id)
@@ -543,7 +543,7 @@ leaderboard.SubscribeChanged(changes =>
 
 ### Example 4: Parameterized Bounded Reactive Query
 
-```unimem
+```text
 reactive query ActiveQuestsWithRewards(player_id: int) -> QuestRow[] =
     from Quests
     | filter PlayerId == @player_id

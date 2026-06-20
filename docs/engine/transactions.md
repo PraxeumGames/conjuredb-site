@@ -577,7 +577,7 @@ Buffer capacity=64, pending=63. Worker thread may be blocked or buffer capacity 
 
 **Solutions:**
 - Break large mutations into multiple smaller transactions.
-- Increase buffer capacity via `table Name(capacity: N)`.
+- Increase buffer capacity via the `table Name(..., capacity: N)` option.
 - Increase the spin limit via `CommitBuffer<T>(capacity, spinLimit)`.
 
 ### 5. Subscribing/Unsubscribing Inside a Handler
@@ -623,16 +623,19 @@ catch
 The `mutation` system automatically wraps all statements in a
 `TransactionScope`. You do not need to manage transactions manually:
 
-```dsl
-mutation DeductGold(playerId: string, amount: long) -> int =
+```prql
+mutation DeductGold(playerId: int, amount: int) {
     update Players
     | filter Id == @playerId and Gold >= @amount
     | set Gold = Gold - @amount
+}
 ```
 
 The generated code opens a scoped transaction, executes the write pipeline, and
-commits. If the guard `filter` matches no rows or the statement throws, the
-mutation makes no changes and the transaction is rolled back automatically.
+commits. If any statement throws, the entire mutation is rolled back
+automatically. Mutations are declared in a `.conjure` schema and the generator
+emits a method on the target entity's set (returning the affected-row count), so
+you invoke them as `context.Players.DeductGold(playerId, amount)`.
 
 See [Compiled Mutations](/docs/query-language/mutations) for full details.
 

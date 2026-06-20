@@ -18,14 +18,14 @@ diagnostics, completion, hover, go-to-definition, and find-references for
 `.conjure` files.
 
 ```bash
-cd vscode-unimem
+cd vscode-conjure
 npm ci
 npm run compile
 npm run package:vsix
 npm run install:vsix
 ```
 
-After installation, `.conjure` files open with the **unimem** language mode and
+After installation, `.conjure` files open with the **conjure** language mode and
 connect to the schema LSP server for live feedback.
 
 ### Schema CLI
@@ -104,7 +104,7 @@ Found 3 .conjure file(s)
 Resolving imports...
 Merging declarations...
 Binding...
-Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s), 0 command(s).
+Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s).
 ```
 
 ### 3. Generate
@@ -213,8 +213,8 @@ module Core {
 }
 ```
 
-> **Note:** Inside modules, queries and mutations accept both the expression-body
-> `=` form and the braced `{ ... }` form, exactly as at the top level.
+> **Note:** Inside modules, use braced body syntax `{ ... }` for queries and
+> mutations rather than expression-body `=` syntax.
 
 See `samples/schema/multi-file/` for a
 complete multi-file example and
@@ -344,14 +344,13 @@ file and import it.
 `SCH2002: Unknown type 'Rarity'` — the type is not declared in the current file
 or any imported file. Add an `import` for the file that declares it.
 
-**Query and mutation bodies**
+**Expression-body syntax in modules**
 
-Queries and mutations accept both the expression-body `=` form and the braced
-`{ ... }` form, inside modules and at the top level alike:
+Inside `module { ... }` blocks, use braced body syntax for queries and mutations:
 
 ```
 module Core {
-    query GetPlayer(id: int) -> Player {        // braced body
+    query GetPlayer(id: int) -> Player {        // ← use { }
         from Player | where id == @id | take 1 | require found
     }
 }

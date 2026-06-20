@@ -54,7 +54,7 @@
 
 ConjureDB uses a **pipeline-based query language** inspired by PRQL and functional data transformation patterns. Queries are composed as a chain of **transforms** separated by the pipe operator (`|`), reading naturally from top to bottom.
 
-Queries are compiled **ahead-of-time** into optimized, zero-allocation C# code via the `query` attribute.
+Queries are compiled **ahead-of-time** into optimized, zero-allocation C# code. Each query is declared in a `.conjure` schema file with the `query` keyword; the source generator emits a method on the corresponding entity set (e.g. `context.Players.GetTopPlayersByScore(limit)`).
 
 **Key design principles:**
 

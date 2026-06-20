@@ -123,12 +123,12 @@ The `ConjureDB.Schema.Lsp` project provides a Language Server Protocol server fo
 
 ### 2.1  Editor Integration
 
-The LSP server is launched by the `vscode-unimem` VSCode extension. It communicates via stdin/stdout using the standard LSP protocol.
+The LSP server is launched by the `vscode-conjure` VSCode extension. It communicates via stdin/stdout using the standard LSP protocol.
 
 **To install:**
 
 ```bash
-cd vscode-unimem
+cd vscode-conjure
 npm ci && npm run compile && npm run package:vsix && npm run install:vsix
 ```
 
@@ -729,8 +729,8 @@ type_field      = IDENT ":" type_ref ;
 
 table           = [ "struct" ] "table" IDENT [ table_options ] "{" { field | table_ann } "}" ;
 table_options   = "(" option { "," option } ")" ;
-option          = ( "persistence" | "capacity" | "schema_version" | "type_id" | "plural" )
-                  ":" value ;
+option          = ( "persistence" | "capacity" | "schema_version" | "type_id" )
+                  ( ":" | "=" ) value ;
 
 field           = IDENT ":" type_ref { field_ann } [ "=" default_value ] ;
 field_ann       = "@" ( "id" | "unique" | "default" "(" value ")"

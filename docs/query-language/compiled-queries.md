@@ -56,8 +56,8 @@ Return aggregates:
 query GetGuildScoreTotals() -> GuildScoreTotal[] {
     from Players
     | group GuildId (aggregate {
-        totalScore = sum Score,
-        playerCount = count
+        totalScore = sum(Score),
+        playerCount = count()
       })
 }
 ```
@@ -81,7 +81,7 @@ as generated APIs. The compiler warns when order cannot be proven.
 
 ## Parameters
 
-Parameters are declared in the query signature and referenced in the body with a leading `@`:
+Parameters are declared in the query signature and referenced by name:
 
 ```prql
 query GetItems(ownerId: int, minRarity: int) -> Item[] {
@@ -112,7 +112,7 @@ table Item(plural: Items, persistence: local, capacity: 50000, type_id: 2) {
 Queries can read a `materialized view` as an ordinary source. The materialized
 view is derived in memory from base tables and is not persisted.
 
-```unimem
+```text
 query GetPlayerItems(player_id: int, max_count: int) -> PlayerItemRow[] =
     from PlayerItemRow
     | filter owner_id == @player_id
@@ -157,7 +157,7 @@ Z-set materialized maintainer.
 reactive query TopPlayers(count: int) -> Player[] {
     from Players
     | sort -Score
-    | take count
+    | take @count
 }
 ```
 

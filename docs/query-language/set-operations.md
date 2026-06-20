@@ -148,11 +148,11 @@ FROM top_players t JOIN Guilds g ON t.GuildId = g.Id;
 ---
 ## SQL-Style WITH Status
 
-SQL-style `with ... as (...)` and `with recursive ... as (...)` text is **not** part of the supported DSL contract today.
+Non-recursive SQL-style `with Name as (...)` IS supported: the parser maps `with` CTEs to the same internal binding as `let`, including comma-separated multi-CTE declarations and optional column lists (`Name(col1, col2) as (...)`).
 
-- Use `let name = (pipeline)` for supported named-subquery reuse.
+- Use `let name = (pipeline)` or the equivalent `with name as (pipeline)` for named-subquery reuse.
 - Use `| into name` for a lightweight single-pipeline handoff.
-- Expect SQL-style `WITH`, `WITH RECURSIVE`, and column-list CTE declarations to fail at compile time until the compiler exposes a first-class, fully supported contract for them.
+- `with recursive ... as (...)` parses and compiles, but the `recursive` keyword is currently ignored (only the anchor pipeline runs) — true recursive/transitive-closure traversal is not yet implemented, so recursive CTEs produce non-recursive results rather than failing at compile time.
 
 ---
 
@@ -248,7 +248,7 @@ from high_value h
 | sort -h.TotalAmount
 ```
 
-For staged composition, prefer supported `let` bindings or `| into` handoffs. SQL-style `with` / `with recursive` examples are intentionally omitted here because they are not part of the supported DSL contract yet.
+For staged composition, use `let` bindings, the equivalent non-recursive SQL-style `with name as (pipeline)`, or `| into` handoffs. Note that while `with recursive` parses and compiles, its recursive semantics are not yet implemented (the `recursive` keyword is ignored), so it does not perform true transitive-closure traversal.
 
 **Pipeline with into:**
 

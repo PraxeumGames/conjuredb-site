@@ -539,16 +539,14 @@ Configured via `WithMigration(m => m.Method(...))`.
 
 Entities must have an `int Id` property (by convention, the primary key). Entities are typically classes or structs decorated with `table`:
 
-```csharp
-table "Players", PersistenceType.Local, capacity: 1024)]
-public class Player
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public int Level { get; set; }
-    public int GuildId { get; set; }
-    public string Email { get; set; }
-    public int Score { get; set; }
+```text
+table Player(plural: Players, persistence: local, capacity: 1024, type_id: 1) {
+  id       : int @id
+  name     : string
+  level    : int
+  guild_id : int
+  email    : string
+  score    : int
 }
 ```
 
@@ -760,20 +758,16 @@ Each buffered change is represented as a `StateChange<T>` struct:
 
 Secondary indexes are typically declared via `schema index` attributes. The `Create...Index...` helpers are protected `DbSet<T>` hooks used by generated `Build()` code or custom derived `DbSet<T>` implementations, not public app-code APIs. All secondary indexes use deferred-commit consistency — updated asynchronously by the background worker after `Commit()`.
 
-```csharp
-table "Players", PersistenceType.Local)]
-public class Player
-{
-    public int Id { get; set; }
+```text
+table Player(plural: Players, persistence: local) {
+  id       : int @id
+  guild_id : int
+  level    : int
+  email    : string
 
-    [Index(Name = "Player_ByGuild", Type = IndexType.Lookup)]
-    public int GuildId { get; set; }
-
-    [Index(Name = "Player_ByLevel", Type = IndexType.SortedSet)]
-    public int Level { get; set; }
-
-    [Index(Name = "Player_ByEmail", Type = IndexType.Unique)]
-    public string Email { get; set; }
+  @@index(fields: [guild_id], name: "Player_ByGuild", kind: lookup)
+  @@index(fields: [level], name: "Player_ByLevel", kind: sorted_set)
+  @@index(fields: [email], name: "Player_ByEmail", kind: unique)
 }
 ```
 
@@ -898,13 +892,16 @@ var context = DbContextBuilder<GameDbContext>.Create()
 
 ### Capacity Pre-allocation
 
-Use `table` attribute or `EnsureCapacity()` to pre-allocate storage:
+Use the schema `table` `capacity:` hint or `EnsureCapacity()` to pre-allocate storage:
+
+```text
+// Via schema (preferred — evaluated at build time)
+table Player(plural: Players, persistence: local, capacity: 10_000) {
+  id : int @id
+}
+```
 
 ```csharp
-// Via attribute (preferred — evaluated at build time)
-table "Players", PersistenceType.Local, capacity: 10_000)]
-public class Player { ... }
-
 // Via runtime call
 context.Players.EnsureCapacity(maxId: 10_000, valueCapacity: 10_000);
 ```
@@ -920,7 +917,7 @@ base-table state, generated Z-set maintainers apply later base-table deltas,
 and declared `@@index` entries provide typed read paths for ordinary and
 reactive queries.
 
-```unimem
+```text
 materialized view GuildStats(
     capacity: 4096,
     refresh: incremental,
@@ -949,17 +946,19 @@ candidate when typed equivalence and cost checks prove the substitution.
 
 ### `table` — Entity Registration
 
-Marks a class or struct as a ConjureDB entity and controls table registration, persistence, and capacity.
+Declares a ConjureDB entity table and controls registration, persistence, and capacity. Tables are declared in `.conjure` schema files.
 
-```csharp
-table "Players", PersistenceType.Local, capacity: 1024)]
-public class Player { ... }
+```text
+table Player(plural: Players, persistence: local, capacity: 1024, type_id: 1) {
+  id : int @id
+}
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `name` | `string` | — | Logical table name for snapshots and DSL queries. Required. |
-| `persistenceType` | `PersistenceType` | `Local` | `None` (in-memory only), `Local` (snapshot + journal), `Remote`. |
+| `name` | identifier | — | Logical table name for snapshots and DSL queries. Required. |
+| `plural` | identifier | — | Set/alias name; both the table name and its plural resolve in `from`/`join`. |
+| `persistence` | keyword | `local` | `none` (in-memory only), `local` (snapshot + journal), `remote`. |
 | `capacity` | `int` | 16 | Initial capacity hint. Should be a power of 2. |
 
 **`PersistenceType` values:**
@@ -970,81 +969,95 @@ public class Player { ... }
 | `Local` | Persisted via snapshots and journals to the data directory. |
 | `Remote` | Persisted via `IRemoteSnapshotHandler` (cloud save). |
 
-### `schema index` — Secondary Index Declaration
+### `@@index` — Secondary Index Declaration
 
-Declares secondary indexes on entity properties. Multiple `schema index` attributes may be applied.
+Declares secondary indexes inside a `.conjure` `table` block. Multiple `@@index` entries may be declared.
 
-```csharp
-[Index(Type = IndexType.Lookup, Keys = new[] { "GuildId" })]
-[Index(Type = IndexType.Unique, Keys = new[] { "Email" })]
-[Index(Type = IndexType.SortedSet, Keys = new[] { "Level" })]
-public class Player { ... }
+```text
+table Player(plural: Players, persistence: local) {
+  id       : int @id
+  guild_id : int
+  email    : string
+  level    : int
+
+  @@index(fields: [guild_id], kind: lookup)
+  @@index(fields: [email], kind: unique)
+  @@index(fields: [level], kind: sorted_set)
+}
 ```
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `Name` | `string?` | auto | Unique index identifier |
-| `Type` | `IndexType` | `Lookup` | Index structure type (see table below) |
-| `Keys` | `string[]?` | attributed property | Composite key columns |
-| `Filter` | `string?` | — | DSL filter expression for partial indexes |
-| `IncludedColumns` | `string[]?` | — | Non-key columns for index-only scans |
-| `ValueProperty` | `string?` | — | Property for aggregation indexes |
-| `RangeProperty` | `string?` | — | Secondary range key for RangeLookup/GroupedSorted |
-| `KeyEncoding` | enum | `Default` | Key encoding strategy (e.g., `PackedInt32LowCardStringToUInt64`) |
+| `name` | `string?` | auto | Unique index identifier |
+| `kind` | keyword | `lookup` | Index structure type (see table below) |
+| `fields` | identifier list | — | Key columns |
+| `filter` | `string?` | — | DSL filter expression for partial indexes |
+| `included` | identifier list | — | Non-key columns for index-only scans |
+| `value` | identifier | — | Column for aggregation indexes |
+| `range` | identifier | — | Secondary range key for range_lookup/grouped_sorted |
+| `encoding` | enum | `Default` | Key encoding strategy (e.g., `PackedInt32LowCardStringToUInt64`) |
 
-**`IndexType` values:**
+**`kind` values:**
 
 | Value | Structure | Complexity | Use Case |
 |-------|-----------|-----------|----------|
-| `Lookup` | Hash map | O(1) equality | Group-by, equality filters |
-| `Unique` | Hash map | O(1) equality | Uniqueness constraints |
-| `SortedList` | Sorted list | O(log n) range | Range queries with duplicates |
-| `SortedSet` | Sorted set | O(log n) range | Range queries, ordered enumeration |
-| `Aggregation` | Hash map | O(1) grouped | Pre-computed COUNT aggregates |
-| `UniversalAggregation` | Hash map | O(1) grouped | Pre-computed SUM/AVG/MIN/MAX/COUNT |
-| `RangeLookup` | Composite | O(1) existence | Group + range existence queries |
-| `GroupedSorted` | Composite | O(log n) | Group + sorted range queries |
-| `CrossTableArray` | Array | O(1) | Cross-table joins |
+| `lookup` | Hash map | O(1) equality | Group-by, equality filters |
+| `unique` | Hash map | O(1) equality | Uniqueness constraints |
+| `sorted_list` | Sorted list | O(log n) range | Range queries with duplicates |
+| `sorted_set` | Sorted set | O(log n) range | Range queries, ordered enumeration |
+| `aggregation` | Hash map | O(1) grouped | Pre-computed COUNT aggregates |
+| `universal_aggregation` | Hash map | O(1) grouped | Pre-computed SUM/AVG/MIN/MAX/COUNT |
+| `range_lookup` | Composite | O(1) existence | Group + range existence queries |
+| `grouped_sorted` | Composite | O(log n) | Group + sorted range queries |
+| `spatial_grid` | Grid | O(1) cell | Spatial proximity queries |
 
-### `query` — Query Compilation
+### `query` — Query Declaration
 
-Compiles DSL queries to optimized C# code at build time.
+Queries are declared in `.conjure` schema with the `query` keyword and compiled to optimized C# at build time. Parameters are referenced in the pipeline with a leading `@`. There is no C# query attribute; the generator emits a method on the entity's set, which you call from C#.
 
-```csharp
-schema query "from Players | filter Level > $minLevel | select Name, Level | sort -Level | take 10")]
-IEnumerable<PlayerResult> GetTopPlayers(int minLevel);
+```text
+query GetTopPlayers(minLevel: int) -> Player[] {
+    from Players
+    | filter Level > @minLevel
+    | sort -Level
+    | take 10
+}
 ```
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Query` | `string` | — | DSL query string. Required. |
-| `NoOptimize` | `bool` | `false` | Disable optimizations for A/B testing. |
-| `MaxGroupKeyValue` | `int` | -1 | Max group-by key for DenseHeap aggregation. |
-| `MaxKeyValue` | `int` | -1 | Max key for set operations (UNION, INTERSECT, EXCEPT). |
+The generated method is exposed on the entity set and called from C#:
+
+```csharp
+Player[] top = context.Players.GetTopPlayers(minLevel);
+```
+
+The `query Name(...) -> T[] = <pipeline>` (`=` instead of braces) form is interchangeable. Optional per-query planning hints are written on the header line, e.g. `query GetTopPlayers(minLevel: int) -> Player[] @planning(no_optimize: true) { ... }`.
 
 Advanced bounded-domain and shape-specialization hints on `query` are documented in [CompiledQueries](/docs/query-language/compiled-queries).
 
-### `mutation` — Mutation Compilation
+### `mutation` — Mutation Declaration
 
-Compiles DSL mutations (update, delete, insert, upsert, assert) with automatic transaction wrapping.
+Mutations are declared in `.conjure` schema with the `mutation` keyword (update, delete, insert, upsert) and are automatically transaction-wrapped. Parameters are referenced with a leading `@`. There is no C# mutation attribute; the generator emits a method (returning the affected-row `int`) on the entity's set.
 
-```csharp
-schema mutation "from Players | filter Id == $id | update Level = Level + 1")]
-public partial void LevelUp(int id);
+```text
+mutation LevelUp(id: int) -> int =
+    update Players
+    | filter Id == @id
+    | set Level = Level + 1
 ```
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Dsl` | `string` | — | Mutation DSL statement. Required. |
-| `NoOptimize` | `bool` | `false` | Disable optimizations. |
+Call the generated method from C#:
 
-> Compiled mutations are always wrapped in a `TransactionScope`. Must return `void` or `int`.
+```csharp
+int affected = context.Players.LevelUp(id);
+```
+
+> Mutations are always wrapped in a `TransactionScope` and return the affected-row count (`int`).
 
 ### `reactive query` — Reactive Query Declaration
 
 Generates reactive queries with incremental view maintenance (IVM).
 
-```unimem
+```text
 reactive query GuildLeaderboard(guild_id: int) -> PlayerScore[] =
     from Player
     | filter guild_id == @guild_id
@@ -1061,71 +1074,66 @@ named materialized view or a hidden compiler-owned `ReactiveAutoView`.
 
 ### `extern function` — UDF Registration
 
-Marks static methods as custom functions available in DSL queries.
+Exposes a plain `public static` C# method (no attribute) to DSL queries via an `extern function` declaration in `.conjure` schema that binds the DSL name to the fully-qualified method.
 
 ```csharp
-extern function "distance")]
+// Plain C# method — no attribute.
 public static float Distance(float x1, float y1, float x2, float y2)
     => MathF.Sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 ```
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `FunctionName` | `string?` | method name | Name used in DSL queries. |
-| `Description` | `string?` | — | Optional documentation string. |
+```text
+extern function distance(x1: float, y1: float, x2: float, y2: float) -> float = MyGame.MathUtils.Distance
+```
 
-### `[ForeignKey]` — Relationship Declaration
+The DSL name (`distance`) is then callable in query pipelines; binding is by the fully-qualified method name on the right of `=`.
 
-Declares FK relationships for query optimization (bounds inference, join planning). Does **not** generate navigation properties — purely an optimization hint.
+### `@relation` — Relationship Declaration
 
-```csharp
-public class Order
-{
-    public int Id { get; set; }
-    [ForeignKey("Player")]
-    public int PlayerId { get; set; }
+Declares FK relationships for query optimization (bounds inference, join planning). Does **not** generate navigation properties — purely an optimization hint. Annotate the foreign-key field with `@relation(references: Target.Field)` in the `.conjure` schema.
+
+```text
+table Order(plural: Orders, persistence: local) {
+  Id       : int @id
+  PlayerId : int @relation(references: Player.Id)
 }
 ```
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `TargetEntity` | `string` | Referenced entity type name. |
+| `references` | identifier | Referenced entity field, written `Target.Field`. |
 
-### `[CascadeDelete]` — Parent Removal Policy
+### `@relation(onDelete:)` — Parent Removal Policy
 
 Declares what should happen to child rows when the referenced parent entity is removed.
-Apply it to a foreign-key property on the child entity.
+Write it as an `onDelete:` argument on the child foreign-key field's `@relation` annotation in the `.conjure` schema.
 
-```csharp
-public class OrderItem
-{
-    public int Id { get; set; }
-
-    [ForeignKey(nameof(Order))]
-    [CascadeDelete(CascadePolicy.Delete)]
-    public int OrderId { get; set; }
+```text
+table OrderItem(plural: OrderItems, persistence: local) {
+  Id      : int @id
+  OrderId : int @relation(references: Order.Id, onDelete: Cascade)
 }
 ```
 
-| Property | Type | Default | Description |
+| Argument | Type | Default | Description |
 |----------|------|---------|-------------|
-| `Policy` | `CascadePolicy` | `Delete` | `None` (no cascade handler), `Delete` (remove children with the parent), or `Restrict` (block parent removal while children exist). |
+| `onDelete` | keyword | `Cascade` | `Cascade` (remove children with the parent), `SetNull` (null out the FK), `Restrict` (block parent removal while children exist), `NoAction`, or `SetDefault`. |
 
-> `CascadePolicy.Restrict` throws `CascadeRestrictException` when a parent delete is attempted while matching children still exist.
+> `onDelete: Restrict` throws `CascadeRestrictException` when a parent delete is attempted while matching children still exist.
 
-### `[SchemaVersion]` — Schema Versioning
+### `schema_version` — Schema Versioning
 
-Version control for entity schemas. Used during snapshot recovery to detect and apply migrations.
+Version control for entity schemas. Used during snapshot recovery to detect and apply migrations. Declared as a `schema_version:` table option in the `.conjure` schema.
 
-```csharp
-[SchemaVersion(2)]
-table "Players", PersistenceType.Local)]
-public class Player { ... }
+```text
+table Player(persistence: local, schema_version: 2) {
+    // fields...
+}
 ```
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Version` | `uint` | Schema version (must be > 0). |
+| `schema_version` | `uint` | Schema version (must be > 0). |
 
 ### `[Settings]` — Configuration Entity
 
@@ -1171,22 +1179,27 @@ public class GameDbContext : DbContext { ... }
 | `Mode` | `PgoMode` | `None` | `None`, `Collect` (runtime instrumentation), `Use` (apply pre-collected stats). |
 | `ProfilePath` | `string?` | `null` | Path to profile JSON when `Mode = Use`. |
 
-### `[InjectReference]` — Reference Injection
+### `@relation` — Reference Injection
 
-Injects `DbSet` references into entity properties at code-gen time for navigation.
+A single-valued `@relation` foreign key lets the generator inject the referenced entity for navigation at code-gen time. Declare it on the foreign-key field in the `.conjure` schema.
 
-```csharp
-[InjectReference(nameof(Category))]
-public Category? Category { get; set; }
+```text
+table Product(plural: Products, persistence: local) {
+  Id         : int @id
+  CategoryId : int @relation(references: Category.Id)
+}
 ```
 
-### `[NavigationCollection]` — Parent-Child Navigation
+### `@@navigation` — Parent-Child Navigation
 
-Marks parent→child navigation collections (optional; auto-discovered by default).
+Marks parent→child navigation collections (optional; auto-discovered by default). Declared as a table-level `@@navigation` entry in the `.conjure` schema.
 
-```csharp
-[NavigationCollection(nameof(InventorySlot), nameof(InventorySlot.PlayerId))]
-public List<InventorySlot> Inventory { get; set; }
+```text
+table Player(plural: Players, persistence: local) {
+  Id : int @id
+
+  @@navigation(name: "Inventory", references: InventorySlot.PlayerId)
+}
 ```
 
 ### `[FixedArray]` / `[FixedBlob]` / `[FixedLength]` — Fixed-Size Collections
@@ -1208,10 +1221,8 @@ public List<string> Tags { get; set; }
 
 Enables detailed compiler debugging output during code generation.
 
-```csharp
-[DebugGeneration(DebugTraceLevel.Verbose)]
-schema query "from Players | filter Level > 10")]
-IEnumerable<Player> HighLevelPlayers();
+```text
+query HighLevelPlayers() -> Player[] = from Players | filter Level > 10
 ```
 
 | Property | Type | Default | Description |

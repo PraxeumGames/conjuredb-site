@@ -105,25 +105,21 @@ If you use a private feed, ensure it is listed in your `nuget.config`:
 **Solution:**
 
 1. Confirm `ConjureDB.CodeGen` is referenced as an **analyzer** (see [Analyzer version conflicts](#analyzer-version-conflicts)).
-2. The `query` attribute must be placed on a method in an interface that extends `IRepository<TContext>`:
+2. Queries are declared in a `.conjure` schema file with the `query` keyword — there is no C# attribute. The generator emits a method on the entity's generated set (and on the `I<Entity>Queries` interface it implements), which you call as `context.<EntitySet>.<QueryName>(args)`:
 
-```csharp
-// ✅ Correct — method is inside an IRepository interface
-public interface IPlayerQueries : IRepository<GameDb>
-{
-    schema query "from Players | filter Level > @minLevel")]
-    IEnumerable<Player> GetHighLevel(int minLevel);
+```text
+// In a .conjure schema file
+query GetHighLevel(minLevel: int) -> Player[] {
+    from Players | filter Level > @minLevel
 }
 ```
 
 ```csharp
-// ❌ Wrong — standalone class, not an IRepository
-public class PlayerQueries
-{
-    schema query "from Players | filter Level > @minLevel")]
-    IEnumerable<Player> GetHighLevel(int minLevel); // never generated
-}
+// Call the generated method on the context's entity set
+Player[] result = db.Players.GetHighLevel(minLevel);
 ```
+
+If the query is missing, confirm it is declared in a `.conjure` file that is included in the build (the schema is the only source of truth — a method on a plain C# interface or class is never generated).
 
 3. Rebuild the project (`dotnet build`). Check the `obj/` directory for generated `.g.cs` files.
 
@@ -175,14 +171,15 @@ table Player(plural: Players, persistence: none) {
 }
 ```
 
-```csharp
-// ❌ Wrong — "Player" singular does not match "Players"
-schema query "from Player | filter Level > 10")]
-IEnumerable<Player> GetHigh(int minLevel);
+```text
+// Both 'from Player' (table name) and 'from Players' (plural alias) resolve.
+// UM1007 fires only when the source matches NEITHER the table name nor its plural alias.
+query GetHigh() -> Player[] = from Players | filter Level > 10
+```
 
-// ✅ Correct — matches the DbSet property name
-schema query "from Players | filter Level > 10")]
-IEnumerable<Player> GetHigh(int minLevel);
+```csharp
+// Call the generated method
+Player[] result = db.Players.GetHigh();
 ```
 
 **See also:** [UM1007 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -200,12 +197,14 @@ IEnumerable<Player> GetHigh(int minLevel);
 ```csharp
 public record Player([property: Key(0)] int Id,
                      [property: Key(1)] string Name);
+```
 
+```text
 // ❌ Wrong — property is "Name", not "PlayerName"
-schema query "from Players | filter PlayerName == @name")]
+query FindByName(name: string) -> Player[] = from Players | filter PlayerName == @name
 
 // ✅ Correct
-schema query "from Players | filter Name == @name")]
+query FindByName(name: string) -> Player[] = from Players | filter Name == @name
 ```
 
 **See also:** [UM1008 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -220,12 +219,14 @@ schema query "from Players | filter Name == @name")]
 
 **Solution:** Prefix the column with the table alias:
 
-```csharp
+```text
 // ❌ Ambiguous — both Players and Guilds have "Id"
-schema query "from Players | join Guilds g (GuildId == Id) | select Id, g.Name")]
+query PlayerGuilds() -> PlayerGuildView[] =
+    from Players | join Guilds g (GuildId == Id) | select Id, g.Name
 
 // ✅ Qualified — use alias prefix
-schema query "from Players p | join Guilds g (p.GuildId == g.Id) | select p.Id, g.Name")]
+query PlayerGuilds() -> PlayerGuildView[] =
+    from Players p | join Guilds g (p.GuildId == g.Id) | select p.Id, g.Name
 ```
 
 **See also:** [UM1002 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -240,12 +241,12 @@ schema query "from Players p | join Guilds g (p.GuildId == g.Id) | select p.Id, 
 
 **Solution:** Always provide an alias for joined tables:
 
-```csharp
+```text
 // ❌ Missing alias
-schema query "from Players | join Guilds (GuildId == Id)")]
+query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds (GuildId == Id)
 
 // ✅ With alias
-schema query "from Players | join Guilds g (GuildId == g.Id)")]
+query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildId == g.Id)
 ```
 
 ---
@@ -258,15 +259,15 @@ schema query "from Players | join Guilds g (GuildId == g.Id)")]
 
 **Solution:**
 
-```csharp
+```text
 // ❌ Wrong — aggregate without group
-schema query "from Players | select Name, sum(Score)")]
+query ScoreByName() -> ScoreView[] = from Players | select Name, sum(Score)
 
 // ✅ Correct — aggregate with group
-schema query "from Players | group Level | select Level, sum(Score)")]
+query ScoreByLevel() -> ScoreView[] = from Players | group Level | select Level, sum(Score)
 
 // ✅ Also correct — scalar aggregate (no select of non-aggregated columns)
-schema query "from Players | select sum(Score)")]
+query TotalScore() -> long = from Players | select sum(Score)
 ```
 
 **See also:** [UM1005 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -281,12 +282,12 @@ schema query "from Players | select sum(Score)")]
 
 **Solution:** Ensure both sides of an operator have compatible types:
 
-```csharp
+```text
 // ❌ Type mismatch — Level is int, "10" is string literal
-schema query "from Players | filter Level == \"10\"")]
+query ByLevel() -> Player[] = from Players | filter Level == "10"
 
 // ✅ Correct — integer literal
-schema query "from Players | filter Level == 10")]
+query ByLevel() -> Player[] = from Players | filter Level == 10
 ```
 
 ---
@@ -319,12 +320,12 @@ schema query "from Players | filter Level == 10")]
 
 **Solution:** Verify the query against the [Query Language Reference](/docs/query-language/reference):
 
-```csharp
+```text
 // ❌ Missing pipe separator
-schema query "from Players filter Level > 10")]
+query ByLevel() -> Player[] = from Players filter Level > 10
 
 // ✅ Correct pipe syntax
-schema query "from Players | filter Level > 10")]
+query ByLevel() -> Player[] = from Players | filter Level > 10
 ```
 
 ---
@@ -433,13 +434,15 @@ var results = queries.GetTopPlayers(10);
 
 **Solution:** Add an index on the filtered property:
 
-```csharp
-public record Player(
-    [property: Key(0)] int Id,
-    [property: Key(1)] string Name,
-    [property: Key(2)][Index(IndexType.Lookup)] int GuildId, // ← add index
-    [property: Key(3)] int Level
-);
+```text
+table Player {
+  Id      : int @id
+  Name    : string
+  GuildId : int
+  Level   : int
+
+  @@index(fields: [GuildId], kind: lookup) // ← add index
+}
 ```
 
 **See also:** [Performance Tips — Index Selection Guide](/docs/performance/performance-tips#index-selection-guide) · [Indexing](/docs/schema/indexing)
@@ -454,12 +457,12 @@ public record Player(
 
 **Solution:** Add a join condition:
 
-```csharp
+```text
 // ❌ Cartesian product
-schema query "from Players | join Guilds g")]
+query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g
 
 // ✅ With join condition
-schema query "from Players | join Guilds g (GuildId == g.Id)")]
+query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildId == g.Id)
 ```
 
 ---
@@ -472,12 +475,12 @@ schema query "from Players | join Guilds g (GuildId == g.Id)")]
 
 **Solution:** Add a `take` clause or use a pre-sorted index:
 
-```csharp
+```text
 // ⚠️ Sorts all players
-schema query "from Players | sort -Score")]
+query TopPlayers() -> Player[] = from Players | sort -Score
 
 // ✅ Only materializes top 10
-schema query "from Players | sort -Score | take 10")]
+query TopPlayers() -> Player[] = from Players | sort -Score | take 10
 ```
 
 ---
@@ -830,11 +833,15 @@ A: You can, but it is **not recommended** for hot paths. LINQ allocates (enumera
 ---
 
 **Q: How do I do a LEFT JOIN?**
-A: Use the `left join` syntax in the DSL:
+A: Use the `left join` syntax in the DSL. Declare the query in a `.conjure` schema and call the generated method:
+
+```text
+query GetPlayersWithGuilds() -> PlayerGuildView[] =
+    from Players p | left join Guilds g (p.GuildId == g.Id) | select p.Name, g.Name
+```
 
 ```csharp
-schema query "from Players p | left join Guilds g (p.GuildId == g.Id) | select p.Name, g.Name")]
-IEnumerable<PlayerGuild> GetPlayersWithGuilds();
+PlayerGuildView[] result = db.Players.GetPlayersWithGuilds();
 ```
 
 Players without a matching guild will have `null` for the guild columns.
@@ -851,12 +858,10 @@ A: Common causes:
 ---
 
 **Q: How do I debug a compiled query?**
-A: Add `[DebugGeneration]` to the query method. The compiler emits the optimization trace and physical plan as comments in the generated `.g.cs` file:
+A: The compiler emits the optimization trace and physical plan as comments in the generated `.g.cs` file. Declare the query in a `.conjure` schema:
 
-```csharp
-[DebugGeneration]
-schema query "from Players | filter Level > 10 | sort -Score | take 5")]
-IEnumerable<Player> GetTop(int minLevel);
+```text
+query GetTop() -> Player[] = from Players | filter Level > 10 | sort -Score | take 5
 ```
 
 Check `obj/Debug/net8.0/generated/` for the annotated output.

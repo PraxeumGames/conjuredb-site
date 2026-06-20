@@ -643,7 +643,7 @@ void OnServerRequest(int playerId)
 // UI thread — compiled queries are read-only
 void UpdateLeaderboard()
 {
-    var top10 = leaderboardQuery.Execute(db);
+    var top10 = db.Players.GetTopPlayers(limit: 10);
     // Always sees committed data — never dirty reads
     RefreshUI(top10);
 }
@@ -725,7 +725,7 @@ void ProcessDamageQueue()
 
 Use reactive queries instead of polling — they update automatically after commit:
 
-```unimem
+```text
 // Define a reactive query (compiled at build time)
 reactive query PlayerInventory(player_id: int) -> InventoryRow[] =
     from Items

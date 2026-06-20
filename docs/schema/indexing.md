@@ -19,7 +19,7 @@ ConjureDB organizes indexes into two categories with distinct consistency models
 | Category | Consistency | Lifecycle |
 |----------|-------------|-----------|
 | **PrimaryIndex** | Immediate (synchronous) | Automatically created for every `DbSet<T>`. Mutations take effect instantly. |
-| **SecondaryIndex** | Deferred-commit | Declared via `schema index` attribute or `@@index` in schema files. Maintained by the background worker thread after each transaction commit. Secondary index reads always reflect committed data. |
+| **SecondaryIndex** | Deferred-commit | Declared via `@index` on a field or `@@index` at the table level in `.conjure` schema files. Maintained by the background worker thread after each transaction commit. Secondary index reads always reflect committed data. |
 
 ### Index Types at a Glance
 
@@ -63,11 +63,12 @@ The primary index uses dense, contiguous storage for entities with a separate ID
 
 #### Capacity Growth
 
-When storage is exhausted, capacity is **doubled**. Set an accurate `capacity` in the `table` attribute to avoid resizing in steady state:
+When storage is exhausted, capacity is **doubled**. Set an accurate `capacity` in the `table` options to avoid resizing in steady state:
 
-```csharp
-table "Players", PersistenceType.Local, capacity: 10_000)]
-public record Player { /* ... */ }
+```text
+table Player(persistence: local, capacity: 10000) {
+    // fields...
+}
 ```
 
 #### Thread Safety
@@ -90,25 +91,18 @@ A hash-based equality index for non-unique keys. The workhorse for `filter Colum
 
 #### Declaration
 
-```csharp
-// Attribute-based (on entity property)
-[Index(Name = "PlayersByGuild", Type = IndexType.Lookup)]
-public int GuildId { get; set; }
-
-// Composite key
-[Index(Name = "PlayersByGuildAndRole",
-       Type = IndexType.Lookup,
-       Keys = new[] { "GuildId", "Role" })]
-public int GuildId { get; set; }
 ```
-
-```
-// Schema-based (.conjure)
+// Field-level (.conjure)
 table Player {
   guild_id: int @index(name: "PlayersByGuild", kind: lookup)
 }
-// or table-level:
-@@index(fields: [guild_id], name: "PlayersByGuild", kind: lookup)
+
+// Composite key, table-level:
+table Player {
+  guild_id: int
+  role: string
+  @@index(fields: [guild_id, role], name: "PlayersByGuildAndRole", kind: lookup)
+}
 ```
 
 #### Data Structure
@@ -142,13 +136,10 @@ Entities with `null` keys are tracked separately, avoiding null-key issues in ha
 
 An optional filter predicate can restrict which entities are indexed:
 
-```csharp
-[Index(Name = "ActivePlayersByGuild",
-       Type = IndexType.Lookup,
-       Keys = new[] { "GuildId" },
-       FilterPredicate = "IsActive == true",
-       FilterColumns = new[] { "IsActive" })]
-public int GuildId { get; set; }
+```
+table Player {
+  guild_id: int @index(name: "ActivePlayersByGuild", kind: lookup, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
+}
 ```
 
 Only entities passing the predicate are inserted, reducing index size and update cost.
@@ -183,9 +174,10 @@ A uniqueness-constrained equality index. Guarantees exactly one entity per key v
 
 #### Declaration
 
-```csharp
-[Index(Name = "PlayerByUsername", Type = IndexType.Unique)]
-public string Username { get; set; }
+```
+table Player {
+  username: string @index(name: "PlayerByUsername", kind: unique)
+}
 ```
 
 #### Data Structure
@@ -213,16 +205,11 @@ public string Username { get; set; }
 
 #### Example
 
-```csharp
-table "Players", PersistenceType.Local, capacity: 1000)]
-public record Player
-{
-    public int Id { get; set; }
-
-    [Index(Name = "PlayerByEmail", Type = IndexType.Unique)]
-    public string Email { get; set; }
-
-    public string Name { get; set; }
+```
+table Player(plural: Players, persistence: local, capacity: 1000) {
+  Id: int @id
+  Email: string @index(name: "PlayerByEmail", kind: unique)
+  Name: string
 }
 
 // Usage in query:
@@ -248,23 +235,14 @@ An ordered index supporting equality lookups, range predicates, and ordered iter
 
 #### Declaration
 
-```csharp
-[Index(Name = "Level_Sorted", Type = IndexType.SortedSet)]
-public int Level { get; set; }
-
-// With partial filter
-[Index(Name = "ActivePlayersByLevel",
-       Type = IndexType.SortedSet,
-       Keys = new[] { "Level" },
-       FilterPredicate = "IsActive == true",
-       FilterColumns = new[] { "IsActive" })]
-public int Level { get; set; }
 ```
-
-```
-// Schema-based
 table Player {
   level: int @index(name: "Level_Sorted", kind: sorted_set)
+}
+
+// With partial filter
+table Player {
+  level: int @index(name: "ActivePlayersByLevel", kind: sorted_set, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
 }
 ```
 
@@ -314,15 +292,11 @@ table Player {
 
 #### Example
 
-```csharp
-table "Items", PersistenceType.Local, capacity: 50_000)]
-public record Item
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-
-    [Index(Name = "ItemsByPrice", Type = IndexType.SortedSet)]
-    public int Price { get; set; }
+```
+table Item(plural: Items, persistence: local, capacity: 50000) {
+  Id: int @id
+  Name: string
+  Price: int @index(name: "ItemsByPrice", kind: sorted_set)
 }
 
 // DSL queries that use this index:
@@ -351,13 +325,7 @@ Functionally similar to `SortedSet`, using a dense sorted array instead of a tre
 
 #### Declaration
 
-```csharp
-[Index(Name = "PlayersByScore", Type = IndexType.SortedList)]
-public int Score { get; set; }
 ```
-
-```
-// Schema-based
 table Player {
   score: int @index(name: "PlayersByScore", kind: sorted_list)
 }
@@ -410,12 +378,10 @@ Answers **O(1) EXISTS queries** for group-specific range predicates. Designed fo
 
 #### Declaration
 
-```csharp
-[Index(Name = "OrderQuantityRange",
-       Type = IndexType.RangeLookup,
-       Keys = new[] { "OrderId" },
-       RangeProperty = "Quantity")]
-public int OrderId { get; set; }
+```
+table OrderItem {
+  OrderId: int @index(name: "OrderQuantityRange", kind: range_lookup, range: Quantity)
+}
 ```
 
 #### Data Structure
@@ -449,19 +415,11 @@ All query methods are O(1):
 
 #### Example
 
-```csharp
-table "OrderItems", PersistenceType.Local, capacity: 50_000)]
-public record OrderItem
-{
-    public int Id { get; set; }
-
-    [Index(Name = "OrderQuantityRange",
-           Type = IndexType.RangeLookup,
-           Keys = new[] { "OrderId" },
-           RangeProperty = "Quantity")]
-    public int OrderId { get; set; }
-
-    public int Quantity { get; set; }
+```
+table OrderItem(plural: OrderItems, persistence: local, capacity: 50000) {
+  Id: int @id
+  OrderId: int @index(name: "OrderQuantityRange", kind: range_lookup, range: Quantity)
+  Quantity: int
 }
 
 // Query: "Does order #42 have any item with quantity > 100?"
@@ -488,17 +446,12 @@ Optimized for the common game-client pattern: **group by an integer key, then it
 
 #### Declaration
 
-```csharp
-[Index(Name = "ScoresByGuild",
-       Type = IndexType.GroupedSorted,
-       Keys = new[] { "GuildId" },
-       RangeProperty = "Score")]
-public int GuildId { get; set; }
 ```
-
-```
-// Schema-based
-@@index(fields: [guild_id], name: "ScoresByGuild", kind: grouped_sorted, range: "score")
+table Score {
+  guild_id: int
+  score: int
+  @@index(fields: [guild_id], name: "ScoresByGuild", kind: grouped_sorted, range: score)
+}
 ```
 
 #### Data Structure
@@ -531,19 +484,11 @@ The compiler recognizes this filter + sort + take pattern and routes it to a `Gr
 
 #### Example
 
-```csharp
-table "Scores", PersistenceType.Local, capacity: 100_000)]
-public record Score
-{
-    public int Id { get; set; }
-
-    [Index(Name = "ScoresByGuild",
-           Type = IndexType.GroupedSorted,
-           Keys = new[] { "GuildId" },
-           RangeProperty = "Points")]
-    public int GuildId { get; set; }
-
-    public int Points { get; set; }
+```
+table Score(plural: Scores, persistence: local, capacity: 100000) {
+  Id: int @id
+  GuildId: int @index(name: "ScoresByGuild", kind: grouped_sorted, range: Points)
+  Points: int
 }
 
 // "Top 10 scores in guild #7" → O(1) group access + O(10) iteration
@@ -570,11 +515,10 @@ O(1) **global** (ungrouped) aggregations over an entire `DbSet`. Pre-computes Su
 
 #### Declaration
 
-```csharp
-[Index(Name = "GlobalGold",
-       Type = IndexType.Aggregation,
-       ValueProperty = "Gold")]
-public int Gold { get; set; }
+```
+table Player {
+  Gold: int @index(name: "GlobalGold", kind: aggregation, value: Gold)
+}
 ```
 
 #### Data Structure
@@ -633,12 +577,10 @@ ConjureDB provides three aggregation index variants, automatically selected base
 
 #### Declaration
 
-```csharp
-[Index(Name = "TotalScoreByGuild",
-       Type = IndexType.UniversalAggregation,
-       Keys = new[] { "GuildId" },
-       ValueProperty = "Score")]
-public int GuildId { get; set; }
+```
+table Score {
+  GuildId: int @index(name: "TotalScoreByGuild", kind: universal_aggregation, value: Score)
+}
 ```
 
 #### Data Structure (AllStatsAggregationIndex)
@@ -672,19 +614,11 @@ When `enableRanking` is true (default), the index maintains a pre-sorted ranking
 
 #### Example
 
-```csharp
-table "Scores", PersistenceType.Local, capacity: 100_000)]
-public record Score
-{
-    public int Id { get; set; }
-
-    [Index(Name = "ScoreStatsByGuild",
-           Type = IndexType.UniversalAggregation,
-           Keys = new[] { "GuildId" },
-           ValueProperty = "Points")]
-    public int GuildId { get; set; }
-
-    public int Points { get; set; }
+```
+table Score(plural: Scores, persistence: local, capacity: 100000) {
+  Id: int @id
+  GuildId: int @index(name: "ScoreStatsByGuild", kind: universal_aggregation, value: Points)
+  Points: int
 }
 
 // O(1) queries:
@@ -709,13 +643,14 @@ public record Score
 
 ## Composite Indexes
 
-Composite indexes use multiple columns as the key. Declared via the `Keys` property:
+Composite indexes use multiple columns as the key. Declared via the `fields:` list on a table-level `@@index`:
 
-```csharp
-[Index(Name = "PlayerByGuildAndRole",
-       Type = IndexType.Lookup,
-       Keys = new[] { "GuildId", "Role" })]
-public int GuildId { get; set; }
+```
+table Player {
+  guild_id: int
+  role: string
+  @@index(fields: [guild_id, role], name: "PlayerByGuildAndRole", kind: lookup)
+}
 ```
 
 In schema files, use `@@index` at the table level:
@@ -745,12 +680,14 @@ For composite keys with low-cardinality string components, packed encodings elim
 
 Packed encodings map the string portion to a dense integer via an interning table, then bit-pack it with the integer portion. This enables the composite key to use integer-specialized hash maps for maximum performance.
 
-```csharp
-[Index(Name = "PlayerByGuildAndRole",
-       Type = IndexType.Lookup,
-       Keys = new[] { "GuildId", "Role" },
-       KeyEncoding = IndexKeyEncoding.PackedInt32LowCardStringToUInt64)]
-public int GuildId { get; set; }
+```text
+table Player {
+  GuildId: int
+  Role: string
+
+  @@index(fields: [GuildId, Role], name: "PlayerByGuildAndRole", kind: lookup,
+          encoding: PackedInt32LowCardStringToUInt64)
+}
 ```
 
 > **Precondition:** The planner must prove that the integer and string values fit within the encoding's range. If selected without satisfying preconditions, runtime will fail fast.
@@ -759,51 +696,32 @@ public int GuildId { get; set; }
 
 ## Index Declaration
 
-### Attribute-Based (`schema index`)
+Indexes are declared in `.conjure` schema files, either at the field level with `@index` or at the table level with `@@index`. Multiple indexes can be declared on the same field by chaining `@index(...)` annotations:
 
-The `schema index` attribute is applied to entity properties. Multiple indexes can be declared on the same property:
-
-```csharp
-table "Players", PersistenceType.Local, capacity: 10_000)]
-public record Player
-{
-    public int Id { get; set; }
-
-    [Index(Name = "PlayersByGuild", Type = IndexType.Lookup)]
-    [Index(Name = "GuildScoreAgg",
-           Type = IndexType.UniversalAggregation,
-           Keys = new[] { "GuildId" },
-           ValueProperty = "Score")]
-    public int GuildId { get; set; }
-
-    [Index(Name = "PlayerByEmail", Type = IndexType.Unique)]
-    public string Email { get; set; }
-
-    [Index(Name = "PlayersByLevel", Type = IndexType.SortedSet)]
-    public int Level { get; set; }
-
-    public int Score { get; set; }
+```
+table Player(plural: Players, persistence: local, capacity: 10000) {
+  Id: int @id
+  GuildId: int @index(name: "PlayersByGuild", kind: lookup) @index(name: "GuildScoreAgg", kind: universal_aggregation, value: Score)
+  Email: string @index(name: "PlayerByEmail", kind: unique)
+  Level: int @index(name: "PlayersByLevel", kind: sorted_set)
+  Score: int
 }
 ```
 
-### Full `schema index` Attribute Reference
+### `@index` / `@@index` Option Reference
 
-```csharp
-[Index(
-    Name = "...",                      // Required. Unique index name within the entity.
-    Type = IndexType.Lookup,           // Index type (default: Lookup).
-    Keys = new[] { "Col1", "Col2" },   // Composite key columns. Null = attributed property only.
-    IncludedColumns = new[] { "Col3" },// Covering index columns for index-only scans.
-    ValueProperty = "...",             // Value column for aggregation indexes.
-    RangeProperty = "...",             // Range column for RangeLookup / GroupedSorted.
-    FilterPredicate = "...",           // Partial index filter expression.
-    FilterColumns = new[] { "..." },   // Columns referenced by FilterPredicate.
-       KeyEncoding = IndexKeyEncoding.Default, // Composite key packing strategy.
-       SpatialDimensions = SpatialDimensions.TwoDimensional, // 2D/3D layout for SpatialGrid indexes.
-       CellSize = 100.0f,                  // Uniform cell size for SpatialGrid indexes.
-       CoordinateProperties = new[] { "PosX", "PosY" } // Explicit coordinate members for SpatialGrid indexes.
-)]
-```
+| Option | Applies to | Description |
+|--------|------------|-------------|
+| `name:` | both | Required. Unique index name within the table. |
+| `kind:` | both | Index kind: `lookup`, `unique`, `sorted_set`, `sorted_list`, `range_lookup`, `grouped_sorted`, `aggregation`, `universal_aggregation`, `spatial_grid`. |
+| `fields: [...]` | `@@index` | Key columns (composite keys). |
+| `keys: [...]` | both | Additional group/key columns. |
+| `value:` | both | Value column for aggregation indexes (bare identifier). |
+| `range:` | both | Range column for `range_lookup` / `grouped_sorted` (bare identifier). |
+| `included: [...]` | both | Covering columns for index-only scans. |
+| `filter:` / `filter_columns: [...]` | both | Partial index predicate and the columns it references. |
+| `encoding:` | both | Composite key packing strategy. |
+| `dimensions:` / `cell_size:` / `coordinates: [...]` | both | `spatial_grid` layout, cell size, and coordinate columns. |
 
 ### Schema-Based (`.conjure`)
 
@@ -828,7 +746,7 @@ table Player {
 }
 ```
 
-**Available `kind` values:** `lookup`, `sorted_set`, `sorted_list`, `unique`, `aggregation`, `universal_aggregation`, `range_lookup`, `grouped_sorted`, `spatial_grid`.
+**Available `kind` values:** `lookup`, `unique`, `sorted_set`, `sorted_list`, `range_lookup`, `grouped_sorted`, `aggregation`, `universal_aggregation`, `spatial_grid`.
 
 ---
 
@@ -836,12 +754,10 @@ table Player {
 
 When a query only accesses columns that are part of the index key plus `IncludedColumns`, the optimizer can perform an **index-only scan** — reading data directly from the index without dereferencing the main table. This is significant I/O savings on mobile devices.
 
-```csharp
-[Index(Name = "PlayersByGuild",
-       Type = IndexType.Lookup,
-       Keys = new[] { "GuildId" },
-       IncludedColumns = new[] { "Name", "Level" })]
-public int GuildId { get; set; }
+```
+table Player {
+  GuildId: int @index(name: "PlayersByGuild", kind: lookup, included: [Name, Level])
+}
 
 // This query can use an index-only scan:
 // from Players | filter GuildId == 42 | select Name, Level
@@ -854,16 +770,13 @@ public int GuildId { get; set; }
 
 Partial indexes include only a subset of rows, reducing memory footprint and maintenance cost:
 
-```csharp
-[Index(Name = "ActivePlayersByLevel",
-       Type = IndexType.SortedSet,
-       Keys = new[] { "Level" },
-       FilterPredicate = "IsActive == true",
-       FilterColumns = new[] { "IsActive" })]
-public int Level { get; set; }
+```
+table Player {
+  Level: int @index(name: "ActivePlayersByLevel", kind: sorted_set, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
+}
 ```
 
-The optimizer uses `FilterColumns` to determine if a query's `WHERE` clause implies the index predicate. If the query filters on `IsActive == true`, the partial index is eligible; otherwise it is not.
+The optimizer uses `filter_columns` to determine if a query's `WHERE` clause implies the index predicate. If the query filters on `IsActive == true`, the partial index is eligible; otherwise it is not.
 
 **Supported on all secondary index types** — Lookup, SortedSet, RangeLookup, GroupedSorted, and aggregation indexes all accept filter predicates.
 
@@ -924,32 +837,26 @@ The optimizer generates **all viable alternatives** and uses a cost model to sel
 
 ### Foreign Keys
 
-`[ForeignKey]` declares a relationship used by the optimizer for join strategy selection:
+A `@relation` annotation declares a foreign-key relationship used by the optimizer for join strategy selection:
 
-```csharp
-table "Items")]
-public record Item
-{
-    public int Id { get; set; }
-
-    [ForeignKey(nameof(Player))]
-    public int PlayerId { get; set; }
-
-    public string Name { get; set; }
+```
+table Item {
+  Id: int @id
+  PlayerId: int @relation(references: Player.Id)
+  Name: string
 }
 ```
 
-The compiler uses FK declarations to:
+The compiler uses relation declarations to:
 - Infer key bounds for optimization (e.g., DenseHeap strategy).
 - Select efficient join strategies (index-nested-loop joins via PrimaryIndex).
 
 ### Injected References
 
-For read-only config tables, `[InjectReference]` generates a direct O(1) getter:
+For read-only config tables, declare a `@relation` to the target; the compiler resolves the reference through the target's `PrimaryIndex` as an O(1) pointer chase rather than a join:
 
-```csharp
-[InjectReference(nameof(ItemTemplate))]
-public int TemplateId { get; set; }
+```text
+TemplateId: int @relation(references: ItemTemplate.Id)
 ```
 
 This resolves the referenced entity through the target table's `PrimaryIndex` — an O(1) pointer chase rather than a join. Use for immutable lookup tables (item templates, config data).
@@ -962,21 +869,17 @@ Uniform spatial hash grid for nearby-object queries in 2D or 3D worlds. Space is
 
 ### Declaration
 
-**C# attribute:**
+**Schema (`.conjure`):**
 
-```csharp
-table "GameObjects", PersistenceType.Local, capacity: 50_000)]
-public record GameObject
-{
-    public int Id { get; set; }
+```
+table GameObject(plural: GameObjects, persistence: local, capacity: 50000) {
+  Id: int @id
+  PosX: float
+  PosY: float
+  Name: string
 
-    [Index("spatial_pos", Type = IndexType.SpatialGrid,
-        SpatialDimensions = SpatialDimensions.TwoDimensional,
-        CellSize = 100f,
-        CoordinateProperties = new[] { "PosX", "PosY" })]
-    public float PosX { get; set; }
-    public float PosY { get; set; }
-    public string Name { get; set; } = "";
+  @@index(fields: [PosX], name: "spatial_pos", kind: spatial_grid,
+          coordinates: [PosX, PosY], dimensions: 2, cell_size: 100)
 }
 ```
 
@@ -1002,9 +905,9 @@ table GameObjects {
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `SpatialDimensions` | `SpatialDimensions` | `TwoDimensional` | `TwoDimensional` (X, Y) or `ThreeDimensional` (X, Y, Z) |
-| `CellSize` | `float` | `100.0f` | Uniform side length of each grid cell |
-| `CoordinateProperties` | `string[]` | — | Property names for coordinates; 2 elements for 2D, 3 for 3D |
+| `dimensions` | int (2 or 3) | `2` | `2` (X, Y) or `3` (X, Y, Z) |
+| `cell_size` | number | `100` | Uniform side length of each grid cell |
+| `coordinates` | column list | — | Coordinate columns; 2 elements for 2D, 3 for 3D |
 
 ### Data Structure
 
@@ -1227,7 +1130,7 @@ PGO guidance is intentionally accepted through **explicit schema ownership**:
 4. Record the owner decision in `.conjuredb/auto-index.decisions.json` with
    `auto-index decide` if you want future reviews to suppress or mark the
    candidate as already accepted.
-5. Add the chosen `schema index` attribute or schema declaration explicitly.
+5. Add the chosen `@index` / `@@index` declaration to your `.conjure` schema explicitly.
 6. Re-compile and re-profile to verify the improvement.
 
 The current production path does **not** auto-create indexes, mutate schema
@@ -1259,7 +1162,7 @@ Profile query workload  →  PGO/runtime advisor surfaces canonical candidates
       ↓
 Compile with ReportOnly  →  what-if planning ranks candidates
       ↓
-Accept explicitly via schema index attributes or schema declarations
+Accept explicitly via @index / @@index schema declarations
       ↓
 Re-compile  →  Optimizer uses new indexes
       ↓
@@ -1299,27 +1202,13 @@ Re-profile  →  Verify improvement, remove unused indexes
 
 #### Inventory System
 
-```csharp
-table "Items", PersistenceType.Local, capacity: 5_000)]
-public record Item
-{
-    public int Id { get; set; }
-
-    [ForeignKey(nameof(Player))]
-    [Index(Name = "ItemsByPlayer", Type = IndexType.Lookup)]
-    public int PlayerId { get; set; }
-
-    [Index(Name = "ItemsByRarity", Type = IndexType.SortedSet)]
-    public int Rarity { get; set; }
-
-    [Index(Name = "ItemsByPlayerSortedByRarity",
-           Type = IndexType.GroupedSorted,
-           Keys = new[] { "PlayerId" },
-           RangeProperty = "Rarity")]
-    public int PlayerId2 => PlayerId; // GroupedSorted uses int group key
-
-    public string Name { get; set; }
-    public int Quantity { get; set; }
+```
+table Item(plural: Items, persistence: local, capacity: 5000) {
+  Id: int @id
+  PlayerId: int @relation(references: Player.Id) @index(name: "ItemsByPlayer", kind: lookup) @index(name: "ItemsByPlayerSortedByRarity", kind: grouped_sorted, range: Rarity)
+  Rarity: int @index(name: "ItemsByRarity", kind: sorted_set)
+  Name: string
+  Quantity: int
 }
 
 // "All items for player #42":             filter PlayerId == 42
@@ -1329,27 +1218,12 @@ public record Item
 
 #### Leaderboard
 
-```csharp
-table "Scores", PersistenceType.Local, capacity: 100_000)]
-public record Score
-{
-    public int Id { get; set; }
-
-    [Index(Name = "ScoresByPlayer", Type = IndexType.Lookup)]
-    public int PlayerId { get; set; }
-
-    [Index(Name = "ScoresSorted", Type = IndexType.SortedSet)]
-    public long Points { get; set; }
-
-    [Index(Name = "ScoreStatsByGuild",
-           Type = IndexType.UniversalAggregation,
-           Keys = new[] { "GuildId" },
-           ValueProperty = "Points")]
-    [Index(Name = "TopScoresByGuild",
-           Type = IndexType.GroupedSorted,
-           Keys = new[] { "GuildId" },
-           RangeProperty = "Points")]
-    public int GuildId { get; set; }
+```
+table Score(plural: Scores, persistence: local, capacity: 100000) {
+  Id: int @id
+  PlayerId: int @index(name: "ScoresByPlayer", kind: lookup)
+  Points: long @index(name: "ScoresSorted", kind: sorted_set)
+  GuildId: int @index(name: "ScoreStatsByGuild", kind: universal_aggregation, value: Points) @index(name: "TopScoresByGuild", kind: grouped_sorted, range: Points)
 }
 
 // Global top 10:                   sort -Points | take 10
@@ -1360,17 +1234,12 @@ public record Score
 
 #### Config Lookup
 
-```csharp
-table "ItemTemplates", PersistenceType.None, capacity: 1_000)]
-public record ItemTemplate
-{
-    public int Id { get; set; }
-
-    [Index(Name = "TemplateByCode", Type = IndexType.Unique)]
-    public string Code { get; set; }
-
-    public string Name { get; set; }
-    public int BasePrice { get; set; }
+```
+table ItemTemplate(plural: ItemTemplates, persistence: none, capacity: 1000) {
+  Id: int @id
+  Code: string @index(name: "TemplateByCode", kind: unique)
+  Name: string
+  BasePrice: int
 }
 
 // Unique lookup by code:  filter Code == "SWORD_01" | single

@@ -372,7 +372,7 @@ from Orders o
 ```
 from Sales
 | sort Date
-| window (MovingAvg = average Amount frame: -6..0)
+| window (MovingAvg = avg Amount frame: -6..0)
 | select Date, Amount, MovingAvg
 ```
 

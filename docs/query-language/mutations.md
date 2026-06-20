@@ -38,7 +38,7 @@ mutation CreatePlayer(id: int, name: string) {
 mutation GrantItem(playerId: int, itemId: int, amount: int) {
     upsert InventorySlots
     | filter PlayerId == @playerId and ItemId == @itemId
-    | set Amount = Amount + @amount
+    | set Amount += @amount
 }
 ```
 

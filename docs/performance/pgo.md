@@ -53,10 +53,10 @@ Add the `[PgoMode]` attribute at assembly or DbContext level:
 
 ```csharp
 // Assembly-level (instruments all queries)
-[assembly: PgoMode(PgoMode.Collect, "./profiles/game.json")]
+[assembly: PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
 
 // Per-context (instruments one context)
-[PgoMode(PgoMode.Collect, "./profiles/game.json")]
+[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
 public class GameDbContext : DbContext { ... }
 ```
 
@@ -107,7 +107,7 @@ dotnet run --project ConjureDB.CodeGen.Manual --pgo --profile=./profiles/game.js
 Switch to `PgoMode.Use` and rebuild:
 
 ```csharp
-[assembly: PgoMode(PgoMode.Use, "./profiles/game.json")]
+[assembly: PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
 ```
 
 ```bash
@@ -413,11 +413,18 @@ compiler-proof lane and are reported as `runtime: n/a` in the joined summary.
 
 ## Manual Hints
 
-Apply supported per-query hint properties using `query` attributes:
+Apply supported per-query hint properties on the schema `query` declaration's
+header, then call the generated method from C#:
+
+```text
+query GetGuildStats() -> GuildStats[] @planning(max_group_key_value: 256) {
+    from Players
+    | group GuildId (aggregate { ... })
+}
+```
 
 ```csharp
-schema query "from Players | group GuildId (...)", MaxGroupKeyValue = 256)]
-IEnumerable<GuildStats> GetGuildStats();
+GuildStats[] stats = context.Players.GetGuildStats();
 ```
 
 ### Available Hint Parameters
@@ -428,12 +435,12 @@ IEnumerable<GuildStats> GetGuildStats();
 | `MaxKeyValue` | Override bounded comparison-key range for dense set-operation / DISTINCT strategies |
 | `NoOptimize = true` | Disable advanced optimizations (baseline comparison) |
 
-Other PGO-directed overrides such as `SkipSort`, join-strategy preference, and filter-selectivity hints live in planning profiles / PGO data, not on `CompiledQueryAttribute`.
+Other PGO-directed overrides such as `SkipSort`, join-strategy preference, and filter-selectivity hints live in planning profiles / PGO data, not on the per-query hint header.
 
 ### Precedence Order
 
 ```
-schema query attributes  (highest priority)
+per-query schema hints   (highest priority)
         |
         v
 PGO profile data (observed)
@@ -476,7 +483,7 @@ Heuristic defaults          (lowest priority)
 
 ```bash
 # The compiler warns when the profile SchemaHash doesn't match:
-# warning: Schema hash mismatch. Profile was generated for different schema version.
+# warning UM1042: PGO profile schema hash mismatch. Profile may be stale.
 ```
 
 Regenerate the profile whenever entities are added, removed, or modified.
@@ -645,7 +652,7 @@ See [Reactive Queries](/docs/advanced/reactive-queries) for more details on IVM.
 
 ```csharp
 // GameDbContext.cs
-[PgoMode(PgoMode.Collect, "./profiles/game.json")]
+[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
 public class GameDbContext : DbContext
 {
     // Generated from .conjure schema AdditionalFiles.
@@ -694,7 +701,7 @@ cat profiles/game.json | jq '.JoinStats'
 
 ```csharp
 // Switch to Use mode
-[PgoMode(PgoMode.Use, "./profiles/game.json")]
+[PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
 public class GameDbContext : DbContext { ... }
 ```
 
