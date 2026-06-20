@@ -110,7 +110,11 @@ function CaseDetail({row}: {row: BenchRow}): ReactNode {
         <p className={styles.disclaimer}>
           Hand-written equivalent over plain <code>List&lt;T&gt;</code>, no indexes — the naive
           version a developer reaches for first. Measured on the identical dataset and query
-          parameters as the ConjureDB/SQLite figures (single machine, in-process timing).
+          parameters as the ConjureDB/SQLite figures (single machine, in-process timing). The{' '}
+          <code>var result = …</code> above is the query; the timed harness then enumerates it to
+          completion (<code>foreach</code> over the result), so deferred operators like{' '}
+          <code>OrderBy</code>/<code>GroupBy</code> are fully executed and the whole result is
+          materialized — nothing is left lazy.
         </p>
       )}
     </div>
