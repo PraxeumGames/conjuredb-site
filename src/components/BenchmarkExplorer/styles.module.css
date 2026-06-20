@@ -136,3 +136,125 @@
   padding: 0.05rem 0.45rem;
   vertical-align: middle;
 }
+
+.hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--cdb-muted);
+}
+
+/* Expandable rows */
+.rowClickable {
+  cursor: pointer;
+}
+.rowOpen,
+.rowOpen:hover {
+  background: rgba(45, 212, 191, 0.06) !important;
+}
+.caret {
+  display: inline-block;
+  width: 0.9rem;
+  margin-right: 0.3rem;
+  color: var(--cdb-muted);
+  transition: transform 0.15s, color 0.15s;
+}
+.rowClickable:hover .caret {
+  color: var(--ifm-color-primary);
+}
+.caretOpen {
+  transform: rotate(90deg);
+  color: var(--ifm-color-primary);
+}
+
+.detailRow td {
+  padding: 0 !important;
+  background: var(--cdb-surface);
+  border-bottom: 1px solid var(--cdb-line);
+}
+.detail {
+  padding: 1rem 1.1rem 1.2rem;
+}
+.summary {
+  margin: 0 0 0.85rem;
+  font-size: 0.92rem;
+  color: var(--cdb-ink);
+  max-width: 68ch;
+}
+
+.formTabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 10px;
+  background: var(--cdb-surface-2);
+  margin-bottom: 0.7rem;
+}
+.formTab,
+.formTabActive {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--cdb-mono);
+  font-size: 0.74rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 7px;
+  color: var(--cdb-muted);
+  background: transparent;
+  transition: color 0.12s, background 0.12s;
+}
+.formTab:hover {
+  color: var(--cdb-ink);
+}
+.formTabActive {
+  color: var(--ifm-background-color);
+  background: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+.code {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 10px;
+  background: var(--ifm-background-color);
+  overflow-x: auto;
+  font-family: var(--cdb-mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  position: relative;
+}
+.code::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.7rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cdb-muted);
+  opacity: 0.7;
+}
+.code code {
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--cdb-ink);
+  white-space: pre;
+}
+.note {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  color: var(--cdb-accent);
+  max-width: 72ch;
+}
+.disclaimer {
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  color: var(--cdb-muted);
+  max-width: 72ch;
+}
+.disclaimer code {
+  font-size: 0.72rem;
+}
