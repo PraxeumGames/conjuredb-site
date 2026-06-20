@@ -1,6 +1,8 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import {BenchmarkExplorer} from '@site/src/components/BenchmarkExplorer';
+import {BENCH_SUMMARY} from '@site/src/data/benchmarks';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -72,15 +74,6 @@ function Why(): ReactNode {
 }
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
-const VS_SQLITE: Row[] = [
-  {q: 'PK lookup', what: 'Fetch one player by id', sqlite: '671 ns', cdb: '6.19 ns', x: '108×'},
-  {q: 'Top-N by score', what: 'Leaderboard head', sqlite: '3.81 µs', cdb: '5.76 ns', x: '661×'},
-  {q: 'Player-orders join', what: 'Foreign-key join', sqlite: '1.71 µs', cdb: '7.07 ns', x: '242×'},
-  {q: 'Top-3 per level', what: 'Windowed top-K per group', sqlite: '28.7 ms', cdb: '130 µs', x: '221×'},
-  {q: 'Intersect tiers', what: 'Set intersection', sqlite: '13.2 ms', cdb: '91.7 µs', x: '144×'},
-  {q: 'Complex multi-join', what: 'Several joins + filter', sqlite: '11.3 ms', cdb: '619 ns', x: '18,256×'},
-];
-
 const VS_DICT: Row[] = [
   {q: 'Search', what: 'Lookup over 50k items', sqlite: '698 µs', cdb: '54 µs', x: '12.85×'},
   {q: 'Add (batched)', what: 'Insert 50k in a transaction', sqlite: '608 µs', cdb: '178 µs', x: '3.41×'},
@@ -128,16 +121,15 @@ function Numbers(): ReactNode {
         <span className="cdb-kicker">The numbers</span>
         <h2 className="cdb-h2">Measured against real baselines</h2>
         <p className="cdb-lead">
-          Across a 57-query game-workload benchmark vs SQLite (50,000 players), all 56
-          production-tier queries ran 50× or faster — none slower, the weakest still 54.81×.
-          A representative slice of the BenchmarkDotNet proof:
+          The 50× number isn't one cherry-picked query. It holds across a governed taxonomy of{' '}
+          <strong>{BENCH_SUMMARY.families} query families</strong> — {BENCH_SUMMARY.caseCount}{' '}
+          BenchmarkDotNet cases vs SQLite at 50,000 players, spanning filters, lookups, joins,
+          aggregation, windows, semi/anti/exists, set operations, outer joins, distinct and
+          sort/pagination. All <strong>{BENCH_SUMMARY.releaseCommon} production-tier cases run
+          ≥{BENCH_SUMMARY.target}×</strong>, none slower; the weakest is {BENCH_SUMMARY.weakest}×.
+          Browse the coverage by family:
         </p>
-        <Table
-          title="vs SQLite — game-workload queries"
-          head="50,000 players. SQLite is an embedded relational baseline; these are the queries a live game actually runs."
-          rows={VS_SQLITE}
-          baseline="SQLite"
-        />
+        <BenchmarkExplorer />
         <Table
           title="vs a plain Dictionary — raw collection ops"
           head="50,000 items. Honest both ways: reads are aggressively optimized; the delete pass is slower because the engine maintains an index snapshot, a write-ahead journal and change tracking the Dictionary does not."

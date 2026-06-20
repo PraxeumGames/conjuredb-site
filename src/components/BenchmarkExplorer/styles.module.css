@@ -1,0 +1,138 @@
+/* Tabbed benchmark coverage explorer — hi-tech, database-dashboard feel. */
+
+.explorer {
+  margin-top: 1.8rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cdb-surface-2);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0.5rem 0.5rem 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+    var(--cdb-surface);
+  border-bottom: 1px solid var(--cdb-line);
+}
+
+.tab,
+.tabActive {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--cdb-mono);
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  margin: 0 0.15rem;
+  border-radius: 9px 9px 0 0;
+  color: var(--cdb-muted);
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.tab:hover {
+  color: var(--cdb-ink);
+  background: rgba(255, 255, 255, 0.03);
+}
+.tabActive {
+  color: var(--ifm-color-primary);
+  background: var(--cdb-surface-2);
+  border-bottom: 2px solid var(--ifm-color-primary);
+}
+.count {
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--cdb-line);
+  color: var(--cdb-muted);
+}
+.tabActive .count {
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--ifm-color-primary);
+}
+
+.panel {
+  padding: 1.3rem 1.4rem 1.5rem;
+}
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.panelTitle {
+  margin: 0;
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+}
+.range {
+  font-family: var(--cdb-mono);
+  font-size: 0.82rem;
+  color: var(--cdb-muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--cdb-line);
+  border-radius: 12px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.table th,
+.table td {
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--cdb-line);
+  text-align: left;
+}
+.table th {
+  font-family: var(--cdb-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cdb-muted);
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover {
+  background: rgba(45, 212, 191, 0.04);
+}
+.num {
+  text-align: right;
+  font-family: var(--cdb-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.win {
+  color: var(--ifm-color-primary);
+  font-weight: 700;
+}
+.alloc {
+  color: var(--cdb-muted);
+}
+.badge {
+  margin-left: 0.5rem;
+  font-family: var(--cdb-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cdb-accent);
+  border: 1px solid var(--cdb-line);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  vertical-align: middle;
+}
