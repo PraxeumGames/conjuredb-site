@@ -2,12 +2,10 @@ import type {ReactNode} from 'react';
 import {BENCH_COMPARE} from '@site/src/data/benchmarks';
 import styles from './styles.module.css';
 
-const FLOOR_NS = 1000; // 1 µs visual floor so the fastest bar stays visible on a log scale
-
+// Linear scale: bar length is proportional to time, so a 2× difference looks 2×.
+// A CSS min-width keeps the fastest bar a visible sliver rather than vanishing.
 function barWidth(ns: number, maxNs: number): string {
-  const pct =
-    ((Math.log10(ns) - Math.log10(FLOOR_NS)) / (Math.log10(maxNs) - Math.log10(FLOOR_NS))) * 100;
-  return `${Math.max(7, Math.min(100, pct))}%`;
+  return `${((ns / maxNs) * 100).toFixed(2)}%`;
 }
 
 export function BenchVerdict(): ReactNode {
@@ -25,15 +23,17 @@ export function BenchVerdict(): ReactNode {
     <div className={styles.wrap}>
       <div className={styles.chart}>
         <div className={styles.chartHead}>
-          Typical query time — geometric mean across {kept} real-work cases · log scale
+          Typical query time — geometric mean across {kept} real-work cases · bar length ∝ time
+          (lower is better)
         </div>
         {bars.map((b) => (
           <div key={b.key} className={styles.row}>
             <div className={styles.name}>{b.label}</div>
             <div className={styles.track}>
-              <div className={`${styles.bar} ${b.cls}`} style={{width: barWidth(b.ns, maxNs)}}>
-                <span className={styles.time}>{b.time}</span>
+              <div className={styles.barArea}>
+                <div className={`${styles.bar} ${b.cls}`} style={{width: barWidth(b.ns, maxNs)}} />
               </div>
+              <span className={styles.time}>{b.time}</span>
               <span className={styles.mult}>{b.mult}</span>
             </div>
           </div>
