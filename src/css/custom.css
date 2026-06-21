@@ -1,59 +1,63 @@
 /**
- * ConjureDB theme — dark-first, inspired by VSCode (Dark+ palette, editor blue)
- * and GitKraken (rich gradients, depth, glow). Infima is the base; page layout
+ * ConjureDB theme — "Editorial" direction.
+ * Dark-first, warm-neutral surfaces, a single confident gold accent,
+ * Space Grotesk display + Geist text. Infima is the base; page layout
  * lives in CSS modules next to each page/component.
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 :root {
-  /* Light mode kept usable, but the site is designed dark-first. */
-  --ifm-color-primary: #0d9488;
-  --ifm-color-primary-dark: #0c857a;
-  --ifm-color-primary-darker: #0b7d73;
-  --ifm-color-primary-darkest: #09675f;
-  --ifm-color-primary-light: #0ea396;
-  --ifm-color-primary-lighter: #0fab9d;
-  --ifm-color-primary-lightest: #14c2b2;
+  /* Light mode — warm near-white page, deep gold accent for contrast. */
+  --ifm-color-primary: #a9750f;
+  --ifm-color-primary-dark: #986809;
+  --ifm-color-primary-darker: #8f6208;
+  --ifm-color-primary-darkest: #765107;
+  --ifm-color-primary-light: #bc8417;
+  --ifm-color-primary-lighter: #c68d1d;
+  --ifm-color-primary-lightest: #d9a637;
 
+  --ifm-background-color: #fbf9f5;
   --ifm-code-font-size: 92%;
-  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  --ifm-font-family-base: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, Helvetica, Arial, sans-serif;
-  --cdb-mono: 'SF Mono', ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo,
-    Consolas, monospace;
-  --ifm-heading-font-weight: 700;
-  --docusaurus-highlighted-code-line-bg: rgba(13, 148, 136, 0.12);
+  --ifm-heading-font-family: 'Space Grotesk', 'Geist', sans-serif;
+  --cdb-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ifm-heading-font-weight: 600;
+  --docusaurus-highlighted-code-line-bg: rgba(169, 117, 15, 0.1);
 
-  --cdb-accent: #4493f8; /* VSCode editor blue */
-  --cdb-violet: #a371f7; /* GitKraken-ish violet for gradients */
-  --cdb-ink: #0b0e14;
-  --cdb-muted: #5b6b80;
-  --cdb-line: #e2e8f0;
-  --cdb-surface: #f8fafc;
+  --cdb-accent: #8a5e0a; /* deeper gold — gradient companion */
+  --cdb-violet: #8a5e0a; /* single-hue: no rainbow gradients */
+  --cdb-ink: #2a2723;
+  --cdb-muted: #6b675f;
+  --cdb-line: #e8e2d6;
+  --cdb-surface: #faf8f4;
   --cdb-surface-2: #ffffff;
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #2dd4bf;
-  --ifm-color-primary-dark: #21c9b3;
-  --ifm-color-primary-darker: #1fbfaa;
-  --ifm-color-primary-darkest: #199c8b;
-  --ifm-color-primary-light: #45dac8;
-  --ifm-color-primary-lighter: #52ddcc;
-  --ifm-color-primary-lightest: #79e6d8;
+  --ifm-color-primary: #ecc25c;
+  --ifm-color-primary-dark: #e9b840;
+  --ifm-color-primary-darker: #e7b232;
+  --ifm-color-primary-darkest: #c9941a;
+  --ifm-color-primary-light: #efcc78;
+  --ifm-color-primary-lighter: #f1d287;
+  --ifm-color-primary-lightest: #f6e0ad;
 
-  /* Deep, slightly blue-black — closer to a code editor than pure grey. */
-  --ifm-background-color: #0a0d13;
-  --ifm-background-surface-color: #0f141c;
-  --ifm-navbar-background-color: rgba(10, 13, 19, 0.72);
-  --ifm-footer-background-color: #0c1017;
-  --docusaurus-highlighted-code-line-bg: rgba(45, 212, 191, 0.16);
+  /* Deep, warm-neutral near-black. */
+  --ifm-background-color: #121419;
+  --ifm-background-surface-color: #171a20;
+  --ifm-navbar-background-color: rgba(18, 20, 25, 0.72);
+  --ifm-footer-background-color: #0f1116;
+  --docusaurus-highlighted-code-line-bg: rgba(236, 194, 92, 0.16);
 
-  --cdb-accent: #4493f8;
-  --cdb-violet: #a371f7;
-  --cdb-ink: #e6edf3;
-  --cdb-muted: #93a1b5;
-  --cdb-line: #1c2430;
-  --cdb-surface: #0f141c;
-  --cdb-surface-2: #121925;
+  --cdb-accent: #e09a34; /* deeper amber — gradient companion */
+  --cdb-violet: #e09a34; /* single-hue: no rainbow gradients */
+  --cdb-ink: #ece9e3;
+  --cdb-muted: #9a958c;
+  --cdb-line: #262a31;
+  --cdb-surface: #171a20;
+  --cdb-surface-2: #1b1e25;
 }
 
 html {
@@ -62,83 +66,108 @@ html {
 
 /* ---- Navbar: glassy, subtle bottom hairline ---------------------------- */
 .navbar {
-  backdrop-filter: saturate(160%) blur(12px);
+  backdrop-filter: saturate(150%) blur(14px);
   border-bottom: 1px solid var(--cdb-line);
   box-shadow: none;
 }
 .navbar__title {
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-family: var(--ifm-heading-font-family);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .navbar__link {
-  font-weight: 500;
+  font-weight: 450;
 }
 
 /* ---- Buttons: premium, with glow on the primary CTA -------------------- */
 .button.button--primary {
   --ifm-button-background-color: var(--ifm-color-primary);
   border: none;
-  font-weight: 650;
-  color: #04231d;
-  box-shadow: 0 8px 24px -8px rgba(45, 212, 191, 0.55);
+  font-weight: 560;
+  color: #2a1d04;
+  box-shadow: 0 8px 24px -8px rgba(236, 194, 92, 0.5);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .button.button--primary:hover {
   transform: translateY(-1px);
-  filter: brightness(1.06);
-  box-shadow: 0 12px 30px -8px rgba(45, 212, 191, 0.7);
+  filter: brightness(1.05);
+  box-shadow: 0 12px 30px -8px rgba(236, 194, 92, 0.68);
 }
 .button.button--secondary {
   background: transparent;
   color: var(--cdb-ink);
   border: 1px solid var(--cdb-line);
-  font-weight: 600;
+  font-weight: 540;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .button.button--secondary:hover {
   border-color: var(--ifm-color-primary);
-  background: rgba(45, 212, 191, 0.06);
+  background: rgba(236, 194, 92, 0.07);
 }
 
 /* ---- Shared marketing helpers ----------------------------------------- */
 .cdb-section {
-  padding: 5.5rem 0;
+  padding: 7rem 0;
   position: relative;
 }
 .cdb-section--tight {
-  padding: 3.5rem 0;
+  padding: 4rem 0;
 }
+
+/* Editorial: centered section intros; card grids stay left-aligned. */
+.cdb-section > .container > .cdb-kicker,
+.cdb-section > .container > .cdb-h2,
+.cdb-section > .container > .cdb-lead {
+  text-align: center;
+}
+.cdb-section > .container > .cdb-lead {
+  margin-left: auto;
+  margin-right: auto;
+}
+.cdb-section > .container {
+  text-align: center;
+}
+.cdb-grid,
+.cdb-card {
+  text-align: left;
+}
+
 .cdb-kicker {
   display: inline-block;
   color: var(--ifm-color-primary);
   font-family: var(--cdb-mono);
-  font-weight: 600;
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .cdb-kicker::before {
-  content: '// ';
-  opacity: 0.55;
+  content: '◆ ';
+  opacity: 0.85;
+  font-size: 0.7em;
 }
 .cdb-h2 {
-  font-size: clamp(1.8rem, 3.6vw, 2.6rem);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  margin: 0.5rem 0 0.9rem;
-  font-weight: 800;
+  font-family: var(--ifm-heading-font-family);
+  font-size: clamp(2.1rem, 4.6vw, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  margin: 0.7rem auto 1rem;
+  font-weight: 600;
+  max-width: 20ch;
 }
 .cdb-lead {
   color: var(--cdb-muted);
-  font-size: 1.1rem;
-  line-height: 1.65;
-  max-width: 46rem;
+  font-size: 1.18rem;
+  line-height: 1.6;
+  max-width: 52rem;
+  text-wrap: pretty;
 }
 
 .cdb-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.1rem;
+  margin-top: 3rem;
 }
 @media (max-width: 996px) {
   .cdb-grid {
@@ -154,24 +183,25 @@ html {
     var(--cdb-surface-2);
   border: 1px solid var(--cdb-line);
   border-radius: 16px;
-  padding: 1.6rem;
+  padding: 1.7rem;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .cdb-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(45, 212, 191, 0.35);
+  border-color: rgba(236, 194, 92, 0.4);
   box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
 }
 .cdb-card h3 {
-  font-size: 1.12rem;
-  margin: 0 0 0.45rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: var(--ifm-heading-font-family);
+  font-size: 1.2rem;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 .cdb-card p {
   color: var(--cdb-muted);
   margin: 0;
-  font-size: 0.97rem;
+  font-size: 0.98rem;
   line-height: 1.6;
 }
 .cdb-center {
@@ -181,13 +211,13 @@ html {
 /* A soft gradient backdrop used behind alternating sections. */
 .cdb-surface {
   background:
-    radial-gradient(1100px 480px at 50% -30%, rgba(68, 147, 248, 0.07), transparent 70%),
+    radial-gradient(1100px 480px at 50% -30%, rgba(236, 194, 92, 0.06), transparent 70%),
     var(--cdb-surface);
 }
 
-/* ---- Hi-tech, database-flavored polish --------------------------------- */
+/* ---- Polish ------------------------------------------------------------ */
 
-/* Glowing gradient hairline between major sections. */
+/* Glowing gold hairline between major sections. */
 .cdb-section + .cdb-section::before {
   content: '';
   position: absolute;
@@ -199,13 +229,12 @@ html {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(45, 212, 191, 0.35),
-    rgba(68, 147, 248, 0.35),
+    rgba(236, 194, 92, 0.4),
     transparent
   );
 }
 
-/* Cards get a faint gradient ring that ignites on hover. */
+/* Cards get a faint gold ring that ignites on hover. */
 [data-theme='dark'] .cdb-card {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
@@ -217,7 +246,7 @@ html {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(140deg, rgba(45, 212, 191, 0.4), rgba(68, 147, 248, 0.25), transparent 60%);
+  background: linear-gradient(140deg, rgba(236, 194, 92, 0.45), rgba(224, 154, 52, 0.22), transparent 60%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -229,7 +258,7 @@ html {
   opacity: 1;
 }
 
-/* Stat band — a database-dashboard row of glowing mono metrics. */
+/* Stat band — a row of glowing mono metrics. */
 .cdb-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -246,23 +275,20 @@ html {
 }
 .cdb-stat {
   background: var(--cdb-surface-2);
-  padding: 1.5rem 1.2rem;
+  padding: 1.7rem 1.2rem;
   text-align: center;
 }
 .cdb-stat b {
   display: block;
-  font-family: var(--cdb-mono);
-  font-size: clamp(1.6rem, 3vw, 2.1rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  background: linear-gradient(120deg, var(--ifm-color-primary), var(--cdb-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-family: var(--ifm-heading-font-family);
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ifm-color-primary);
 }
 .cdb-stat span {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   font-size: 0.82rem;
   color: var(--cdb-muted);
 }

@@ -1,26 +1,65 @@
-/* VSCode-style code window: editor chrome + Dark+ syntax palette. */
+/* Code window: editor chrome + syntax palette. Theme-aware — dark panel in
+   dark mode, clean white panel in light mode (code stays crisp on a light page). */
 
 .window {
-  background: #1e1e1e;
-  border: 1px solid #2b2b2b;
-  border-radius: 12px;
+  /* dark (default) tokens */
+  --cw-bg: #1b1d22;
+  --cw-bar: #21242b;
+  --cw-bar-border: #15171b;
+  --cw-fg: #d7d3cb;
+  --cw-gutter: #5d5a52;
+  --cw-tab: #908b81;
+  --cw-tab-active: #f3efe7;
+  --cw-lang: #6f6a60;
+  --cw-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --cw-kw: #d8a657;
+  --cw-ty: #7daea3;
+  --cw-fn: #e3d28a;
+  --cw-str: #a9b665;
+  --cw-num: #d3a04a;
+  --cw-com: #7c7468;
+  --cw-var: #c4b9a4;
+  --cw-attr: #c89bd6;
+
+  background: var(--cw-bg);
+  border: 1px solid var(--cw-bar-border);
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 24px 60px -20px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(0, 0, 0, 0.4);
-  font-family: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, var(--cw-shadow);
+  font-family: var(--cdb-mono, 'Geist Mono', ui-monospace, Menlo, Consolas, monospace);
   width: 100%;
+  /* Code is always left-aligned, even inside centered Editorial sections. */
+  text-align: left;
+}
+
+:global([data-theme='light']) .window {
+  --cw-bg: #ffffff;
+  --cw-bar: #f5f2ec;
+  --cw-bar-border: #e8e2d6;
+  --cw-fg: #2c2925;
+  --cw-gutter: #b6b0a4;
+  --cw-tab: #8c887e;
+  --cw-tab-active: #2a2723;
+  --cw-lang: #a8a296;
+  --cw-shadow: 0 24px 50px -26px rgba(80, 60, 10, 0.22), 0 0 0 1px rgba(120, 100, 40, 0.06);
+  --cw-kw: #9a6a08;
+  --cw-ty: #2f6f8f;
+  --cw-fn: #7a4d00;
+  --cw-str: #2e7d46;
+  --cw-num: #92590a;
+  --cw-com: #6f7a5a;
+  --cw-var: #235c8a;
+  --cw-attr: #8a3b8a;
 }
 
 .titlebar {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  height: 40px;
-  padding: 0 0.85rem;
-  background: #252526;
-  border-bottom: 1px solid #1b1b1b;
+  height: 42px;
+  padding: 0 0.9rem;
+  background: var(--cw-bar);
+  border-bottom: 1px solid var(--cw-bar-border);
 }
 
 .dots {
@@ -52,64 +91,64 @@
   padding: 0 0.95rem;
   display: flex;
   align-items: center;
-  color: #8a8a8a;
+  color: var(--cw-tab);
   background: transparent;
   border-top: 2px solid transparent;
   transition: color 0.15s, background 0.15s;
 }
 .tab:hover {
-  color: #cfcfcf;
+  color: var(--cw-tab-active);
 }
 .tabActive {
-  color: #ffffff;
-  background: #1e1e1e;
+  color: var(--cw-tab-active);
+  background: var(--cw-bg);
   border-top: 2px solid var(--ifm-color-primary);
 }
 
 .lang {
   margin-left: auto;
   font-size: 0.7rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #6b6b6b;
+  color: var(--cw-lang);
   flex-shrink: 0;
 }
 
 .body {
   display: flex;
-  padding: 0.9rem 0;
+  padding: 1rem 0;
   overflow-x: auto;
-  font-size: 0.84rem;
-  line-height: 1.65;
+  font-size: 0.85rem;
+  line-height: 1.7;
 }
 .gutter {
   display: flex;
   flex-direction: column;
   text-align: right;
-  padding: 0 0.9rem;
-  color: #5a5a5a;
+  padding: 0 0.95rem;
+  color: var(--cw-gutter);
   user-select: none;
   flex-shrink: 0;
 }
 .code {
   margin: 0;
-  padding: 0 1.2rem 0 0;
+  padding: 0 1.3rem 0 0;
   background: transparent;
-  color: #d4d4d4;
+  color: var(--cw-fg);
   font: inherit;
   border: none;
 }
 .line {
   white-space: pre;
-  min-height: 1.65em;
+  min-height: 1.7em;
 }
 .caret {
   display: inline-block;
   width: 8px;
   height: 1.05em;
   vertical-align: text-bottom;
-  background: var(--ifm-color-primary, #2dd4bf);
-  box-shadow: 0 0 8px 0 var(--ifm-color-primary, #2dd4bf);
+  background: var(--ifm-color-primary, #ecc25c);
+  box-shadow: 0 0 8px 0 var(--ifm-color-primary, #ecc25c);
   animation: cdb-blink 1.1s step-end infinite;
 }
 @keyframes cdb-blink {
@@ -120,29 +159,12 @@
   .caret { animation: none; }
 }
 
-/* VSCode Dark+ token colors */
-.kw {
-  color: #569cd6;
-}
-.ty {
-  color: #4ec9b0;
-}
-.fn {
-  color: #dcdcaa;
-}
-.str {
-  color: #ce9178;
-}
-.num {
-  color: #b5cea8;
-}
-.com {
-  color: #6a9955;
-  font-style: italic;
-}
-.varname {
-  color: #9cdcfe;
-}
-.attr {
-  color: #c586c0;
-}
+/* Token colors — theme-aware via vars */
+.kw { color: var(--cw-kw); }
+.ty { color: var(--cw-ty); }
+.fn { color: var(--cw-fn); }
+.str { color: var(--cw-str); }
+.num { color: var(--cw-num); }
+.com { color: var(--cw-com); font-style: italic; }
+.varname { color: var(--cw-var); }
+.attr { color: var(--cw-attr); }

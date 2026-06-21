@@ -111,7 +111,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.oneLight,
       darkTheme: prismThemes.oneDark,
-      additionalLanguages: ['csharp', 'bash', 'json', 'sql', 'diff'],
+      additionalLanguages: ['csharp', 'bash', 'json', 'sql', 'diff', 'ebnf'],
     },
   } satisfies Preset.ThemeConfig,
 };

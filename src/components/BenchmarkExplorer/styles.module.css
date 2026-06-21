@@ -55,7 +55,7 @@
   color: var(--cdb-muted);
 }
 .tabActive .count {
-  background: rgba(45, 212, 191, 0.18);
+  background: rgba(236, 194, 92, 0.18);
   color: var(--ifm-color-primary);
 }
 
@@ -82,11 +82,16 @@
 }
 
 .tableWrap {
+  width: 100%;
   overflow-x: auto;
   border: 1px solid var(--cdb-line);
   border-radius: 12px;
 }
 .table {
+  /* override Infima's base `table { display: block }`, which otherwise lets the
+     columns shrink-wrap left and leaves the right of the card empty. */
+  display: table;
+  table-layout: auto;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
@@ -109,7 +114,7 @@
   border-bottom: none;
 }
 .table tbody tr:hover {
-  background: rgba(45, 212, 191, 0.04);
+  background: rgba(236, 194, 92, 0.04);
 }
 .num {
   text-align: right;
@@ -121,6 +126,14 @@
   color: var(--ifm-color-primary);
   font-weight: 700;
 }
+
+/* Give the Query names enough room to stay on one or two lines; the table's
+   extra width then distributes naturally across the remaining columns. */
+.table th:first-child,
+.table td:first-child {
+  min-width: 14rem;
+}
+
 /* per-row traffic-light ranking across the three engine columns */
 .rankFast {
   color: #46a758;
@@ -160,7 +173,7 @@
 }
 .rowOpen,
 .rowOpen:hover {
-  background: rgba(45, 212, 191, 0.06) !important;
+  background: rgba(236, 194, 92, 0.06) !important;
 }
 .caret {
   display: inline-block;
@@ -202,7 +215,7 @@
   border: 1px solid var(--cdb-line);
   border-left: 3px solid var(--ifm-color-primary);
   border-radius: 9px;
-  background: rgba(45, 212, 191, 0.05);
+  background: rgba(236, 194, 92, 0.05);
   font-size: 0.9rem;
   line-height: 1.5;
   color: var(--cdb-ink);
@@ -326,7 +339,7 @@
 }
 .variantBest {
   border-color: var(--ifm-color-primary);
-  background: rgba(45, 212, 191, 0.06);
+  background: rgba(236, 194, 92, 0.06);
 }
 .variantKind {
   font-family: var(--cdb-mono);

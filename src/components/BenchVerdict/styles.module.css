@@ -72,7 +72,7 @@
   background: linear-gradient(90deg, #8a93a6, #6f7a90);
 }
 .cdb {
-  background: linear-gradient(90deg, var(--ifm-color-primary), #14b8a6);
+  background: linear-gradient(90deg, var(--ifm-color-primary), var(--cdb-accent));
 }
 
 /* Stat highlights */

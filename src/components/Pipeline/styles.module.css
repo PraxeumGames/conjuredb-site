@@ -21,7 +21,7 @@
   padding: 0.95rem 0.8rem;
   text-align: center;
   position: relative;
-  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.04), 0 14px 30px -24px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 1px rgba(236, 194, 92, 0.04), 0 14px 30px -24px rgba(0, 0, 0, 0.8);
 }
 .node b {
   display: block;
@@ -41,7 +41,7 @@
   flex: 0 0 1.6rem;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, rgba(45, 212, 191, 0.5), rgba(68, 147, 248, 0.5));
+  background: linear-gradient(90deg, rgba(236, 194, 92, 0.5), rgba(224, 154, 52, 0.5));
   position: relative;
   overflow: hidden;
 }

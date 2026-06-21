@@ -6,8 +6,8 @@
   padding: 4.5rem 0 2.8rem;
   border-bottom: 1px solid var(--cdb-line);
   background:
-    radial-gradient(820px 380px at 85% -20%, rgba(68, 147, 248, 0.14), transparent 60%),
-    radial-gradient(640px 320px at 5% -10%, rgba(45, 212, 191, 0.13), transparent 55%);
+    radial-gradient(820px 380px at 85% -20%, rgba(224, 154, 52, 0.14), transparent 60%),
+    radial-gradient(640px 320px at 5% -10%, rgba(236, 194, 92, 0.13), transparent 55%);
 }
 .pageHead::after {
   content: '';

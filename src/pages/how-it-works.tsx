@@ -52,7 +52,7 @@ function Optimizer(): ReactNode {
           choice is inspectable. The plan is output you can read; the strategy names are real
           and finite; nothing is hidden.
         </p>
-        <div style={{maxWidth: '42rem', marginTop: '1.6rem'}}>
+        <div style={{maxWidth: '42rem', margin: '1.6rem auto 0'}}>
           <CodeWindow tabs={PLAN_TABS} />
           <p className={styles.codeCaption}>
             Ask for the plan and read what it picked — an index walk, bounded, no sort, no allocations.
