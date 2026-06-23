@@ -75,18 +75,23 @@ function Why(): ReactNode {
 }
 
 type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
-// BenchmarkDotNet (.NET 8, 50,000 records, 4 warmup + 8 iterations). Baseline = Dictionary<int,object>
-// with preset capacity — the strongest, fairest dictionary. ConjureDB numbers are post-optimization:
-// a redundant per-commit index copy for index-free sets was removed (validated by the full test suite).
+// BenchmarkDotNet (.NET 8, 50,000 records, 4 warmup + 8 iterations, median shown).
+// Baseline = Dictionary<int,object> with preset capacity where a matching Dictionary row exists.
+// ConjureDB numbers include the June 2026 direct-commit/generated-mutation rewrite.
 const VS_DICT: Row[] = [
-  {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '760 µs', cdb: '56 µs', x: '13× faster'},
-  {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '74.5 µs', cdb: '75.8 µs', x: '≈ parity'},
-  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '261 µs', cdb: '637 µs', x: '2.4× slower'},
-  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '261 µs', cdb: '6.59 ms', x: '25× slower'},
-  {q: 'Add — 1 / transaction', what: 'Insert 50k, one commit per row', sqlite: '261 µs', cdb: '54.9 ms', x: '210× slower'},
-  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '114 µs', cdb: '567 µs', x: '5.0× slower'},
-  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '114 µs', cdb: '5.92 ms', x: '52× slower'},
-  {q: 'Remove — 1 / transaction', what: 'Delete 50k, one commit per row', sqlite: '114 µs', cdb: '52.9 ms', x: '464× slower'},
+  {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '753 µs', cdb: '56.0 µs', x: '13× faster'},
+  {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '87.1 µs', cdb: '88.4 µs', x: '≈ parity'},
+  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '250 µs', cdb: '405 µs', x: '1.6× slower'},
+  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '250 µs', cdb: '1.20 ms', x: '4.8× slower'},
+  {q: 'Add — direct 1 / commit', what: 'Insert 50k, one direct commit per row', sqlite: '250 µs', cdb: '245 µs', x: '≈ parity'},
+  {q: 'Add — generated mutation', what: 'Insert 50k through the generated command/mutation API', sqlite: '250 µs', cdb: '697 µs', x: '2.8× slower'},
+  {q: 'Update — generated mutation', what: 'Update 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '342 µs', x: 'measured'},
+  {q: 'Upsert — update existing', what: 'Upsert 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '430 µs', x: 'measured'},
+  {q: 'Upsert — insert miss', what: 'Upsert 50k missing rows through the generated command/mutation API', sqlite: '—', cdb: '1.32 ms', x: 'measured'},
+  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '118 µs', cdb: '173 µs', x: '1.5× slower'},
+  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '118 µs', cdb: '949 µs', x: '8.0× slower'},
+  {q: 'Remove — direct 1 / commit', what: 'Delete 50k, one direct commit per row', sqlite: '118 µs', cdb: '197 µs', x: '1.7× slower'},
+  {q: 'Remove — generated mutation', what: 'Delete 50k through the generated command/mutation API', sqlite: '118 µs', cdb: '519 µs', x: '4.4× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -112,7 +117,7 @@ function Table({title, head, rows, baseline}: {title: string; head: string; rows
                 <td style={{color: 'var(--cdb-muted)'}}>{r.what}</td>
                 <td className="num">{r.sqlite}</td>
                 <td className="num">{r.cdb}</td>
-                <td className={r.x.includes('slower') ? '' : styles.win}>{r.x}</td>
+                <td className={r.x.includes('faster') || r.x.includes('parity') ? styles.win : ''}>{r.x}</td>
               </tr>
             ))}
           </tbody>
@@ -182,7 +187,7 @@ function VsDict(): ReactNode {
         <div className={styles.dictCard}>
           <Table
             title="vs a plain Dictionary — raw collection ops"
-            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no transactions, no indexes, no change tracking, no snapshot-isolated reads. ConjureDB still wins lookups 13× (a dense-id index is a direct array hit, not a hash probe) and runs level on a full scan. Writes are where that work shows: every commit is a transaction — validated, buffered, and applied through a worker so reads stay snapshot-consistent and rollback stays possible — so a batched insert costs ~2.4× a raw Dictionary, while committing once per row costs ~200×. Batch your writes."
+            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no transactions, no indexes, no change tracking, no replay-safe commands. ConjureDB still wins lookups 13× and runs level on a full scan. The direct-commit rewrite moves one-row commits from hundreds of times slower to around Dictionary speed for inserts and 1.7× for deletes; generated mutations add command/replay routing while staying well under 1 ms for 50k update/delete passes."
             rows={VS_DICT}
             baseline="Dictionary"
           />
