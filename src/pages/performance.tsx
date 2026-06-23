@@ -78,20 +78,29 @@ type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
 // BenchmarkDotNet (.NET 8, 50,000 records, 4 warmup + 8 iterations, median shown).
 // Baseline = Dictionary<int,object> with preset capacity where a matching Dictionary row exists.
 // ConjureDB numbers include the June 2026 direct-commit/generated-mutation rewrite.
-const VS_DICT: Row[] = [
+const VS_DICT_READS: Row[] = [
   {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '753 µs', cdb: '56.0 µs', x: '13× faster'},
   {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '87.1 µs', cdb: '88.4 µs', x: '≈ parity'},
-  {q: 'Add — batched', what: 'Insert 50k with bulk Add(T[]) in one transaction', sqlite: '250 µs', cdb: '405 µs', x: '1.6× slower'},
-  {q: 'Add — explicit tx / 10 calls', what: 'Insert 50k via BeginTransaction + 10 Add calls + Commit', sqlite: '250 µs', cdb: '1.20 ms', x: '4.8× slower'},
-  {q: 'Add — direct 1 / commit', what: 'Insert 50k via the direct single-row commit API', sqlite: '250 µs', cdb: '245 µs', x: '≈ parity'},
-  {q: 'Add — generated mutation', what: 'Insert 50k through the generated command/mutation API', sqlite: '250 µs', cdb: '697 µs', x: '2.8× slower'},
-  {q: 'Update — generated mutation', what: 'Update 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '342 µs', x: 'measured'},
-  {q: 'Upsert — update existing', what: 'Upsert 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '430 µs', x: 'measured'},
-  {q: 'Upsert — insert miss', what: 'Upsert 50k missing rows through the generated command/mutation API', sqlite: '—', cdb: '1.32 ms', x: 'measured'},
-  {q: 'Remove — batched', what: 'Delete 50k with bulk Remove(int[]) in one transaction', sqlite: '118 µs', cdb: '173 µs', x: '1.5× slower'},
-  {q: 'Remove — explicit tx / 10 calls', what: 'Delete 50k via BeginTransaction + 10 Remove calls + Commit', sqlite: '118 µs', cdb: '949 µs', x: '8.0× slower'},
-  {q: 'Remove — direct 1 / commit', what: 'Delete 50k via the direct single-row commit API', sqlite: '118 µs', cdb: '197 µs', x: '1.7× slower'},
-  {q: 'Remove — generated mutation', what: 'Delete 50k through the generated command/mutation API', sqlite: '118 µs', cdb: '519 µs', x: '4.4× slower'},
+];
+
+// BenchmarkDotNet SimpleCrudLongPerfCompare (.NET 8, 5,000,000 records/operations,
+// 4 warmup + 8 iterations, median shown). CRUD write lane uses a longer body to avoid
+// short-iteration/tiered-JIT artifacts; measured with tiered compilation/PGO disabled.
+const VS_DICT_CRUD: Row[] = [
+  {q: 'Add — batched', what: 'Insert 5M with bulk Add(T[]) in one transaction', sqlite: '22.5 ms', cdb: '28.5 ms', x: '1.3× slower'},
+  {q: 'Add — explicit tx / 10 calls', what: 'Insert 5M via BeginTransaction + 10 Add calls + Commit', sqlite: '22.5 ms', cdb: '122 ms', x: '5.4× slower'},
+  {q: 'Add — bulk API / 10 rows', what: 'Insert 5M via BeginTransaction + Add(T[10]) + Commit', sqlite: '22.5 ms', cdb: '60.3 ms', x: '2.7× slower'},
+  {q: 'Add — direct 1 / commit', what: 'Insert 5M via the direct single-row commit API', sqlite: '22.5 ms', cdb: '23.4 ms', x: '≈ parity'},
+  {q: 'Add — generated mutation', what: 'Insert 5M through the generated command/mutation API', sqlite: '22.5 ms', cdb: '65.2 ms', x: '2.9× slower'},
+  {q: 'Update — direct 1 / commit', what: 'Update 5M existing rows through the direct single-row commit API', sqlite: '15.0 ms', cdb: '15.5 ms', x: '≈ parity'},
+  {q: 'Update — generated mutation', what: 'Update 5M existing rows through the generated command/mutation API', sqlite: '15.0 ms', cdb: '39.6 ms', x: '2.6× slower'},
+  {q: 'Upsert — update existing', what: 'Upsert 5M existing rows through the generated command/mutation API', sqlite: '14.9 ms', cdb: '42.6 ms', x: '2.8× slower'},
+  {q: 'Upsert — insert miss', what: 'Upsert 5M missing rows through the generated command/mutation API', sqlite: '22.3 ms', cdb: '113 ms', x: '5.1× slower'},
+  {q: 'Remove — batched', what: 'Delete 5M with bulk Remove(int[]) in one transaction', sqlite: '16.0 ms', cdb: '18.0 ms', x: '1.1× slower'},
+  {q: 'Remove — explicit tx / 10 calls', what: 'Delete 5M via BeginTransaction + 10 Remove calls + Commit', sqlite: '16.0 ms', cdb: '97.8 ms', x: '6.1× slower'},
+  {q: 'Remove — bulk API / 10 rows', what: 'Delete 5M via BeginTransaction + Remove(int[10]) + Commit', sqlite: '16.0 ms', cdb: '47.0 ms', x: '2.9× slower'},
+  {q: 'Remove — direct 1 / commit', what: 'Delete 5M via the direct single-row commit API', sqlite: '16.0 ms', cdb: '19.6 ms', x: '1.2× slower'},
+  {q: 'Remove — generated mutation', what: 'Delete 5M through the generated command/mutation API', sqlite: '16.0 ms', cdb: '214 ms', x: '13× slower'},
 ];
 
 function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
@@ -186,9 +195,15 @@ function VsDict(): ReactNode {
         </p>
         <div className={styles.dictCard}>
           <Table
-            title="vs a plain Dictionary — raw collection ops"
-            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no transactions, no indexes, no change tracking, no replay-safe commands. ConjureDB still wins lookups 13× and runs level on a full scan. The direct-commit rewrite moves one-row commits from hundreds of times slower to around Dictionary speed for inserts and 1.7× for deletes; generated mutations add command/replay routing while staying well under 1 ms for 50k update/delete passes."
-            rows={VS_DICT}
+            title="vs a plain Dictionary — raw reads"
+            head="50,000 items, fair fight: the Dictionary gets preset capacity and does none of the work — no transactions, no indexes, no change tracking, no replay-safe commands. ConjureDB still wins primary-key lookups by using a dense-id index and runs level on a contiguous scan."
+            rows={VS_DICT_READS}
+            baseline="Dictionary"
+          />
+          <Table
+            title="vs a plain Dictionary — CRUD writes"
+            head="5,000,000 operations, median shown. This longer steady-state lane avoids short-iteration noise and separates three write shapes: one big bulk transaction, manual explicit transactions, and the direct/generated single-row APIs used by gameplay command paths."
+            rows={VS_DICT_CRUD}
             baseline="Dictionary"
           />
         </div>
