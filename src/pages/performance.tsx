@@ -74,7 +74,7 @@ function Why(): ReactNode {
   );
 }
 
-type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
+type Row = {q: string; what: string; sqlite: string; dictDefault?: string; cdb: string; x: string};
 // BenchmarkDotNet (.NET 8, 50,000 records, 4 warmup + 8 iterations, median shown).
 // Baseline = Dictionary<int,object> with preset capacity where a matching Dictionary row exists.
 // ConjureDB numbers include the June 2026 direct-commit/generated-mutation rewrite.
@@ -87,15 +87,15 @@ const VS_DICT_READS: Row[] = [
 // 4 warmup + 8 iterations, median shown). CRUD write lane uses a longer body to avoid
 // short-iteration/tiered-JIT artifacts; measured with tiered compilation/PGO disabled.
 const VS_DICT_CRUD: Row[] = [
-  {q: 'Add — batched', what: 'Insert 5M with bulk Add(T[]) in one transaction', sqlite: '22.5 ms', cdb: '28.5 ms', x: '1.3× slower'},
-  {q: 'Add — explicit tx / 10 calls', what: 'Insert 5M via BeginTransaction + 10 Add calls + Commit', sqlite: '22.5 ms', cdb: '122 ms', x: '5.4× slower'},
-  {q: 'Add — bulk API / 10 rows', what: 'Insert 5M via BeginTransaction + Add(T[10]) + Commit', sqlite: '22.5 ms', cdb: '60.3 ms', x: '2.7× slower'},
-  {q: 'Add — direct 1 / commit', what: 'Insert 5M via the direct single-row commit API', sqlite: '22.5 ms', cdb: '23.4 ms', x: '≈ parity'},
-  {q: 'Add — generated mutation', what: 'Insert 5M through the generated command/mutation API', sqlite: '22.5 ms', cdb: '65.2 ms', x: '2.9× slower'},
+  {q: 'Add — batched', what: 'Insert 5M with bulk Add(T[]) in one transaction', sqlite: '22.5 ms', dictDefault: '33.5 ms', cdb: '28.5 ms', x: '1.3× slower'},
+  {q: 'Add — explicit tx / 10 calls', what: 'Insert 5M via BeginTransaction + 10 Add calls + Commit', sqlite: '22.5 ms', dictDefault: '33.5 ms', cdb: '122 ms', x: '5.4× slower'},
+  {q: 'Add — bulk API / 10 rows', what: 'Insert 5M via BeginTransaction + Add(T[10]) + Commit', sqlite: '22.5 ms', dictDefault: '33.5 ms', cdb: '60.3 ms', x: '2.7× slower'},
+  {q: 'Add — direct 1 / commit', what: 'Insert 5M via the direct single-row commit API', sqlite: '22.5 ms', dictDefault: '33.5 ms', cdb: '23.4 ms', x: '≈ parity'},
+  {q: 'Add — generated mutation', what: 'Insert 5M through the generated command/mutation API', sqlite: '22.5 ms', dictDefault: '33.5 ms', cdb: '65.2 ms', x: '2.9× slower'},
   {q: 'Update — direct 1 / commit', what: 'Update 5M existing rows through the direct single-row commit API', sqlite: '15.0 ms', cdb: '15.5 ms', x: '≈ parity'},
   {q: 'Update — generated mutation', what: 'Update 5M existing rows through the generated command/mutation API', sqlite: '15.0 ms', cdb: '39.6 ms', x: '2.6× slower'},
   {q: 'Upsert — update existing', what: 'Upsert 5M existing rows through the generated command/mutation API', sqlite: '14.9 ms', cdb: '42.6 ms', x: '2.8× slower'},
-  {q: 'Upsert — insert miss', what: 'Upsert 5M missing rows through the generated command/mutation API', sqlite: '22.3 ms', cdb: '113 ms', x: '5.1× slower'},
+  {q: 'Upsert — insert miss', what: 'Upsert 5M missing rows through the generated command/mutation API', sqlite: '22.3 ms', dictDefault: '34.0 ms', cdb: '113 ms', x: '5.1× slower'},
   {q: 'Remove — batched', what: 'Delete 5M with bulk Remove(int[]) in one transaction', sqlite: '16.0 ms', cdb: '18.0 ms', x: '1.1× slower'},
   {q: 'Remove — explicit tx / 10 calls', what: 'Delete 5M via BeginTransaction + 10 Remove calls + Commit', sqlite: '16.0 ms', cdb: '97.8 ms', x: '6.1× slower'},
   {q: 'Remove — bulk API / 10 rows', what: 'Delete 5M via BeginTransaction + Remove(int[10]) + Commit', sqlite: '16.0 ms', cdb: '47.0 ms', x: '2.9× slower'},
@@ -103,7 +103,21 @@ const VS_DICT_CRUD: Row[] = [
   {q: 'Remove — generated mutation', what: 'Delete 5M through the generated command/mutation API', sqlite: '16.0 ms', cdb: '214 ms', x: '13× slower'},
 ];
 
-function Table({title, head, rows, baseline}: {title: string; head: string; rows: Row[]; baseline: string}): ReactNode {
+function Table({
+  title,
+  head,
+  rows,
+  baseline,
+  secondaryBaseline,
+  resultHeader = 'Result',
+}: {
+  title: string;
+  head: string;
+  rows: Row[];
+  baseline: string;
+  secondaryBaseline?: string;
+  resultHeader?: string;
+}): ReactNode {
   return (
     <div style={{marginTop: '2rem'}}>
       <h3 style={{marginBottom: '0.3rem'}}>{title}</h3>
@@ -115,8 +129,9 @@ function Table({title, head, rows, baseline}: {title: string; head: string; rows
               <th>Operation</th>
               <th>What it does</th>
               <th className="num">{baseline}</th>
+              {secondaryBaseline ? <th className="num">{secondaryBaseline}</th> : null}
               <th className="num">ConjureDB</th>
-              <th>Result</th>
+              <th>{resultHeader}</th>
             </tr>
           </thead>
           <tbody>
@@ -125,6 +140,7 @@ function Table({title, head, rows, baseline}: {title: string; head: string; rows
                 <td>{r.q}</td>
                 <td style={{color: 'var(--cdb-muted)'}}>{r.what}</td>
                 <td className="num">{r.sqlite}</td>
+                {secondaryBaseline ? <td className="num">{r.dictDefault ?? '—'}</td> : null}
                 <td className="num">{r.cdb}</td>
                 <td className={r.x.includes('faster') || r.x.includes('parity') ? styles.win : ''}>{r.x}</td>
               </tr>
@@ -202,9 +218,11 @@ function VsDict(): ReactNode {
           />
           <Table
             title="vs a plain Dictionary — CRUD writes"
-            head="5,000,000 operations, median shown. This longer steady-state lane avoids short-iteration noise and separates three write shapes: one big bulk transaction, manual explicit transactions, and the direct/generated single-row APIs used by gameplay command paths."
+            head="5,000,000 operations, median shown. The known-size Dictionary column uses preset capacity; the default-capacity column shows the common missed-capacity case for insert-like operations where resize/rehash happens inside the measured work."
             rows={VS_DICT_CRUD}
-            baseline="Dictionary"
+            baseline="Dictionary known size"
+            secondaryBaseline="Dictionary default"
+            resultHeader="Result vs known size"
           />
         </div>
       </div>
