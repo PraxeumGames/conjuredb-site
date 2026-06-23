@@ -81,16 +81,16 @@ type Row = {q: string; what: string; sqlite: string; cdb: string; x: string};
 const VS_DICT: Row[] = [
   {q: 'Search', what: 'Look up 50k items by id (dense-id index = a direct array hit)', sqlite: '753 µs', cdb: '56.0 µs', x: '13× faster'},
   {q: 'Iterate', what: 'Scan all 50k — a flat contiguous span', sqlite: '87.1 µs', cdb: '88.4 µs', x: '≈ parity'},
-  {q: 'Add — batched', what: 'Insert 50k in one transaction', sqlite: '250 µs', cdb: '405 µs', x: '1.6× slower'},
-  {q: 'Add — 10 / transaction', what: 'Insert 50k, committing every 10', sqlite: '250 µs', cdb: '1.20 ms', x: '4.8× slower'},
-  {q: 'Add — direct 1 / commit', what: 'Insert 50k, one direct commit per row', sqlite: '250 µs', cdb: '245 µs', x: '≈ parity'},
+  {q: 'Add — batched', what: 'Insert 50k with bulk Add(T[]) in one transaction', sqlite: '250 µs', cdb: '405 µs', x: '1.6× slower'},
+  {q: 'Add — explicit tx / 10 calls', what: 'Insert 50k via BeginTransaction + 10 Add calls + Commit', sqlite: '250 µs', cdb: '1.20 ms', x: '4.8× slower'},
+  {q: 'Add — direct 1 / commit', what: 'Insert 50k via the direct single-row commit API', sqlite: '250 µs', cdb: '245 µs', x: '≈ parity'},
   {q: 'Add — generated mutation', what: 'Insert 50k through the generated command/mutation API', sqlite: '250 µs', cdb: '697 µs', x: '2.8× slower'},
   {q: 'Update — generated mutation', what: 'Update 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '342 µs', x: 'measured'},
   {q: 'Upsert — update existing', what: 'Upsert 50k existing rows through the generated command/mutation API', sqlite: '—', cdb: '430 µs', x: 'measured'},
   {q: 'Upsert — insert miss', what: 'Upsert 50k missing rows through the generated command/mutation API', sqlite: '—', cdb: '1.32 ms', x: 'measured'},
-  {q: 'Remove — batched', what: 'Delete 50k in one transaction', sqlite: '118 µs', cdb: '173 µs', x: '1.5× slower'},
-  {q: 'Remove — 10 / transaction', what: 'Delete 50k, committing every 10', sqlite: '118 µs', cdb: '949 µs', x: '8.0× slower'},
-  {q: 'Remove — direct 1 / commit', what: 'Delete 50k, one direct commit per row', sqlite: '118 µs', cdb: '197 µs', x: '1.7× slower'},
+  {q: 'Remove — batched', what: 'Delete 50k with bulk Remove(int[]) in one transaction', sqlite: '118 µs', cdb: '173 µs', x: '1.5× slower'},
+  {q: 'Remove — explicit tx / 10 calls', what: 'Delete 50k via BeginTransaction + 10 Remove calls + Commit', sqlite: '118 µs', cdb: '949 µs', x: '8.0× slower'},
+  {q: 'Remove — direct 1 / commit', what: 'Delete 50k via the direct single-row commit API', sqlite: '118 µs', cdb: '197 µs', x: '1.7× slower'},
   {q: 'Remove — generated mutation', what: 'Delete 50k through the generated command/mutation API', sqlite: '118 µs', cdb: '519 µs', x: '4.4× slower'},
 ];
 
