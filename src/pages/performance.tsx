@@ -272,11 +272,13 @@ function NoJitRuntime(): ReactNode {
         </div>
 
         <div style={{marginTop: '2rem'}}>
-          <h3 style={{marginBottom: '0.3rem'}}>Every operator, measured on the no-JIT lane</h3>
+          <h3 style={{marginBottom: '0.3rem'}}>Every operator, measured against SQLite</h3>
           <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
-            {INTERP_SUMMARY.scenarios} query shapes on a {INTERP_SUMMARY.corpusRows}-row in-memory
-            table, one thread. Every one is amortized zero-allocation; per-query latency tracks how
-            much data the query touches, at roughly 10–50 ns per row.
+            The fair fight: SQLite is itself a bytecode interpreter, so this is interpreter vs
+            interpreter. Each of the {INTERP_SUMMARY.scenarios} shapes runs the same query over the
+            same {INTERP_SUMMARY.corpusRows}-row in-memory data, with a primary-key index on both
+            sides and prepared statements — and the no-JIT lane wins all {INTERP_SUMMARY.fasterThanSqlite},
+            from {INTERP_SUMMARY.speedupRange}, while staying amortized zero-allocation.
           </p>
           <div className={styles.tableWrap}>
             <table className={styles.benchTable}>
@@ -284,9 +286,10 @@ function NoJitRuntime(): ReactNode {
                 <tr>
                   <th>Query shape</th>
                   <th>What it does</th>
-                  <th className="num">Per query</th>
+                  <th className="num">SQLite</th>
+                  <th className="num">ConjureDB</th>
+                  <th>vs SQLite</th>
                   <th className="num">Allocated</th>
-                  <th className="num">Queries / sec</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,9 +297,10 @@ function NoJitRuntime(): ReactNode {
                   <tr key={r.q}>
                     <td>{r.q}</td>
                     <td style={{color: 'var(--cdb-muted)'}}>{r.what}</td>
-                    <td className="num">{r.ns}</td>
+                    <td className="num">{r.sqlite}</td>
+                    <td className="num">{r.cdb}</td>
+                    <td className={styles.win}>{r.x}</td>
                     <td className={r.alloc === '0 B' ? `num ${styles.win}` : 'num'}>{r.alloc}</td>
-                    <td className="num">{r.qps}</td>
                   </tr>
                 ))}
               </tbody>
@@ -341,14 +345,18 @@ function NoJitRuntime(): ReactNode {
         ) : null}
 
         <p className="cdb-lead" style={{marginTop: '1.6rem', fontSize: '0.95rem'}}>
-          Fast for an interpreter — but the compiled C# lane above is still the throughput ceiling.
-          Keep your hottest, build-time-known queries there; the portable lane's job is to run the
-          queries the compiled lane structurally can't, on platforms a JIT can't.
+          Some of the win is structural: an in-process engine on your own heap skips the
+          managed↔native marshaling SQLite pays per query — which is exactly why you'd embed one on a
+          client. And the compiled C# lane above is still the throughput ceiling; keep your hottest,
+          build-time-known queries there. The portable lane's job is to run the queries the compiled
+          lane structurally can't, on platforms a JIT can't — and to still beat SQLite doing it.
         </p>
         <p className={styles.caveat}>
-          Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, {INTERP_SUMMARY.corpusRows}-row
-          in-memory tables, median of 8 iterations after 4 warmups; queries/sec is the derived
-          1e9 / mean-ns single-thread rate, and allocation is BenchmarkDotNet's managed Allocated/op.
+          Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, median of 8 iterations after 4 warmups.
+          Both engines run the same query over the same {INTERP_SUMMARY.corpusRows}-row in-memory data
+          with a primary-key index only (no secondary indexes on either side), prepared statements,
+          and the full result materialized; SQLite is in-memory with fast pragmas
+          (synchronous=OFF, temp_store=MEMORY). “vs SQLite” is SQLite's median ÷ ConjureDB's median.
           One configuration — not a guarantee. Benchmark your own workload.
         </p>
       </div>

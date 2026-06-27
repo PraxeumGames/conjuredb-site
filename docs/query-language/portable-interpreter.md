@@ -64,6 +64,11 @@ The portable interpreter is built to be the kind of interpreter you can run in a
 - **~10–50 ns per row.** Most queries run in that band per row scanned, so latency tracks how much
   data the query touches rather than interpreter overhead. On a 1,000-row table a filtered projection
   is ~8 µs and a hash group-by is ~4 µs.
+- **Faster than SQLite.** On the same query over the same in-memory data — with a primary-key index
+  on both sides — the no-JIT lane beats embedded SQLite (whose VDBE is itself a bytecode interpreter)
+  on every one of the 16 benchmarked query shapes, from 1.2× (sort top-N) to ~36× (point lookup),
+  while allocating a fraction of the memory. See the [Performance](/performance) page for the full
+  per-scenario table.
 - **Parity with the AOT lane.** Same results, same ordering, same null semantics — the interpreter is
   a strict consumer of the same planned metadata the AOT lane uses.
 

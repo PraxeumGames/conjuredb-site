@@ -5,23 +5,27 @@
 //
 // Source runs (Apple M4 Max, .NET 8.0.11 Arm64, BenchmarkDotNet v0.14.0, InProcessEmitToolchain,
 // WarmupCount=4, IterationCount=8, workstation GC):
+//   - PortableVsSqliteBenchmarks     → each scenario vs equivalent SQL on an in-memory SQLite DB
+//                                       seeded with the IDENTICAL 1000/1000/500-row data (the headline)
 //   - PortableInterpreterBenchmarks  → the 16-scenario ns/query + alloc table (1000-row corpus)
 //   - PortableScanSourceBenchmarks   → delegate-vs-slot scan source × table size (the scaling table)
-//   - PortableThroughputBenchmarks   → sustained ops/sec for the representative scenarios
 //
-// queries/sec is the derived single-thread 1e9 / Mean_ns. These are measurements of one
-// configuration (1000-row in-memory tables, one thread, one host) — not a guarantee.
+// SQLite gets fast pragmas, a Prepare()d statement, and a PK index only — matching the portable
+// corpus's index availability — and both engines fully materialize the result. These are
+// measurements of one configuration (1000-row in-memory tables, one thread, one host) — not a
+// guarantee.
 
 export type InterpStat = {n: string; l: string};
 export type InterpReason = {title: string; body: string};
-export type InterpScenario = {q: string; what: string; ns: string; alloc: string; qps: string};
+// sqlite/cdb/x mirror the main benchmark tables' shape: baseline time, ConjureDB time, "N× faster".
+export type InterpScenario = {q: string; what: string; sqlite: string; cdb: string; x: string; alloc: string};
 export type InterpScalingRow = {scenario: string; rows: string; slot: string; delegate: string; note: string};
 
 // Headline cards for the section hero band.
 export const INTERP_STATS: InterpStat[] = [
-  {n: '52M / s', l: 'point lookups, one thread (O(1), 0 B)'},
-  {n: '0 B', l: 'allocation on a keyed lookup'},
-  {n: '16 / 16', l: 'operator scenarios amortized zero-alloc'},
+  {n: '1.2–36×', l: 'faster than SQLite across 16 query shapes'},
+  {n: '16 / 16', l: 'scenarios faster than SQLite, zero-alloc'},
+  {n: '0 B', l: 'allocation on a keyed point lookup'},
   {n: 'No JIT', l: 'runs on iOS / IL2CPP'},
 ];
 
@@ -45,25 +49,26 @@ export const INTERP_REASONS: InterpReason[] = [
   },
 ];
 
-// The full 16-scenario throughput / allocation table (1000-row corpus). ns = Mean per query;
-// qps = derived 1e9 / Mean_ns single-thread throughput.
+// The full 16-scenario comparison vs SQLite (same query, same 1000/1000/500-row in-memory data,
+// PK index only on both, prepared statements, full result materialized). Ordered by ConjureDB
+// per-query latency (cheapest first). "x" = SQLite mean / ConjureDB mean.
 export const INTERP_SCENARIOS: InterpScenario[] = [
-  {q: 'Point lookup', what: 'Fetch one row by primary key', ns: '19.3 ns', alloc: '0 B', qps: '51.9M'},
-  {q: 'Hash aggregate', what: 'Count rows grouped by a column', ns: '3.80 µs', alloc: '96 B', qps: '263K'},
-  {q: 'Distinct', what: 'Distinct values of one column', ns: '7.40 µs', alloc: '128 B', qps: '135K'},
-  {q: 'Scan · filter · project', what: 'Filter a table, project three columns', ns: '8.26 µs', alloc: '41 B', qps: '121K'},
-  {q: 'Range top-N', what: 'Filter, sort by score, take 10', ns: '12.1 µs', alloc: '176 B', qps: '82.6K'},
-  {q: 'Multi-column distinct', what: 'Distinct over two columns', ns: '13.3 µs', alloc: '81 B', qps: '75.4K'},
-  {q: 'Sort top-N', what: 'Sort by price, take 10', ns: '14.6 µs', alloc: '282 B', qps: '68.4K'},
-  {q: 'Multi-key aggregate', what: 'Count + sum grouped by two columns', ns: '28.0 µs', alloc: '140 B', qps: '35.7K'},
-  {q: 'Complex expression', what: 'Arithmetic projection, then filter on the result', ns: '34.3 µs', alloc: '149 B', qps: '29.2K'},
-  {q: 'Aggregate · string key', what: 'Count grouped by a string column', ns: '43.9 µs', alloc: '136 B', qps: '22.8K'},
-  {q: 'Hash join', what: 'Inner-join two tables on a key', ns: '48.9 µs', alloc: '402 B', qps: '20.4K'},
-  {q: 'Aggregate · double key', what: 'Sum grouped by a floating-point column', ns: '51.5 µs', alloc: '151 B', qps: '19.4K'},
-  {q: 'Set intersect', what: 'Intersect two result sets (dedup)', ns: '54.9 µs', alloc: '403 B', qps: '18.2K'},
-  {q: 'Set union', what: 'Union two result sets (dedup)', ns: '56.2 µs', alloc: '349 B', qps: '17.8K'},
-  {q: 'Multi-aggregate', what: 'Count/sum/min/max grouped by a column', ns: '57.4 µs', alloc: '152 B', qps: '17.4K'},
-  {q: 'Window · row_number', what: 'row_number() over a sorted partition', ns: '161 µs', alloc: '596 B', qps: '6.2K'},
+  {q: 'Point lookup', what: 'Fetch one row by primary key', sqlite: '682 ns', cdb: '19 ns', x: '36× faster', alloc: '0 B'},
+  {q: 'Hash aggregate', what: 'Count rows grouped by a column', sqlite: '102 µs', cdb: '3.98 µs', x: '26× faster', alloc: '96 B'},
+  {q: 'Distinct', what: 'Distinct values of one column', sqlite: '31.5 µs', cdb: '7.32 µs', x: '4.3× faster', alloc: '128 B'},
+  {q: 'Scan · filter · project', what: 'Filter a table, project three columns', sqlite: '155 µs', cdb: '8.17 µs', x: '19× faster', alloc: '41 B'},
+  {q: 'Range top-N', what: 'Filter, sort by score, take 10', sqlite: '32.4 µs', cdb: '11.7 µs', x: '2.8× faster', alloc: '176 B'},
+  {q: 'Multi-column distinct', what: 'Distinct over two columns', sqlite: '164 µs', cdb: '13.0 µs', x: '13× faster', alloc: '81 B'},
+  {q: 'Sort top-N', what: 'Sort by price, take 10', sqlite: '18.2 µs', cdb: '14.8 µs', x: '1.2× faster', alloc: '282 B'},
+  {q: 'Multi-key aggregate', what: 'Count + sum grouped by two columns', sqlite: '290 µs', cdb: '27.7 µs', x: '10× faster', alloc: '140 B'},
+  {q: 'Complex expression', what: 'Arithmetic projection, then filter on the result', sqlite: '263 µs', cdb: '35.0 µs', x: '7.5× faster', alloc: '149 B'},
+  {q: 'Aggregate · string key', what: 'Count grouped by a string column', sqlite: '418 µs', cdb: '44.2 µs', x: '9.5× faster', alloc: '136 B'},
+  {q: 'Hash join', what: 'Inner-join two tables on a key', sqlite: '377 µs', cdb: '47.5 µs', x: '7.9× faster', alloc: '402 B'},
+  {q: 'Aggregate · double key', what: 'Sum grouped by a floating-point column', sqlite: '492 µs', cdb: '51.1 µs', x: '9.6× faster', alloc: '151 B'},
+  {q: 'Set intersect', what: 'Intersect two result sets (dedup)', sqlite: '127 µs', cdb: '53.3 µs', x: '2.4× faster', alloc: '403 B'},
+  {q: 'Set union', what: 'Union two result sets (dedup)', sqlite: '125 µs', cdb: '55.8 µs', x: '2.2× faster', alloc: '349 B'},
+  {q: 'Multi-aggregate', what: 'Count/sum/min/max grouped by a column', sqlite: '146 µs', cdb: '60.8 µs', x: '2.4× faster', alloc: '152 B'},
+  {q: 'Window · row_number', what: 'row_number() over a sorted partition', sqlite: '489 µs', cdb: '160 µs', x: '3.1× faster', alloc: '596 B'},
 ];
 
 // The O(1)-vs-O(n) scaling story, from PortableScanSourceBenchmarks. Slot/delegate are the two
@@ -82,13 +87,12 @@ export const INTERP_SCALING: InterpScalingRow[] = [
 // Numbers referenced inline in the section prose.
 export const INTERP_SUMMARY = {
   scenarios: 16,
-  zeroAllocScenarios: 16,
+  fasterThanSqlite: 16,
+  speedupRange: '1.2–36×',
+  pointLookupVsSqlite: '36×',
   pointLookupNs: '19 ns',
-  pointLookupQps: '52M',
   heaviestAlloc: '596 B',
-  allocReduction: '99.5%',
   productionScanFactor: '~2×',
-  lookupVsScanAt100k: '~35,000×',
   host: 'Apple M4 Max · .NET 8 · single thread',
   corpusRows: 1000,
 };
