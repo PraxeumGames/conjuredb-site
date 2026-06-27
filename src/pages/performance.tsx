@@ -4,6 +4,13 @@ import Layout from '@theme/Layout';
 import {BenchmarkExplorer} from '@site/src/components/BenchmarkExplorer';
 import {BenchVerdict} from '@site/src/components/BenchVerdict';
 import {BENCH_SUMMARY} from '@site/src/data/benchmarks';
+import {
+  INTERP_STATS,
+  INTERP_REASONS,
+  INTERP_SCENARIOS,
+  INTERP_SCALING,
+  INTERP_SUMMARY,
+} from '@site/src/data/interpreter-benchmarks';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -231,6 +238,124 @@ function VsDict(): ReactNode {
   );
 }
 
+function NoJitRuntime(): ReactNode {
+  return (
+    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
+      <div className="container">
+        <span className="cdb-kicker">The other lane</span>
+        <h2 className="cdb-h2">And a no-JIT lane for config-delivered queries</h2>
+        <p className="cdb-lead">
+          Everything above is the compiled lane: queries you know at build time, lowered to C# with
+          nothing to interpret at runtime. But some queries ship later — as content or config — and on
+          iOS and Unity/IL2CPP you can't JIT or generate code at runtime to run them. ConjureDB runs
+          those on a <strong>portable interpreter</strong>: a pre-verified bytecode executed with no
+          JIT, no codegen and no reflection. It's a deliberate second lane, not a fallback — and it
+          stays fast and allocation-lean.
+        </p>
+
+        <div className="cdb-stats">
+          {INTERP_STATS.map((s) => (
+            <div className="cdb-stat" key={s.l}>
+              <b>{s.n}</b>
+              <span>{s.l}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '1.6rem'}}>
+          {INTERP_REASONS.map((r) => (
+            <div className="cdb-card" key={r.title}>
+              <h3>{r.title}</h3>
+              <p>{r.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{marginTop: '2rem'}}>
+          <h3 style={{marginBottom: '0.3rem'}}>Every operator, measured on the no-JIT lane</h3>
+          <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
+            {INTERP_SUMMARY.scenarios} query shapes on a {INTERP_SUMMARY.corpusRows}-row in-memory
+            table, one thread. Every one is amortized zero-allocation; per-query latency tracks how
+            much data the query touches, at roughly 10–50 ns per row.
+          </p>
+          <div className={styles.tableWrap}>
+            <table className={styles.benchTable}>
+              <thead>
+                <tr>
+                  <th>Query shape</th>
+                  <th>What it does</th>
+                  <th className="num">Per query</th>
+                  <th className="num">Allocated</th>
+                  <th className="num">Queries / sec</th>
+                </tr>
+              </thead>
+              <tbody>
+                {INTERP_SCENARIOS.map((r) => (
+                  <tr key={r.q}>
+                    <td>{r.q}</td>
+                    <td style={{color: 'var(--cdb-muted)'}}>{r.what}</td>
+                    <td className="num">{r.ns}</td>
+                    <td className={r.alloc === '0 B' ? `num ${styles.win}` : 'num'}>{r.alloc}</td>
+                    <td className="num">{r.qps}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {INTERP_SCALING.length > 0 ? (
+          <div style={{marginTop: '2rem'}}>
+            <h3 style={{marginBottom: '0.3rem'}}>O(1) lookups, whatever the table size</h3>
+            <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
+              The same plans against the production scan source (each column read through a projection
+              delegate, like the real engine) as the table grows from 1k to 100k rows. A keyed lookup
+              stays flat; a scan grows with the row count — which is exactly why the lane keys point
+              lookups instead of scanning them.
+            </p>
+            <div className={styles.tableWrap}>
+              <table className={styles.benchTable}>
+                <thead>
+                  <tr>
+                    <th>Query shape</th>
+                    <th className="num">Rows</th>
+                    <th className="num">Slot source</th>
+                    <th className="num">Delegate source</th>
+                    <th>vs row count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {INTERP_SCALING.map((r) => (
+                    <tr key={r.scenario + r.rows}>
+                      <td>{r.scenario}</td>
+                      <td className="num">{r.rows}</td>
+                      <td className="num">{r.slot}</td>
+                      <td className="num">{r.delegate}</td>
+                      <td className={r.note.toLowerCase().includes('flat') ? styles.win : ''}>{r.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        <p className="cdb-lead" style={{marginTop: '1.6rem', fontSize: '0.95rem'}}>
+          Fast for an interpreter — but the compiled C# lane above is still the throughput ceiling.
+          Keep your hottest, build-time-known queries there; the portable lane's job is to run the
+          queries the compiled lane structurally can't, on platforms a JIT can't.
+        </p>
+        <p className={styles.caveat}>
+          Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, {INTERP_SUMMARY.corpusRows}-row
+          in-memory tables, median of 8 iterations after 4 warmups; queries/sec is the derived
+          1e9 / mean-ns single-thread rate, and allocation is BenchmarkDotNet's managed Allocated/op.
+          One configuration — not a guarantee. Benchmark your own workload.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function Cta(): ReactNode {
   return (
     <section className="cdb-section cdb-center">
@@ -265,6 +390,7 @@ export default function Performance(): ReactNode {
         <Verdict />
         <Families />
         <VsDict />
+        <NoJitRuntime />
         <Cta />
       </main>
     </Layout>

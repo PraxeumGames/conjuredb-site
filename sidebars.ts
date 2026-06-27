@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
         'query-language/set-operations',
         'query-language/sql-reference',
         'query-language/compiled-queries',
+        'query-language/portable-interpreter',
         'query-language/mutations',
         'query-language/functions',
       ],
