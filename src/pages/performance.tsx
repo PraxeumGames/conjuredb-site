@@ -8,7 +8,6 @@ import {
   INTERP_STATS,
   INTERP_REASONS,
   INTERP_SCENARIOS,
-  INTERP_SCALING,
   INTERP_SUMMARY,
 } from '@site/src/data/interpreter-benchmarks';
 import styles from './marketing.module.css';
@@ -279,7 +278,7 @@ function NoJitRuntime(): ReactNode {
             same {INTERP_SUMMARY.corpusRows}-row in-memory data, with a primary-key index on both
             sides and prepared statements — and the no-JIT lane wins all {INTERP_SUMMARY.fasterThanSqlite},
             from {INTERP_SUMMARY.speedupRange}, while keeping point lookups at 0 B and the heaviest
-            measured scenario at {INTERP_SUMMARY.heaviestAlloc}.
+            current {INTERP_SUMMARY.currentCorpusScenarios}-scenario corpus case at {INTERP_SUMMARY.heaviestAlloc}.
           </p>
           <div className={styles.tableWrap}>
             <table className={styles.benchTable}>
@@ -309,48 +308,14 @@ function NoJitRuntime(): ReactNode {
           </div>
         </div>
 
-        {INTERP_SCALING.length > 0 ? (
-          <div style={{marginTop: '2rem'}}>
-            <h3 style={{marginBottom: '0.3rem'}}>O(1) lookups, whatever the table size</h3>
-            <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
-              The same plans against the production scan source (each column read through a projection
-              delegate, like the real engine) as the table grows from 1k to 100k rows. A keyed lookup
-              stays flat; a scan grows with the row count — which is exactly why the lane keys point
-              lookups instead of scanning them.
-            </p>
-            <div className={styles.tableWrap}>
-              <table className={styles.benchTable}>
-                <thead>
-                  <tr>
-                    <th>Query shape</th>
-                    <th className="num">Rows</th>
-                    <th className="num">Slot source</th>
-                    <th className="num">Delegate source</th>
-                    <th>vs row count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {INTERP_SCALING.map((r) => (
-                    <tr key={r.scenario + r.rows}>
-                      <td>{r.scenario}</td>
-                      <td className="num">{r.rows}</td>
-                      <td className="num">{r.slot}</td>
-                      <td className="num">{r.delegate}</td>
-                      <td className={r.note.toLowerCase().includes('flat') ? styles.win : ''}>{r.note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
-
         <p className="cdb-lead" style={{marginTop: '1.6rem', fontSize: '0.95rem'}}>
           Some of the win is structural: an in-process engine on your own heap skips the
           managed↔native marshaling SQLite pays per query — which is exactly why you'd embed one on a
           client. And the compiled C# lane above is still the throughput ceiling; keep your hottest,
           build-time-known queries there. The portable lane's job is to run the queries the compiled
           lane structurally can't, on platforms a JIT can't — and to still beat SQLite doing it.
+          The v1 superinstruction pass is measured separately: fused opcode hit scenarios improve
+          {INTERP_SUMMARY.superinstructionHitGeomean} geomean, with the rest of the corpus flat.
         </p>
         <p className={styles.caveat}>
           Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, IterationCount=8 after 4 warmups

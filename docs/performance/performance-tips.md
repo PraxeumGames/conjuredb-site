@@ -59,6 +59,24 @@ var result = context.Query("from Players | filter Level > 10 | take 5");
 | Suitable for game loop | ✅ Yes | ❌ No |
 | Suitable for dev tools | ✅ Yes | ✅ Yes |
 
+### Config-Delivered Queries: the Portable Interpreter Lane
+
+There is a third case the table above does not cover: queries that are **not known at build time** —
+they ship later as content/config (LiveOps tuning, server-authored queries). You cannot compile those
+to C# ahead of time, and on iOS/IL2CPP you cannot JIT or emit code at runtime to handle them either.
+For exactly this case ConjureDB has a **portable interpreter** lane that executes a pre-compiled,
+pre-verified bytecode with no JIT, no runtime codegen, and no reflection.
+
+The current measured lane is allocation-lean (≤ ~200 B/query in the 1K-row corpus, **0 B** for a point
+lookup), O(1) for keyed lookups (~31 ns in the vs-SQLite harness and ~33 ns in the current
+full-corpus run), faster than SQLite on all measured relational shapes, and bit-for-bit at parity with
+the AOT lane. It is a deliberate second lane, not a fallback for failed compilation.
+
+Keep your build-time-known, hot-path queries in the compiled `query` lane (the throughput ceiling);
+reach for the portable lane only for genuinely config-delivered queries. See
+[Portable Interpreter](/docs/query-language/portable-interpreter) for when each lane runs and the full
+performance expectations.
+
 ### NoAlloc Variants for Zero-Allocation Hot Paths
 
 Every compiled query automatically generates `...NoAlloc()` and `...ForEach<TConsumer>()` helper surfaces. Use these in performance-critical paths where even a `List<T>` allocation is unacceptable:
@@ -84,13 +102,6 @@ for (int i = 0; i < span.Length; i++)
 {
     ref readonly var player = ref span[i];
     RenderPlayer(player);
-}
-```
-
-for (int i = 0; i < count; i++)
-{
-    ref readonly var player = ref buffer[i];
-    RenderLeaderboardEntry(player.Name, player.Score);
 }
 ```
 
