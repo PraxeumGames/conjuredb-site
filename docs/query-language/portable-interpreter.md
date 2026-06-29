@@ -1,7 +1,7 @@
 # Portable Interpreter (No-JIT Runtime)
 
 How ConjureDB runs queries that are delivered as configuration at runtime — on platforms that forbid
-JIT compilation — without giving up speed or zero-allocation execution.
+JIT compilation — without giving up speed or allocation-lean execution.
 
 ConjureDB's default path compiles every query you declare to C# at build time, so there is nothing to
 interpret at runtime (see [Compiled Queries](/docs/query-language/compiled-queries)). But some queries
@@ -54,19 +54,20 @@ portable.
 
 The portable interpreter is built to be the kind of interpreter you can run in a frame budget:
 
-- **Zero steady-state allocation.** Every operator family (scan, filter, project, sort, top-N, hash
-  and multi-key aggregate, distinct, join, set ops, window) executes amortized-allocation-free —
-  ≤ ~600 bytes per query for the heaviest scenario, and **0 bytes** for a point lookup. Pooled
-  hashtables and arena-backed key/accumulator buffers keep the GC out of the hot path.
+- **Low steady-state allocation.** Every operator family (scan, filter, project, sort, top-N, hash
+  and multi-key aggregate, distinct, join, set ops, window) stays allocation-lean in the current
+  corpus: **0 bytes** for a point lookup and ≤ **265 bytes** per query for the heaviest measured
+  scenario. Pooled hashtables and arena-backed key/accumulator buffers keep the GC out of the hot path.
 - **O(1) keyed lookups.** A primary-key lookup probes the index in constant time — about **19 ns**
-  regardless of table size, versus a full scan that grows with row count. A point lookup is fully
-  allocation-free.
+  in the production scan-source scaling study and about **23 ns** in the current full vs-SQLite
+  corpus — versus a full scan that grows with row count. A point lookup is fully allocation-free.
 - **~10–50 ns per row.** Most queries run in that band per row scanned, so latency tracks how much
   data the query touches rather than interpreter overhead. On a 1,000-row table a filtered projection
-  is ~8 µs and a hash group-by is ~4 µs.
+  is ~6.8 µs and a hash group-by is ~4.0 µs.
 - **Faster than SQLite.** On the same query over the same in-memory data — with a primary-key index
   on both sides — the no-JIT lane beats embedded SQLite (whose VDBE is itself a bytecode interpreter)
-  on every one of the 16 benchmarked query shapes, from 1.2× (sort top-N) to ~36× (point lookup),
+  on every one of the 17 benchmarked query shapes, from 4.7× (single-column distinct) to ~57×
+  (`row_number` window),
   while allocating a fraction of the memory. See the [Performance](/performance) page for the full
   per-scenario table.
 - **Parity with the AOT lane.** Same results, same ordering, same null semantics — the interpreter is
@@ -80,7 +81,7 @@ falling off a performance cliff.
 :::
 
 See the [Performance](/performance) page for the full measured table: throughput and allocation for
-all 16 operator scenarios, plus the O(1)-vs-O(n) scaling study across table sizes.
+all 17 operator scenarios, plus the O(1)-vs-O(n) scaling study across table sizes.
 
 ## What it is not
 

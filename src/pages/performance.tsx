@@ -278,7 +278,8 @@ function NoJitRuntime(): ReactNode {
             interpreter. Each of the {INTERP_SUMMARY.scenarios} shapes runs the same query over the
             same {INTERP_SUMMARY.corpusRows}-row in-memory data, with a primary-key index on both
             sides and prepared statements — and the no-JIT lane wins all {INTERP_SUMMARY.fasterThanSqlite},
-            from {INTERP_SUMMARY.speedupRange}, while staying amortized zero-allocation.
+            from {INTERP_SUMMARY.speedupRange}, while keeping point lookups at 0 B and the heaviest
+            measured scenario at {INTERP_SUMMARY.heaviestAlloc}.
           </p>
           <div className={styles.tableWrap}>
             <table className={styles.benchTable}>
@@ -352,11 +353,12 @@ function NoJitRuntime(): ReactNode {
           lane structurally can't, on platforms a JIT can't — and to still beat SQLite doing it.
         </p>
         <p className={styles.caveat}>
-          Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, median of 8 iterations after 4 warmups.
+          Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, IterationCount=8 after 4 warmups
+          with BenchmarkDotNet's reported outlier filtering.
           Both engines run the same query over the same {INTERP_SUMMARY.corpusRows}-row in-memory data
           with a primary-key index only (no secondary indexes on either side), prepared statements,
           and the full result materialized; SQLite is in-memory with fast pragmas
-          (synchronous=OFF, temp_store=MEMORY). “vs SQLite” is SQLite's median ÷ ConjureDB's median.
+          (synchronous=OFF, temp_store=MEMORY). “vs SQLite” is SQLite's mean ÷ ConjureDB's mean.
           One configuration — not a guarantee. Benchmark your own workload.
         </p>
       </div>
