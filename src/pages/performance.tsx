@@ -275,8 +275,8 @@ function NoJitRuntime(): ReactNode {
           <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
             The fair fight: SQLite is itself a bytecode interpreter, so this is interpreter vs
             interpreter. Each of the {INTERP_SUMMARY.scenarios} shapes runs the same query over the
-            same {INTERP_SUMMARY.corpusRows}-row in-memory data, with a primary-key index on both
-            sides and prepared statements — and the no-JIT lane wins all {INTERP_SUMMARY.fasterThanSqlite},
+            same {INTERP_SUMMARY.corpusShape} data, with matching indexes for each
+            scenario and prepared statements — and the no-JIT lane wins all {INTERP_SUMMARY.fasterThanSqlite},
             from {INTERP_SUMMARY.speedupRange}, while keeping point lookups at 0 B and the heaviest
             current {INTERP_SUMMARY.currentCorpusScenarios}-scenario corpus case at {INTERP_SUMMARY.heaviestAlloc}.
           </p>
@@ -320,8 +320,8 @@ function NoJitRuntime(): ReactNode {
         <p className={styles.caveat}>
           Methodology: {INTERP_SUMMARY.host}, BenchmarkDotNet, IterationCount=8 after 4 warmups
           with BenchmarkDotNet's reported outlier filtering.
-          Both engines run the same query over the same {INTERP_SUMMARY.corpusRows}-row in-memory data
-          with a primary-key index only (no secondary indexes on either side), prepared statements,
+          Both engines run the same query over the same {INTERP_SUMMARY.corpusShape} data
+          with a primary-key index plus matching secondary indexes for index-aware scenarios, prepared statements,
           and the full result materialized; SQLite is in-memory with fast pragmas
           (synchronous=OFF, temp_store=MEMORY). “vs SQLite” is SQLite's mean ÷ ConjureDB's mean.
           One configuration — not a guarantee. Benchmark your own workload.

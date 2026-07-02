@@ -67,10 +67,11 @@ to C# ahead of time, and on iOS/IL2CPP you cannot JIT or emit code at runtime to
 For exactly this case ConjureDB has a **portable interpreter** lane that executes a pre-compiled,
 pre-verified bytecode with no JIT, no runtime codegen, and no reflection.
 
-The current measured lane is allocation-lean (≤ ~200 B/query in the 1K-row corpus, **0 B** for a point
-lookup), O(1) for keyed lookups (~31 ns in the vs-SQLite harness and ~33 ns in the current
-full-corpus run), faster than SQLite on all measured relational shapes, and bit-for-bit at parity with
-the AOT lane. It is a deliberate second lane, not a fallback for failed compilation.
+The current measured lane is allocation-lean (≤ 152 B/query in the 1000/1000/500-row
+Players/Orders/Products vs-SQLite corpus, **0 B** for a point lookup), O(1) for keyed lookups
+(~49 ns in the vs-SQLite harness), index-aware for secondary-index range/lookup cases, faster than
+SQLite on all 23 measured relational shapes, and bit-for-bit at parity with the AOT lane. It is a
+deliberate second lane, not a fallback for failed compilation.
 
 Keep your build-time-known, hot-path queries in the compiled `query` lane (the throughput ceiling);
 reach for the portable lane only for genuinely config-delivered queries. See

@@ -56,18 +56,22 @@ The portable interpreter is built to be the kind of interpreter you can run in a
 
 - **Low steady-state allocation.** Every operator family (scan, filter, project, sort, top-N, hash
   and multi-key aggregate, distinct, join, set ops, window) stays allocation-lean in the current
-  corpus: **0 bytes** for a point lookup and ≤ **193 bytes** per query for the heaviest measured
+  corpus: **0 bytes** for a point lookup and ≤ **152 bytes** per query for the heaviest measured
   scenario. Pooled hashtables and arena-backed key/accumulator buffers keep the GC out of the hot path.
-- **O(1) keyed lookups.** A primary-key lookup probes the index in constant time — about **31 ns**
-  in the current vs-SQLite harness and about **33 ns** in the current full portable corpus — versus a
-  full scan that grows with row count. A point lookup is fully allocation-free.
+- **O(1) keyed lookups.** A primary-key lookup probes the index in constant time — about **49 ns**
+  in the current vs-SQLite harness — versus a full scan that grows with row count. A point lookup is
+  fully allocation-free.
+- **Index-aware scans.** Secondary-index plans use the same ordered accessors as the compiled path:
+  indexed range top-N is about **433 ns**, roughly **18×** faster than the portable full-scan
+  `RangeTopN` variant in the same harness.
 - **~10–50 ns per row.** Most queries run in that band per row scanned, so latency tracks how much
   data the query touches rather than interpreter overhead. On a 1,000-row table a filtered projection
-  is ~6.7 µs and a hash group-by is ~4.1 µs.
+  is ~7.6 µs and a hash group-by is ~4.3 µs.
 - **Faster than SQLite.** On the same query over the same in-memory data — with a primary-key index
-  on both sides — the no-JIT lane beats embedded SQLite (whose VDBE is itself a bytecode interpreter)
-  on every one of the 17 benchmarked relational query shapes, from 4.8× (single-column distinct) to
-  ~52× (typed double-key aggregate), while allocating a fraction of the memory. See the
+  plus matching secondary indexes for index-aware scenarios — the no-JIT lane beats embedded SQLite
+  (whose VDBE is itself a bytecode interpreter) on every one of the 23 benchmarked relational query
+  shapes, from 4.2× (product stock top-N) to ~50× (window running sum), while
+  allocating a fraction of the memory. See the
   [Performance](/performance) page for the full per-scenario table.
 - **Measured superinstructions.** v1 fused opcodes are applied only where the planner can prove the
   producer register is single-use and the expression program has no jumps. The full corpus improves
@@ -84,8 +88,8 @@ falling off a performance cliff.
 :::
 
 See the [Performance](/performance) page for the measured table: throughput and allocation for the
-17 relational scenarios. The project repository keeps the deeper 21-scenario corpus and
-superinstruction A/B evidence in its portable runtime benchmark log.
+23 relational scenarios. The project repository keeps the superinstruction A/B evidence in its
+portable runtime benchmark log.
 
 ## What it is not
 
