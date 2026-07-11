@@ -26,10 +26,12 @@ ConjureDB uses a **single-writer / multi-reader** concurrency model:
 - **One background worker thread** — processes committed transactions, synchronizes
   secondary indices, applies reactive query deltas, and writes journal entries.
 
-There are **no traditional locks on the write path**. Concurrency is achieved through
+The **primary-index write path is lock-free**. Concurrency is achieved through
 structural separation: the writer thread and the worker thread communicate via lock-free
 ring buffers with volatile signaling. Readers access the primary index through a dense
-array that is always safe for concurrent reads.
+array that is always safe for concurrent reads. (`Add()` on a set with a **unique**
+secondary index additionally acquires that index's `ReaderWriterLockSlim` read lock
+during synchronous duplicate validation in `ValidateAdd`.)
 
 ### Design Rationale
 
@@ -186,7 +188,7 @@ Version 0 (initial)
 | **Journal** | `ChangeRecord.Version` | Recovery replays `version > snapshotVersion` |
 | **Snapshot** | Header version | Identifies the snapshot's logical point in time |
 | **Reactive queries** | `ReactiveQuery.Version` | Tracks which database version the materialized view reflects |
-| **`HasPendingCommits()`** | Compares committed vs. processed | Determines if worker has unprocessed versions |
+| **`HasPendingCommits()`** | Reads `_commitEvent.IsSet` (commit-event signal) | Determines if worker has unprocessed versions |
 
 ### Ordering Guarantees
 
@@ -212,7 +214,7 @@ For detailed version lifecycle and `CommitAsync` semantics, see
 | `TryFindById(id, out entity)` | ✅ Any thread | Same as `FindById` |
 | `Contains(id)` | ✅ Any thread | Sparse-to-dense index check |
 | `Count` | ✅ Any thread | Single `int` field read |
-| `All` / `AsMemory` | ✅ Any thread | Returns `ReadOnlyMemory<T>` over contiguous storage |
+| `All()` | ✅ Any thread | Returns `ReadOnlyMemory<T>` over contiguous storage (backed by the internal `PrimaryIndex.AsMemory`) |
 | `IsTransactionInStarted` | ✅ Any thread | `Volatile.Read` provides cross-thread visibility |
 | `Version` | ✅ Any thread | `Volatile.Read` on `ulong` |
 | `HasPendingCommits()` | ✅ Any thread | Checks `ManualResetEventSlim.IsSet` |
@@ -241,9 +243,9 @@ Dense array:   [Entity1, Entity4, Entity3] (contiguous storage)
   transaction model. A concurrent reader may observe a partially-written entity
   only if the entity type contains reference fields that are updated non-atomically.
   For value-type-only entities (the common case in games), reads are always consistent.
-- **Enumeration** via `All` / `AsMemory` returns a `ReadOnlyMemory<T>` slice of the
-  dense array. The count may lag by one operation mid-transaction, but callers outside
-  the writer thread only see committed state.
+- **Enumeration** via `All()` returns a `ReadOnlyMemory<T>` slice of the
+  dense array (backed by the internal `PrimaryIndex.AsMemory`). The count may lag by one
+  operation mid-transaction, but callers outside the writer thread only see committed state.
 
 ### Secondary Index: Synchronized Access
 
@@ -260,8 +262,13 @@ They use a `ReaderWriterLockSlim` (`_syncLock`) with two roles:
 When you query a secondary index:
 
 ```csharp
-// On any thread — safe after worker has synced
-var items = db.Items.GetIndex<int>().Find(categoryId);
+// On any thread — safe after worker has synced.
+// The generated per-index accessor (name is schema-driven) returns a struct
+// enumerable; QueryDirect calls SyncIndex() internally before iterating.
+foreach (var item in db.Items.ByCategoryIndex.QueryDirect(categoryId))
+{
+    // use item
+}
 ```
 
 The query internally calls `SyncIndex()` which either:
@@ -277,13 +284,15 @@ indefinitely.
 Unique secondary indices (`UniqueIndex<TKey>`) use a two-layer validation approach
 to detect duplicates at `Add()` time, before the worker has synced:
 
-1. **`ConcurrentDictionary<TKey, int> _pendingKeys`** — thread-safe set of keys that
-   have been validated but not yet committed to the synchronized lookup. Checked first.
+1. **`NullableKeyConcurrentDictionary<TKey, int> _pendingKeys`** — thread-safe,
+   null-key-safe set of keys that have been validated but not yet committed to the
+   synchronized lookup. Checked first.
 
-2. **`Dictionary<TKey, int> _lookup`** — committed keys, protected by
-   `_syncLock.TryEnterReadLock(0)`. If the worker holds the write lock, the read-lock
-   attempt is skipped — the worker's own `AddInternal` will catch any duplicate as a
-   fail-safe.
+2. **`NullableKeyDictionary<TKey, int> _lookup`** — committed keys, read under a
+   **blocking** `_syncLock.EnterReadLock()` acquired inside `ValidateAdd`. The order is:
+   check `_pendingKeys` first, then acquire the read lock and check `_lookup`, then
+   reserve the key in `_pendingKeys`. Correctness does not depend on lock-acquisition
+   timing — there is no skippable or fail-safe branch.
 
 3. **`_pendingKeys.TryAdd(key, id)`** — reserves the key atomically. If another
    in-flight add in the same transaction already reserved it, throws
@@ -306,9 +315,9 @@ overhead on the hot path:
 | `ManualResetEventSlim` | `DbWorker._commitEvent` | Worker thread sleep/wake signaling |
 | `ReaderWriterLockSlim` | `SynchronizedIndex._syncLock` | Protects secondary index data during sync; allows concurrent readers |
 | `SemaphoreSlim(1, 1)` | `DbContext._commitLock` | Serializes concurrent `CommitAsync()` calls |
-| `ConcurrentDictionary<TKey, int>` | `UniqueIndex._pendingKeys` | Thread-safe pending key tracking for unique constraint validation |
+| `NullableKeyConcurrentDictionary<TKey, int>` | `UniqueIndex._pendingKeys` | Thread-safe, null-key-safe pending key tracking for unique constraint validation |
 | `Interlocked.CompareExchange` | `MemoryBudget` | Lock-free CAS loop for atomic memory allocation tracking |
-| `TaskCompletionSource<bool>` | `DbWorker._pendingTasks` | Async completion signaling for `CommitAsync()` callers |
+| `TaskCompletionSource<bool>` | `DbWorker._pendingAsyncCommitCompletion` | Async completion signaling for `CommitAsync()` callers (a single waiter, not a collection) |
 
 ### Why Not Traditional Locks?
 
@@ -416,10 +425,11 @@ Secondary indices follow a **deferred-commit** pattern:
 When the worker configuration enables parallel processing
 (`ParallelProcessingEnabled = true`), the worker partitions secondary index sync work:
 
-- **Light sets** (pending changes < `MinPendingChangesForParallel`): processed
+- **Light sets** (pending changes **≤** `MinPendingChangesForParallel`): processed
   sequentially on the worker thread.
-- **Heavy sets** (pending changes ≥ threshold): processed in parallel via `Task.Run`,
-  with `Task.WaitAll` synchronization.
+- **Heavy sets** (pending changes **strictly `>`** the threshold): dispatched in
+  parallel via `Task.Run` / `Task.WaitAll` **only when there are ≥2 heavy sets**.
+  A single heavy set is processed sequentially via `WorkerSync()`.
 
 This is transparent to callers — the consistency guarantees remain identical.
 
@@ -659,9 +669,12 @@ db.BeginTransaction();
 db.Players.Update(playerId, player with { GuildId = guildId });
 
 await db.CommitAsync();
-// Secondary indices are now current — safe to query
-var guildMembers = db.Players.GetIndex<int>().Find(guildId);
-UpdateGuildUI(guildMembers);
+// Secondary indices are now current — safe to query.
+// Iterate the generated guild-index accessor by ref (zero-copy).
+foreach (ref readonly var member in db.Players.ByGuildIndex.QueryDirectByRef(guildId))
+{
+    UpdateGuildUIMember(in member);
+}
 ```
 
 ### Pattern 4: Durable Purchases with Async Flush
@@ -696,7 +709,7 @@ should write per frame:
 // Movement system — READ ONLY (any thread)
 void UpdateMovement(float deltaTime)
 {
-    foreach (var entity in db.Entities.All)
+    foreach (var entity in db.Entities.All().Span)
     {
         if (entity.HasVelocity)
             UpdatePosition(entity, deltaTime);

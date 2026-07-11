@@ -36,7 +36,8 @@ encrypted storage with cloud sync.
                                │                  │
                     ┌──────────▼──────────────────▼───────────────┐
                     │        Optional Encryption Layer             │
-                    │   AES-GCM (4 KB chunks, per-chunk auth)     │
+                    │  Journals: AES-GCM 4 KB chunks               │
+                    │  Snapshots/deltas: whole-file AES-GCM        │
                     └──────────────┬──────────────────────────────┘
                                    │
                     ┌──────────────▼──────────────────────────────┐
@@ -76,7 +77,7 @@ Serialization uses an `ArrayBufferWriter<byte>` with a default capacity of
 ├──────────────────────────────────────┤
 │ Format Version   (2 bytes)           │  ushort: 5 (supports v2+)
 ├──────────────────────────────────────┤
-│ Epoch            (8 bytes)           │  ulong: monotonic snapshot version
+│ Version          (8 bytes)           │  ulong: transaction/snapshot version
 ├──────────────────────────────────────┤
 │ Schema Length    (4 bytes)           │  uint: byte length of schema section
 ├──────────────────────────────────────┤
@@ -101,9 +102,10 @@ Serialization uses an `ArrayBufferWriter<byte>` with a default capacity of
 ```
 
 V5 snapshots fail fast when the schema checksum or any DbSet section checksum
-does not match. Encrypted snapshots are also authenticated by AES-GCM per
-chunk; the V5 CRC framing protects plaintext snapshots and catches accidental
-corruption before data is applied to live collections.
+does not match. Encrypted snapshots are also authenticated by whole-file
+AES-GCM — a single GCM blob with one random 12-byte nonce (subject to a 256 MB
+per-file limit), not per-chunk; the V5 CRC framing protects plaintext snapshots
+and catches accidental corruption before data is applied to live collections.
 
 ### File Naming and Retention
 
@@ -185,7 +187,7 @@ missing transactions.
     │                              │─────────────────────────────-->│
     │                              │                                │ Batch serialize
     │                              │                                │ via JournalBufferManager
-    │                              │                                │ (64 KB ring buffer)
+    │                              │                                │ (64 KB write buffer)
     │                              │                                │
     │                              │                                │ Write to disk
     │                              │                                │ Adaptive flush
@@ -199,7 +201,7 @@ Each journal record is MessagePack-serialized:
 | Field | Type | Description |
 |-------|------|-------------|
 | `EntityTypeId` | `ushort` | The schema `type_id` value |
-| `OperationType` | `ChangeType` | `Insert`, `Update`, or `Delete` |
+| `OperationType` | `ChangeType` | `Add`, `Update`, or `Remove` |
 | `ChangesCount` | `uint` | Number of entities in this batch |
 | `SerializedChange` | `byte[]` | MessagePack-serialized entity data |
 | `DataLength` | `int` | Length of `SerializedChange` |
@@ -317,7 +319,7 @@ version and compares it with the local snapshot version:
 
 1. Scan `<DataDirectory>/snapshots/` for `snapshot_*.dat` files.
 2. Select the most recent file (by filename).
-3. Deserialize according to the binary format (magic → version → epoch → data).
+3. Deserialize according to the binary format (magic → version → data).
 4. Apply schema migrations if the schema has changed
    (`MigrationOrchestrator`).
 
@@ -325,7 +327,11 @@ version and compares it with the local snapshot version:
 
 1. Load delta snapshots in chain order via `DeltaChainManager`.
 2. Apply each delta to reconstruct the full state.
-3. If any delta is corrupt or missing, fall back to the last full snapshot.
+3. If a delta is corrupt, the in-memory state is rolled back and the exception
+   is re-thrown, failing startup recovery — there is no silent fall-back to the
+   full snapshot. Missing mid-chain deltas are not gap-detected. (Graceful
+   fallback to the last full snapshot would be a code change, not current
+   behavior.)
 
 ### Phase 3 — Journal Replay
 
@@ -373,19 +379,25 @@ For the explicit security boundary and operational assumptions, see
 
 Encryption uses AES-GCM with PBKDF2 (SHA-256, **100,000 iterations**) key
 derivation; see [Encryption Configuration](/docs/engine/configuration#encryption-configuration)
-for algorithm, key-size, and chunk parameters. The persistence-specific on-disk
-nonce layout is 12 bytes: `[fileNonceSalt(4)][chunkIndex(8)]`, where
-`fileNonceSalt` is generated randomly for every encrypted file write.
+for algorithm, key-size, and chunk parameters. Journal files are chunk-encrypted;
+their persistence-specific on-disk nonce layout is 12 bytes:
+`[fileNonceSalt(8)][chunkIndex(4)]`, where `fileNonceSalt` is generated randomly
+for every encrypted file write. Snapshot and delta files instead use non-chunked
+whole-file AES-GCM: a single random 12-byte nonce written at the start of the
+file followed by one GCM blob, subject to a 256 MB per-file limit.
 
-### Chunk-Based Encryption Format
+### Chunk-Based Encryption Format (Journal Files)
+
+The chunk-based layout below applies to **journal files**. Encrypted snapshots
+and delta snapshots use the non-chunked whole-file format described above.
 
 ```
 File Layout:
 ┌────────────────────┐
-│ Salt    (4 bytes)   │  Random per-file nonce salt
+│ Salt    (8 bytes)   │  Random per-file nonce salt
 ├────────────────────┤
 │ ┌────────────────┐ │
-│ │ Nonce (12 B)   │ │  [fileNonceSalt(4)][chunkIndex(8)]
+│ │ Nonce (12 B)   │ │  [fileNonceSalt(8)][chunkIndex(4)]
 │ │ Length (4 B)    │ │  Plaintext length
 │ │ Ciphertext (N) │ │  Encrypted payload
 │ │ Tag   (16 B)   │ │  GCM authentication tag
@@ -398,10 +410,10 @@ GCM mode provides both **confidentiality** (encryption) and **integrity**
 (authentication). Any tampering with the ciphertext is detected during
 decryption and causes an authentication failure.
 
-The 4-byte `fileNonceSalt` is stored in the encrypted file header and is
+The 8-byte `fileNonceSalt` is stored in the encrypted file header and is
 independent from the PBKDF2 `EncryptionOptions.Salt`. It is generated fresh for
 each encrypted chunked file write, including rewrites of the same path. The
-8-byte chunk counter is monotonic within a file and fails before reuse.
+4-byte uint32 chunk counter is monotonic within a file and fails before reuse.
 
 ### Key Management
 
@@ -464,13 +476,14 @@ custom key management), implement `IProtectedFileStreamFactory`:
 ```csharp
 public interface IProtectedFileStreamFactory
 {
-    Stream CreateReadStream(string filePath);
-    Stream CreateWriteStream(string filePath);
+    Stream CreateReadStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
+    Stream CreateWriteStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
 }
 ```
 
 Register via `EncryptionOptions.CustomProtectedFileStreamFactory` to replace
-the default `ChunkedAesGcmStreamWriter/Reader` implementation.
+the default `DefaultProtectedFileStreamFactory` (which produces
+`AesProtectedFileStream`).
 
 ---
 
@@ -482,7 +495,7 @@ uploading snapshots to cloud storage for cross-device state transfer.
 ### IRemoteSnapshotHandler Interface
 
 ```csharp
-public interface IRemoteSnapshotHandler
+public interface IRemoteSnapshotHandler : IAsyncDisposable
 {
     Task<ulong?> GetRemoteVersionAsync();
     Task LoadSnapshotAsync(DbContext context);
@@ -490,7 +503,8 @@ public interface IRemoteSnapshotHandler
 }
 ```
 
-Implement this interface to integrate with any cloud storage provider
+Implementers must also provide `DisposeAsync()` (inherited from
+`IAsyncDisposable`). Implement this interface to integrate with any cloud storage provider
 (S3, Azure Blob, Firebase, Google Cloud Storage, custom backend).
 
 ### RemoteSnapshotOptions Reference

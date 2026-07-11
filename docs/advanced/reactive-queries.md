@@ -108,8 +108,16 @@ reactive query TopPlayersByGuild(guild_id: int) -> Player[] =
 
 ### 2. Access the Materialized View
 
+Reactive queries are reached through generated accessors. Context-level queries
+(projections, aggregates, or multi-table joins) live on the per-context query
+host, reached via `context.QueryHost<...>()`; simple single-table reactive
+queries are generated on the corresponding `DbSet`. The query-host interface is
+generated per context (e.g. `IGameDbContextQueries`).
+
 ```csharp
-var view = context.TopPlayersByGuild(guildId: 5);
+// Context-level reactive query — reached via the generated per-context query host.
+var queries = context.QueryHost<IGameDbContextQueries>();
+var view = queries.TopPlayersByGuild(guildId: 5);
 
 // Read current results (zero-copy span)
 ReadOnlySpan<PlayerView> topPlayers = view.Current;
@@ -206,13 +214,18 @@ view.SubscribeChanged(changes =>
 **Use when:** You need to know what specifically changed (e.g., animate
 additions/removals in a list view).
 
+**Lifetime:** The `ReactiveQueryChangedEventArgs<T>` is a stack-only `ref struct`;
+its `Current` and `Changes` spans are valid only during the callback and reference
+live worker buffers. Copy out any data you need to retain before returning — the
+payload cannot be stored or passed to another thread.
+
 ### Subscription Comparison
 
 | Mode | Allocation | Thread Safety | Change Details | Best For |
 |------|-----------|---------------|---------------|----------|
 | `Subscribe` | 1 copy (Memory) | ✅ Cross-thread | ❌ Snapshot only | Multi-threaded consumers |
 | `SubscribeSpan` | Zero | ❌ Main thread only | ❌ Snapshot only | Game loop (60 fps) |
-| `SubscribeChanged` | 1 copy (Memory) | ✅ Cross-thread | ✅ Delta + snapshot | Animated UI |
+| `SubscribeChanged` | Zero | ❌ Main thread only | ✅ Delta + snapshot | Animated UI |
 
 ---
 
@@ -450,7 +463,8 @@ reactive query PlayerInventory(player_id: int) -> InventoryRow[] =
 ```
 
 ```csharp
-var inventory = context.PlayerInventory(playerId: currentPlayer.Id);
+// Single-table reactive query — generated on the corresponding DbSet.
+var inventory = context.Items.PlayerInventory(playerId: currentPlayer.Id);
 
 // Initial render
 RenderInventoryGrid(inventory.Current);
@@ -488,7 +502,9 @@ reactive query GuildStats() -> GuildStatsRow[] =
 ```
 
 ```csharp
-var guildStats = context.GuildStats();
+// Grouped-aggregate reactive query — reached via the generated query host.
+var queries = context.QueryHost<IGameDbContextQueries>();
+var guildStats = queries.GuildStats();
 
 guildStats.Subscribe(_ =>
 {
@@ -512,7 +528,9 @@ reactive query TopPlayers() -> LeaderboardRow[] =
 ```
 
 ```csharp
-var leaderboard = context.TopPlayers();
+// Multi-table (join) reactive query — reached via the generated query host.
+var queries = context.QueryHost<IGameDbContextQueries>();
+var leaderboard = queries.TopPlayers();
 
 leaderboard.SubscribeChanged(changes =>
 {
@@ -554,7 +572,8 @@ reactive query ActiveQuestsWithRewards(player_id: int) -> QuestRow[] =
 ```
 
 ```csharp
-var activeQuests = context.ActiveQuestsWithRewards(playerId);
+// Single-table reactive query — generated on the corresponding DbSet.
+var activeQuests = context.Quests.ActiveQuestsWithRewards(playerId);
 
 // The hidden ReactiveAutoView stores the non-parameterized source shape.
 // The player filter, order, and limit are applied through the materialized

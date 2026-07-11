@@ -29,9 +29,9 @@ and PostgreSQL's `pg_stat_statements`:
   1. INSTRUMENT        2. COLLECT           3. EXPORT        4. REBUILD
 
   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  ┌──────────────┐
-  │ PgoMode =    │───>│ Run workload │───>│ Export JSON  │─>│ PgoMode =    │
-  │ Collect      │    │ (real game   │    │ profile      │  │ Use          │
-  │              │    │  sessions)   │    │              │  │              │
+  │ Build with   │───>│ Run workload │───>│ Export JSON  │─>│ Rebuild in   │
+  │ --pgo        │    │ (real game   │    │ profile      │  │ use mode     │
+  │ (collect)    │    │  sessions)   │    │              │  │              │
   └──────────────┘    └──────────────┘    └──────────────┘  └──────────────┘
 ```
 
@@ -49,15 +49,20 @@ is based on representative workload evidence rather than a single device run.
 
 ### Step 1: Enable Profile Collection
 
-Add the `[PgoMode]` attribute at assembly or DbContext level:
+PGO instrumentation is selected at build time — there is no C# attribute. For
+manual schema generation, pass the `--pgo` flag; for MSBuild-driven builds, set
+the `ConjureDBPgoMode` property to `collect`:
 
-```csharp
-// Assembly-level (instruments all queries)
-[assembly: PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
+```bash
+# Manual schema generation (instruments all generated query methods)
+dotnet run --project ConjureDB.CodeGen.Manual --pgo --profile=./profiles/game.json
+```
 
-// Per-context (instruments one context)
-[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
-public class GameDbContext : DbContext { ... }
+```xml
+<!-- MSBuild: instrument the generated query methods -->
+<PropertyGroup>
+  <ConjureDBPgoMode>collect</ConjureDBPgoMode>
+</PropertyGroup>
 ```
 
 ### Step 2: Run a Representative Workload
@@ -86,11 +91,28 @@ engine. Strategy selection and deep optimization stay compiler-owned.
 ## How to Export
 
 ```csharp
+// Assign concrete collectors on the context before running the workload:
+var profiler = new QueryProfilerCollector();
+var indexCollector = new IndexRecommendationCollector();
+var joinCollector = new JoinCardinalityCollector();
+var packedKeyCollector = new PackedKeyRangeCollector();
+
+context.Profiler = profiler;
+context.IndexCollector = indexCollector;
+context.JoinCollector = joinCollector;
+context.PackedKeyRangeCollector = packedKeyCollector;
+
+// ... run the representative workload ...
+
+// The exporter's first argument must be the concrete QueryProfilerCollector
+// (context.Profiler is typed IQueryProfiler and will not bind here). The
+// packed-key overload also requires the table schemas argument.
 var exporter = new ProfileDataExporter(
-    context.Profiler,
-    context.IndexCollector,
-    context.JoinCollector,
-    context.PackedKeyCollector);
+    profiler,
+    indexCollector,
+    joinCollector,
+    packedKeyCollector,
+    tableSchemas: null);
 exporter.Export("./profiles/game.json");
 ```
 
@@ -104,10 +126,14 @@ dotnet run --project ConjureDB.CodeGen.Manual --pgo --profile=./profiles/game.js
 
 ## How to Apply
 
-Switch to `PgoMode.Use` and rebuild:
+Set the `ConjureDBPgoMode` MSBuild property to `use` (pointing at the committed
+profile) and rebuild:
 
-```csharp
-[assembly: PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
+```xml
+<PropertyGroup>
+  <ConjureDBPgoMode>use</ConjureDBPgoMode>
+  <ConjureDBPgoProfile>./profiles/game.json</ConjureDBPgoProfile>
+</PropertyGroup>
 ```
 
 ```bash
@@ -124,19 +150,27 @@ dotnet run --project ConjureDB.CodeGen.Manual --profile=./profiles/game.json
 
 The compiler reads the profile and uses it to drive all optimization decisions.
 
-### PgoMode Values
+### ConjureDBPgoMode Values
 
-| Mode | Behavior |
-|------|----------|
-| `None` | No profiling or profile usage (default) |
-| `Collect` | Runtime records statistics during execution |
-| `Use` | Compiler reads the exported profile and drives planning/code-generation |
+The build-time `ConjureDBPgoMode` MSBuild property (string-valued) selects the
+mode:
+
+| Value | Behavior |
+|-------|----------|
+| `none` | No profiling or profile usage (default) |
+| `collect` | Runtime records statistics during execution (equivalent to the `--pgo` flag) |
+| `use` | Compiler reads the exported profile and drives planning/code-generation |
 
 ---
 
 ## Profile Format
 
-The exporter writes a single JSON file:
+The compiler consumes a single JSON profile. The canonical, unified format the
+compiler reads is `PgoProfile` (version 4), shown below. (The runtime
+`ProfileDataExporter.Export` writes a leaner `version: 1` file — for example, it
+carries `indexRecommendations` rather than the `autoIndexCandidates` /
+advisory-set / budget-summary fields; the lifecycle and coverage fields appear
+only when runtime governance metadata is supplied.)
 
 ```json
 {
@@ -229,9 +263,12 @@ workspace-local manifest `.conjuredb/auto-index.decisions.json`.
 
 ### Schema Hash
 
-The `SchemaHash` is a SHA-256 digest computed over sorted
-`{tableName}.{columnName}` pairs. The compiler emits a warning when the current
-schema hash does not match the profile, indicating staleness.
+The `SchemaHash` is derived from a SHA-256 digest computed over the schema's
+entities and columns sorted by name. The hashed input includes each column's
+type — the per-entity form is `Table:col,Type;…|` — and the stored value is a
+truncated Base64 encoding of the first 12 bytes of the digest, not the full
+digest. The compiler emits a warning when the current schema hash does not match
+the profile, indicating staleness.
 
 ---
 
@@ -466,25 +503,32 @@ Heuristic defaults          (lowest priority)
                                                                   │
                                                                   v
 ┌──────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────┐
-│  Release │<────│  Build with  │<────│  Load profile │<────│  CI/CD   │
-│  Build   │     │  PgoMode.Use │     │   (.json)     │     │  Pipeline│
+│  Release │<────│  Build in    │<────│  Load profile │<────│  CI/CD   │
+│  Build   │     │  use mode    │     │   (.json)     │     │  Pipeline│
 └──────────┘     └──────────────┘     └───────────────┘     └──────────┘
 ```
 
 ### CI Integration Steps
 
-1. **Nightly job** runs integration tests with `PgoMode.Collect`.
+1. **Nightly job** runs integration tests with instrumentation enabled (`--pgo` / `ConjureDBPgoMode=collect`).
 2. **Export** the profile to a known path in the repository.
 3. **Validate** the schema hash matches the current schema.
 4. **Commit** the profile to version control (ensures reproducible builds).
-5. **Release builds** use `PgoMode.Use` with the committed profile.
+5. **Release builds** set `ConjureDBPgoMode=use` with the committed profile.
 
 ### Schema Hash Validation
 
-```bash
-# The compiler warns when the profile SchemaHash doesn't match:
-# warning UM1042: PGO profile schema hash mismatch. Profile may be stale.
+When a profile's `SchemaHash` does not match the current schema, PGO profile
+validation reports a stale-profile warning. This is a profile-validation signal
+(`PgoValidationResult.SchemaHashMismatch`) and carries no `UM####` diagnostic id:
+
+```text
+# PGO profile validation warning:
+# Schema hash mismatch. Profile was generated for different schema version.
 ```
+
+(`UM1042` is an unrelated outer-join filter warning, so grepping for it would
+mislead.)
 
 Regenerate the profile whenever entities are added, removed, or modified.
 
@@ -597,7 +641,7 @@ PGO also drives reactive query (IVM) container sizing:
 | `MaxResultCount` | — | Pre-size result containers |
 | `MaxGroupCount` | — | Pre-size aggregate dictionary |
 | `JoinOutputCapacity` | — | Pre-allocate join result containers |
-| `DenseMaxEntityId` | 100,000 | Enable dense identity maps if entity IDs fit |
+| `DenseMaxEntityId` | — (PGO-observed) | Carries the observed max entity id; dense identity maps engage when it is ≤ 100,000 (the DenseArray eligibility threshold) |
 
 See [Reactive Queries](/docs/advanced/reactive-queries) for more details on IVM.
 
@@ -607,7 +651,7 @@ See [Reactive Queries](/docs/advanced/reactive-queries) for more details on IVM.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `AllowHeuristicSelectivity` | `true` | Enable heuristic selectivity when no PGO data is available |
+| `AllowHeuristicSelectivity` | `false` (set to `true` by `CompilerOptions.CreateDefault(schema)`) | Enable heuristic selectivity when no PGO data is available |
 | `PgoTrustPolicy` | — | Set minimum quality thresholds for profile acceptance |
 
 ---
@@ -650,9 +694,16 @@ See [Reactive Queries](/docs/advanced/reactive-queries) for more details on IVM.
 
 ### 1. Instrument
 
+Build the generated query methods with instrumentation enabled — via the `--pgo`
+flag for manual generation, or the `ConjureDBPgoMode=collect` MSBuild property.
+No PGO attribute is required on the context:
+
+```bash
+dotnet run --project ConjureDB.CodeGen.Manual --pgo --profile=./profiles/game.json
+```
+
 ```csharp
-// GameDbContext.cs
-[PgoMode(PgoMode.Collect, ProfilePath = "./profiles/game.json")]
+// GameDbContext.cs — generated as usual from the .conjure schema; no attribute.
 public class GameDbContext : DbContext
 {
     // Generated from .conjure schema AdditionalFiles.
@@ -675,11 +726,14 @@ for (int i = 0; i < 10_000; i++)
 ### 3. Export
 
 ```csharp
+// The collectors assigned during instrumentation are exported here. The first
+// argument is the concrete QueryProfilerCollector you set on context.Profiler.
 var exporter = new ProfileDataExporter(
-    context.Profiler,
-    context.IndexCollector,
-    context.JoinCollector,
-    context.PackedKeyCollector);
+    profiler,
+    indexCollector,
+    joinCollector,
+    packedKeyCollector,
+    tableSchemas: null);
 exporter.Export("./profiles/game.json");
 ```
 
@@ -699,10 +753,12 @@ cat profiles/game.json | jq '.JoinStats'
 
 ### 5. Rebuild
 
-```csharp
-// Switch to Use mode
-[PgoMode(PgoMode.Use, ProfilePath = "./profiles/game.json")]
-public class GameDbContext : DbContext { ... }
+```xml
+<!-- Switch to profile-use mode (consumes the committed profile at build time) -->
+<PropertyGroup>
+  <ConjureDBPgoMode>use</ConjureDBPgoMode>
+  <ConjureDBPgoProfile>./profiles/game.json</ConjureDBPgoProfile>
+</PropertyGroup>
 ```
 
 ```bash

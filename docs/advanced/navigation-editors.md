@@ -151,9 +151,12 @@ Context.Customer[1]
 
 ### Parent Reference Navigation
 
-When an entity has a FK to another entity, the Editor exposes a navigation
-property that returns the parent's Editor. The property name is derived from
-the FK (e.g., `CustomerId` -> `Customer`):
+Parent-reference navigation is generated only on the editors of entities that
+are themselves aggregate roots (they own their own child collections). When such
+an entity also has a FK to another entity, its Editor exposes a navigation
+property that returns the parent's Editor. A pure leaf entity gets no generated
+Editor at all, so it exposes no parent navigation. The property name is derived
+from the FK (e.g., `CustomerId` -> `Customer`):
 
 ```csharp
 // Navigate: Order -> Customer
@@ -184,6 +187,12 @@ var orders = Context.Customer[1].Orders;
 | `Count` | `int` | Number of children belonging to this parent |
 | `Any` | `bool` | `true` if at least one child exists |
 | `IsEmpty` | `bool` | `true` if no children exist |
+
+Only the enumeration surface (`Count`, `Any`, `IsEmpty`, `GetAll`, `foreach`,
+`RemoveAll`, `ModifyAll`) is scoped to this parent's FK. The id-based
+operations — `this[childId]`, `TryGet`, `Update`, `Remove`, `Modify`, and
+`Transfer` — resolve by the child's **global primary key** and do not verify
+that the child actually belongs to this parent.
 
 ### CRUD Methods
 
@@ -341,8 +350,9 @@ int removed = Context.Customer[1].Orders.RemoveAll();
 Console.WriteLine($"Removed {removed} orders");
 ```
 
-Returns the count of removed entities. Uses stack-allocated spans for
-zero-GC batching.
+Returns the count of removed entities. The temporary id buffer is
+stack-allocated only when the child count is ≤ 256 (`StackAllocThreshold`);
+above that it allocates a transient `int[]`.
 
 ---
 
@@ -361,8 +371,8 @@ Context.Customer[1].Orders.Transfer(orderId: 5, newParentId: 2);
 |--------|----------|
 | FK update | Sets the child's FK to `newParentId` |
 | Children of transferred entity | Unaffected (they reference the child's PK, not the grandparent) |
-| Old parent subscription | Notified of removal |
-| New parent subscription | Notified of addition |
+| Old parent subscription | Notified via a `ChangeType.Update` (the child's FK moved off this parent) |
+| New parent subscription | Notified via a `ChangeType.Update` (the child's FK moved onto this parent) |
 | Transaction required | Yes |
 
 ### Example: Transfer with Notification
@@ -378,8 +388,8 @@ Context.BeginTransaction();
 Context.Customer[1].Orders.Transfer(orderId: 5, newParentId: 2);
 Context.Commit();
 // Output:
-// Customer 1 orders: Remove
-// Customer 2 orders: Add
+// Customer 1 orders: Update
+// Customer 2 orders: Update
 ```
 
 ---
@@ -406,14 +416,16 @@ This generates:
 | `ReviewByCustomerCollectionHandle` | Sets `CustomerId` | Queries `ReviewCustomerIndex` |
 | `ReviewByProductCollectionHandle` | Sets `ProductId` | Queries `ReviewProductIndex` |
 
-Access:
+Disambiguation applies to the generated handle **type** only. The navigation
+**property** keeps the child table name (`Reviews`) on both editors unless an
+explicit `@@navigation(name: ...)` overrides it:
 
 ```csharp
-// All reviews by Customer 1
-var customerReviews = Context.Customer[1].ReviewsByCustomer;
+// All reviews by Customer 1 (returns a ReviewByCustomerCollectionHandle)
+var customerReviews = Context.Customer[1].Reviews;
 
-// All reviews for Product 42
-var productReviews = Context.Product[42].ReviewsByProduct;
+// All reviews for Product 42 (returns a ReviewByProductCollectionHandle)
+var productReviews = Context.Product[42].Reviews;
 ```
 
 Single-FK children keep the simpler name: `OrderCollectionHandle`.
@@ -544,7 +556,10 @@ Uses `EqualityComparer<T>.Default.Equals` (leveraging record value equality).
 - **Main-thread delivery** — handlers fire synchronously during `Commit()`.
 - **Transfer notifications** — both old and new parent subscribers are notified.
 - **Constraint** — do not `Subscribe` or `Dispose` from within a handler
-  callback (deadlock risk — EventDispatcher dispatches under lock).
+  callback. `ChangeRouter<T>` invokes handlers while iterating its subscriber
+  list (under a reentrant lock), so subscribing or disposing mid-dispatch
+  reentrantly mutates the list being iterated. The hazard is that reentrant
+  modification, not a deadlock.
 
 ---
 
@@ -603,19 +618,19 @@ See [Transactions](/docs/engine/transactions) for full transaction semantics.
 | `Editor.Value` (read entity) | O(1) | Zero (returns by value) |
 | `Editor.Update(value)` | O(1) | Zero |
 | `Editor.Remove()` | O(1) | Zero |
-| `Editor.RemoveCascade()` | O(children) | Zero |
+| `Editor.RemoveCascade()` | O(children) | Zero for ≤ 256 children (stack span); transient `int[]` above |
 | `Editor.Modify(func)` | O(1) | 1 delegate (if not cached) |
 | `Handle.Add(item)` | O(1) amortized | Zero |
 | `Handle.AddRange(items)` | O(N) | Zero |
-| `Handle[childId]` | O(1) | Zero (lookup index) |
+| `Handle[childId]` | O(1) | Zero (primary-key index) |
 | `Handle.Count` | O(1) | Zero (index-maintained) |
 | `Handle.GetAll()` | O(1) | Zero |
 | `Handle.First()` / `Handle.TryGetFirst()` | O(1) | Zero |
 | `Handle.Last()` / `Handle.TryGetLast()` | O(children) | Zero |
 | `Handle.ToArray()` | O(children) | Array allocation |
 | `Handle.ToList()` | O(children) | List allocation |
-| `Handle.RemoveAll()` | O(children) | Zero (stack span) |
-| `Handle.ModifyAll(func)` | O(children) | 1 delegate |
+| `Handle.RemoveAll()` | O(children) | Zero for ≤ 256 children (stack span); transient `int[]` above |
+| `Handle.ModifyAll(func)` | O(children) | 1 delegate; id buffer stack-allocated for ≤ 256 children, transient `int[]` above |
 | `Handle.Transfer(id, newParent)` | O(1) | Zero |
 | `foreach (var x in handle)` | O(children) | Zero (struct enumerator) |
 
@@ -625,8 +640,8 @@ See [Transactions](/docs/engine/transactions) for full transaction semantics.
 
 | Error Condition | Exception | When |
 |----------------|-----------|------|
-| Entity not found | `KeyNotFoundException` | `Editor.Value` on non-existent entity |
-| Child not found | `KeyNotFoundException` | `Handle[childId]` on non-existent child |
+| Entity not found | `ArgumentOutOfRangeException` | `Editor.Value` on non-existent entity |
+| Child not found | `ArgumentOutOfRangeException` | `Handle[childId]` on non-existent child |
 | No active transaction | `InvalidOperationException` | Any mutation without `BeginTransaction()` |
 | Empty collection | `InvalidOperationException` | `Handle.First()` or `Handle.Last()` on empty collection |
 

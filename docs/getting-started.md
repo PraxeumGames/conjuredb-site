@@ -79,13 +79,9 @@ query parser on the hot path.
 ## Add Mutations
 
 ```prql
-mutation GrantItem(playerId: int, itemType: string, quantity: int) {
-    insert Items
-    | values {
-        OwnerId = @playerId,
-        ItemType = @itemType,
-        Quantity = @quantity
-    }
+mutation GrantItem(playerId: int, itemType: string, quantity: int) -> int {
+    insert Item
+    | values ( OwnerId = @playerId, ItemType = @itemType, Quantity = @quantity )
 }
 ```
 

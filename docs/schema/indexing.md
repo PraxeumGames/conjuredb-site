@@ -10,7 +10,7 @@ ConjureDB provides a rich set of index structures that turn O(n) table scans int
 
 ConjureDB is an in-memory database for game clients. Even though data lives in RAM, scanning every row in a `DbSet<T>` for each query wastes CPU budget that should go to rendering and gameplay. Indexes provide sub-linear access paths that the compiled query engine uses to answer queries without full-table scans.
 
-The compiler enforces this: **unindexed access patterns produce hard compilation errors**, not silent degradation.
+When no suitable index exists, the compiler falls back to a full-table scan and may emit the `UM7001` (`FullScanOnLargeTable`) **warning** for large tables — it does not hard-error on unindexed access.
 
 ### Index Categories
 
@@ -32,9 +32,8 @@ ConjureDB organizes indexes into two categories with distinct consistency models
 | **SortedList** | Sorted dense array | O(log n) | O(n) | Equality, range, ordering | Small ordered sets |
 | **RangeLookup** | Sparse min/max arrays | O(1) | O(1) | EXISTS with range predicates | "Does any X exist where Y > Z?" |
 | **GroupedSorted** | Sparse sorted lists | O(1) group | O(log n) insert | Group + sort pattern | Top-N per group |
-| **Aggregation** | Running scalars | O(1) | O(1) | Global Sum, Count, Min, Max | Table-wide metrics |
+| **Aggregation** | Per-key stats map | O(1) | O(1) | Grouped Sum, Avg, Count, Min, Max | Per-group metrics (alias of UniversalAggregation) |
 | **UniversalAggregation** | `Dictionary<TKey, Stats>` | O(1) | O(1) | Grouped Sum, Avg, Count, Min, Max | Per-group metrics |
-| **CrossTableArray** | Dense array cross-reference | O(1) | O(1) | Foreign-key array access | Cross-table lookups |
 | **SpatialGrid** | Uniform spatial hash grid | O(cells × ents/cell) | O(1) | Radius, bounds, nearest-K | 2D/3D proximity queries |
 
 ---
@@ -509,51 +508,28 @@ table Score(plural: Scores, persistence: local, capacity: 100000) {
 
 ---
 
-### GlobalAggregationIndex\<TValue\> (IndexType.Aggregation)
+### Aggregation Index (`kind: aggregation`)
 
-O(1) **global** (ungrouped) aggregations over an entire `DbSet`. Pre-computes Sum, Count, Min, Max as entities are added, updated, and removed.
+Pre-computed **per-key (grouped)** aggregations over a `DbSet` — O(1) per metric per group. `kind: aggregation` is equivalent to `kind: universal_aggregation`: both compile to the same runtime aggregation-variant class (by default `AllStatsAggregationIndex<TKey, TValue>`), keyed by the declared index field and aggregating the `value:` column as entities are added, updated, and removed. The full variant list and API are documented in the **Universal Aggregation Index** section below.
 
 #### Declaration
 
 ```
 table Player {
-  Gold: int @index(name: "GlobalGold", kind: aggregation, value: Gold)
+  GuildId: int @index(name: "GoldByGuild", kind: aggregation, value: Gold)
 }
 ```
 
-#### Data Structure
+This keys by `GuildId` and maintains running Sum, Count, Min, and Max of `Gold` per guild, exposed through the per-key getters `GetSum(key)`, `GetAverage(key)`, `GetCount(key)`, `GetMin(key)`, and `GetMax(key)`.
 
-Maintains running `sum`, `count`, `min`, and `max` values that are updated incrementally as entities are added, updated, and removed.
+#### No Schema-Declarable Global Aggregation
 
-#### API
-
-| Method | Complexity | Description |
-|--------|------------|-------------|
-| `GetGlobalSum()` | O(1) | Sum of all values. |
-| `GetGlobalAverage()` | O(1) | `Sum / Count`. |
-| `GetGlobalCount()` | O(1) | Number of entities. |
-| `GetGlobalMin()` | O(1) amort. | Minimum value. |
-| `GetGlobalMax()` | O(1) amort. | Maximum value. |
-| `GetAllGlobalStats()` | O(1) amort. | Returns `(sum, avg, min, max, count)` tuple. |
-
-#### Min/Max Tracking
-
-Min/Max tracking is **lazy**: the frequency map (`SortedDictionary<TValue, int>`) is only materialized when a removal hits the current min or max. This avoids the cost of maintaining a sorted structure for workloads dominated by inserts.
-
-Once materialized, the sorted dictionary provides O(log n) min/max recomputation via its first/last key.
-
-#### Example
-
-```csharp
-// O(1) access to the total gold in the game economy:
-var totalGold = goldIndex.GetGlobalSum();
-var avgGold = goldIndex.GetGlobalAverage();
-```
+There is **no** `@index kind:` keyword that produces a global (ungrouped, table-wide) aggregation index. A runtime `GlobalAggregationIndex<TValue>` type does exist — exposing `GetGlobalSum()`, `GetGlobalAverage()`, `GetGlobalCount()`, `GetGlobalMin()`, `GetGlobalMax()`, and `GetAllGlobalStats()` — but it is **never emitted by codegen**. It is reachable only by manually calling the protected `DbSet.CreateGlobalAggregationIndex<TValue>` factory from a `DbSet` subclass. To compute a table-wide aggregate through schema alone, use a per-key aggregation index or accept a full-table scan.
 
 #### When to Use
 
-- Dashboard metrics: total currency, average player level, global min/max score.
-- Any ungrouped aggregate that would otherwise require a full-table scan.
+- Per-group metrics: total gold per guild, average level per region, per-category counts.
+- Any grouped aggregate that would otherwise require a `GROUP BY` + aggregation scan.
 
 #### Limitations
 
@@ -563,17 +539,18 @@ var avgGold = goldIndex.GetGlobalAverage();
 
 ---
 
-### UniversalAggregationIndex\<TKey, TValue\> (IndexType.UniversalAggregation)
+### Universal Aggregation Index (`kind: universal_aggregation`)
 
-Pre-computed **grouped** aggregations — O(1) per metric per group. The grouped equivalent of `GlobalAggregationIndex`.
+Pre-computed **grouped (per-key)** aggregations — O(1) per metric per group. `kind: universal_aggregation` compiles to one of four runtime aggregation-variant classes (there is no C# type literally named `UniversalAggregationIndex`); the default is `AllStatsAggregationIndex<TKey, TValue>`. It is equivalent to `kind: aggregation`.
 
-ConjureDB provides three aggregation index variants, automatically selected based on the query's aggregation needs:
+ConjureDB provides four aggregation index variants, automatically selected based on the query's aggregation needs:
 
 | Variant | Class | Per-Key Footprint | Aggregations |
 |---------|-------|-------------------|--------------|
 | Full stats | `AllStatsAggregationIndex<TKey, TValue>` | ~40 bytes | Sum, Avg, Count, Min, Max |
 | Sum + Count | `SumCountAggregationIndex<TKey>` | 12 bytes | Sum, Avg, Count |
 | Count only | `CountOnlyAggregationIndex<TKey>` | 4 bytes | Count |
+| Distinct count | `DistinctCountAggregationIndex<TKey, TValue>` | Variable (per-group distinct-value set) | Distinct-value count per group |
 
 #### Declaration
 
@@ -829,7 +806,7 @@ The optimizer generates **all viable alternatives** and uses a cost model to sel
 
 - **Selectivity estimates** guide filter strategy ranking.
 - **PGO hints** (Profile-Guided Optimization) can override strategy selection based on runtime profiling.
-- The `CascadesOptimizationStage` explores the full search space before the `PhysicalPlanningStage` selects a winner.
+- The `OptimizationKernelStage` performs logical and physical optimization via the Cascades/Volcano framework, exploring alternatives and selecting the cheapest plan.
 
 ---
 
@@ -1044,7 +1021,7 @@ Useful for leaderboard queries with positional lookups.
 | SortedSet | 4 bytes (objectId in group) | ~80 bytes (tree node + group) | Plus cached snapshot arrays |
 | RangeLookup | — | ~17 bytes (min + max + hasData) | Sparse arrays; empty groups cost nothing |
 | GroupedSorted | ~8 bytes (Entry + indexInGroup) | List overhead per group | Sparse array of lists |
-| Aggregation | — | ~48 bytes (stats fields) | Global only — no per-entity overhead |
+| Aggregation | — | ~48 bytes (stats fields) | Per-group stats; equivalent to UniversalAggregation |
 | UniversalAggregation | — | 12–40 bytes per group (variant-dependent) | Dictionary + stats struct |
 | SpatialGrid | 4 bytes (objectId in cell list) | Hash bucket per occupied cell | Only occupied cells consume memory |
 
@@ -1153,7 +1130,6 @@ Re-profile  →  Verify improvement, remove unused indexes
 | `filter GroupKey == x \| sort -Y \| take N` | **GroupedSorted** | Pre-sorted groups, O(1) access |
 | "Does group X have any Y > Z?" | **RangeLookup** | O(1) EXISTS check |
 | `select sum(X), count(X) group by Y` | **UniversalAggregation** | Pre-computed O(1) per group |
-| `select sum(X) from Table` | **Aggregation** | Pre-computed O(1) global |
 | Unique constraint enforcement | **Unique** | Throws on duplicate |
 | `filter within_radius(X, Y, ...)` | **SpatialGrid** | Spatial hash grid, O(cells × ents/cell) |
 | `filter within_bounds(X, Y, ...)` | **SpatialGrid** | Spatial hash grid, AABB candidate selection |

@@ -47,9 +47,6 @@ The CLI is fail-fast. It processes files in stages, prints progress to stdout an
 
 ```
 Found 3 .conjure file(s)
-Resolving imports...
-Merging declarations...
-Binding...
 Emitting to ./Generated...
   → PlayerStatus.g.cs
   → Player.g.cs
@@ -66,6 +63,7 @@ Done. 6 file(s) generated.
 |------|---------|
 | `0` | Success — all files generated |
 | `1` | Error — parse, import, merge, bind, or I/O errors |
+| `2` | Unexpected internal error (unhandled exception) |
 
 ### 1.4  Generated File Types
 
@@ -81,25 +79,41 @@ Done. 6 file(s) generated.
 
 ### 1.5  Generated DbContext
 
-The generated `DbContext` registers a typed `DbSet<T>` for each table using the schema descriptor:
+The generated `DbContext` exposes a typed set for each table — a generated concrete `<Plural>Set` (a `DbSet<T>` subclass) — and registers it via `AddSet` inside `Build()`:
 
 ```csharp
 using System;
+using System.Collections.Generic;
 using ConjureDB;
 
 namespace Game.Data;
 
 public partial class GameDbContext : DbContext
 {
+    public PlayersSet Players { get; private set; } = null!;
+    public GuildsSet Guilds { get; private set; } = null!;
+    public InventoriesSet Inventories { get; private set; } = null!;
+
     public GameDbContext(DbConfiguration config) : base(config)
     {
     }
 
     protected override void Build()
     {
-        RegisterSet(new DbSet<Player>(this, PlayerDescriptor));
-        RegisterSet(new DbSet<Guild>(this, GuildDescriptor));
-        RegisterSet(new DbSet<Inventory>(this, InventoryDescriptor));
+        var relResolversPlayer = new List<IRelationResolver<Player>>(0);
+        Players = new PlayersSet(this, static (Player x) => x.Id,
+            static (Player x, int id) => x.Id = id, relResolversPlayer, 16384);
+        AddSet(Players);
+
+        var relResolversGuild = new List<IRelationResolver<Guild>>(0);
+        Guilds = new GuildsSet(this, static (Guild x) => x.Id,
+            static (Guild x, int id) => x.Id = id, relResolversGuild, 256);
+        AddSet(Guilds);
+
+        var relResolversInventory = new List<IRelationResolver<Inventory>>(0);
+        Inventories = new InventoriesSet(this, static (Inventory x) => x.Id,
+            static (Inventory x, int id) => x.Id = id, relResolversInventory, 16);
+        AddSet(Inventories);
     }
 }
 ```
@@ -215,14 +229,20 @@ When loading persisted snapshots, ConjureDB compares the stored schema fingerpri
 | `SCH1xxx` | Parser | Unexpected tokens, invalid options, empty bodies |
 | `SCH2xxx` | Binder | Duplicate names, unknown types, FK validation, PK validation |
 | `SCH3xxx` | Import graph | Missing imports, cycles, duplicate file identities |
+| `SCH4xxx` | Single-file import resolution | Circular imports, missing/unreadable imported files, invalid import paths |
 | `SCH5xxx` | Semantic validator | Structural invariants (pre-bind) |
 
-### 4.2  Complete Diagnostic List
+### 4.2  Common Diagnostics
+
+This lists the most frequently encountered codes; it is not exhaustive (each phase defines additional codes — see the ranges above).
 
 | Code | Phase | Severity | Description |
 |------|-------|----------|-------------|
+| `SCH0001` | Lexer | Error | Unterminated string literal |
+| `SCH0002` | Lexer | Warning | Unknown escape sequence in a string literal |
+| `SCH0003` | Lexer | Error | Unexpected character that cannot start any valid token |
 | `SCH1001` | Parser | Error | Expected token not found (type name, default value, body delimiter) |
-| `SCH1002` | Parser | Error | Unexpected token (expected declaration or field) |
+| `SCH1002` | Parser | Error | Expected a specific keyword after another (e.g. `type` after `extern`, `query` after `reactive`) |
 | `SCH1003` | Parser | Error | Invalid table option (unknown key or invalid persistence value) |
 | `SCH1004` | Parser | Error | Invalid index kind |
 | `SCH1005` | Parser | Error | Invalid annotation (`@` or `@@` with unknown keyword) |
@@ -681,7 +701,7 @@ type_field      = IDENT ":" type_ref ;
 
 table           = [ "struct" ] "table" IDENT [ table_options ] "{" { field | table_ann } "}" ;
 table_options   = "(" option { "," option } ")" ;
-option          = ( "persistence" | "capacity" | "schema_version" | "type_id" )
+option          = ( "persistence" | "capacity" | "schema_version" | "type_id" | "plural" )
                   ( ":" | "=" ) value ;
 
 field           = IDENT ":" type_ref { field_ann } [ "=" default_value ] ;

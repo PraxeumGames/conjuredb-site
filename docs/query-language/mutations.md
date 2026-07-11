@@ -23,12 +23,7 @@ mutation AddExperience(playerId: int, amount: int) {
 ```prql
 mutation CreatePlayer(id: int, name: string) {
     insert Players
-    | values {
-        Id = @id,
-        Name = @name,
-        Level = 1,
-        Experience = 0
-    }
+    | values (Id = @id, Name = @name, Level = 1, Experience = 0)
 }
 ```
 
@@ -38,7 +33,7 @@ mutation CreatePlayer(id: int, name: string) {
 mutation GrantItem(playerId: int, itemId: int, amount: int) {
     upsert InventorySlots
     | filter PlayerId == @playerId and ItemId == @itemId
-    | set Amount += @amount
+    | set Amount = Amount + @amount
 }
 ```
 

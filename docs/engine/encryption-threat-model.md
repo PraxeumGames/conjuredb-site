@@ -68,10 +68,17 @@ device-security boundary.
 
 ## Recommended Mobile Profiles
 
-- `MobileFast`: encryption enabled when the title stores sensitive or monetized
-  state locally; durability may choose mobile-optimized flushing.
-- `MobileCritical`: encryption enabled, critical durability, and fail-fast
-  recovery behavior for purchase, economy, or account-linked state.
+- For low-latency, non-critical local state: enable encryption and use
+  `DurabilityPolicy.FastMobile` (the mobile-first default — journal writes are
+  flushed by the adaptive background policy).
+- For purchase, economy, or account-linked state: enable encryption and use
+  `DurabilityPolicy.CriticalState`, which forces the journal to stable storage
+  on every commit, requires journaling to be enabled, and requires
+  `JournalCorruptionPolicy.Fail` so startup fails on journal corruption instead
+  of accepting a partial replay.
+- Encryption (`EncryptionOptions` / `DbContextBuilder.WithEncryption(...)`) and
+  durability (`DbContextBuilder.WithDurabilityPolicy(...)`) are configured
+  independently; there is no bundled named profile.
 - Offline-only prototypes may disable encryption, but that must be a deliberate
   product decision and not a default production assumption.
 

@@ -9,7 +9,9 @@ placement at build time.
 Count players per level and report their average score:
 
 ```prql
-query LevelStats() -> { Level: int, Players: int, AvgScore: float }[] {
+type LevelStat { Level: int, Players: int, AvgScore: float }
+
+query LevelStats() -> LevelStat[] {
     from Players
     | group Level (
         aggregate {
@@ -27,7 +29,9 @@ The "top 3 players per level" shape — a windowed ranking — is one query, not
 loop-and-sort:
 
 ```prql
-query Top3PerLevel() -> { Level: int, Name: string, Score: int, Rank: int }[] {
+type PlayerRank { Level: int, Name: string, Score: int, Rank: int }
+
+query Top3PerLevel() -> PlayerRank[] {
     from Players
     | sort -Score
     | window by Level (Rank = row_number)

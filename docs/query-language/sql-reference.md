@@ -68,7 +68,7 @@ Complete mapping between ConjureDB DSL syntax and SQL equivalents.
 | `X switch { >= V => R, _ => D }` | `CASE WHEN X >= V THEN R ELSE D END` |
 | `cast(X as type)` | `CAST(X AS type)` |
 | `X like 'pattern'` | `X LIKE 'pattern'` |
-| `X contains Y` | `X LIKE '%' \|\| Y \|\| '%'` / `INSTR(X, Y) > 0` |
+| `contains(X, Y)` | `X LIKE '%' \|\| Y \|\| '%'` / `INSTR(X, Y) > 0` |
 | `count(distinct X)` | `COUNT(DISTINCT X)` |
 | `agg(X) filter (where P)` | `agg(X) FILTER (WHERE P)` (PostgreSQL) |
 | `window (Rn = row_number)` | `ROW_NUMBER() OVER (ORDER BY ...)` |
@@ -79,7 +79,7 @@ Complete mapping between ConjureDB DSL syntax and SQL equivalents.
 | `c.Orders.Any()` (collection nav) | `EXISTS (SELECT 1 FROM Orders WHERE CustomerId = c.Id)` |
 | `c.Orders.Count()` (collection nav) | `(SELECT COUNT(*) FROM Orders WHERE CustomerId = c.Id)` |
 
-> `WITH ... AS (...)` and `WITH RECURSIVE ... AS (...)` remain SQL equivalents only. The supported DSL input surface for named subqueries is `let` (or `| into`), not raw SQL-style `with` text.
+> `with name as (...)` is accepted as a first-class DSL synonym for `let name = (...)` — both produce identical CTE bindings. `with recursive name as (...)` also parses (the `recursive` keyword is accepted) but is treated as a plain, non-recursive CTE; recursive execution is not supported. Named subqueries may therefore be written with `let`, `with`, or `| into`.
 
 ---
 ## Examples

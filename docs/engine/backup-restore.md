@@ -238,8 +238,8 @@ Each journal entry is a framed record:
 ┌─────────────────────────────────────────┐
 │ Magic (4 bytes)  0x554D_4A45 "UMJE"     │
 │ Length (4 bytes)                         │
-│ MessagePack payload (variable)          │
 │ CRC-32 checksum (4 bytes)               │
+│ MessagePack payload (variable)          │
 └─────────────────────────────────────────┘
 ```
 
@@ -279,7 +279,7 @@ var db = DbContextBuilder<GameDb>.Create()
 | `FlushInterval` | 100 ms | Lower = less data at risk; higher = better throughput |
 | `MaxJournalFileSize` | 2 MB | Controls rotation; larger files = fewer fsyncs |
 | `MaxStateChangesBeforeSnapshot` | 100 | Auto-triggers snapshot after N journal entries |
-| Recovery corruption policy | `StopAtCorruption` | Lower-level `JournalOptions` recovery behavior; not part of the fluent builder |
+| `CorruptionPolicy` | `StopAtCorruption` | Recovery behavior on a corrupt journal entry; configurable via `.WithJournaling(j => j.CorruptionPolicy(JournalCorruptionPolicy.Fail))` |
 
 **Corruption policies:**
 
@@ -457,7 +457,7 @@ Build() / BuildAsync()
             │
             ├─ 3. InitializeJournal()  — start journal writer
             │
-            └─ 4. TakePostMigrationSnapshotIfNeeded()  — if schema changed
+            └─ 4. TakePostMigrationSnapshotIfNeededAsync()  — if schema changed
 ```
 
 No manual intervention is required. After `Build()` or `BuildAsync()` returns, the database
@@ -470,7 +470,7 @@ directory before re-opening the context:
 
 ```csharp
 // 1. Stop the database (if running)
-await db.DisposeAsync();
+db.Dispose();
 
 // 2. Clear the current data directory
 Directory.Delete("save/snapshots", recursive: true);
@@ -574,9 +574,9 @@ var oldDb = DbContextBuilder<GameDb>.Create()
     .Build();
 
 // 2. Export data (in-memory — no files involved)
-var profiles = oldDb.Set<PlayerProfile>().ToArray();
+var profiles = oldDb.Set<PlayerProfile>().All().ToArray();
 
-await oldDb.DisposeAsync();
+oldDb.Dispose();
 
 // 3. Clear old files and re-create with new key
 Directory.Delete("save/", recursive: true);
@@ -617,7 +617,7 @@ public interface IRemoteSnapshotHandler : IAsyncDisposable
 }
 ```
 
-ConjureDB provides `RemoteSnapshotHandlerBase` with built-in retry logic. Override
+ConjureDB provides `RemoteSnapshotHandlerBase` as a base class for remote handlers. Override
 three protected methods:
 
 ```csharp
@@ -712,8 +712,11 @@ GetRemoteVersionAsync()
     .RequestTimeout(TimeSpan.FromSeconds(10))) // Per-request timeout
 ```
 
-`RemoteSnapshotHandlerBase` retries failed remote operations up to
-`MaxRetryAttempts` times. Each individual request is bounded by `RequestTimeout`.
+`RemoteSnapshotHandlerBase` exposes `RequestTimeout` and `MaxRetryAttempts` as
+protected fields (populated from `RemoteSnapshotOptions`). The base class does not
+itself retry or enforce the timeout — your derived handler is responsible for honoring
+them inside its own `GetSnapshotDataAsync` / `UploadSnapshotDataAsync` /
+`GetRemoteVersionInternalAsync` implementations.
 
 ### Platform Integration Examples
 
@@ -929,7 +932,7 @@ public async Task QuickSave(DbContext db)
 // Quick-load: dispose, restore, rebuild
 public async Task<GameDb> QuickLoad(GameDb db, DbContextBuilder<GameDb> builder)
 {
-    await db.DisposeAsync();
+    db.Dispose();
     // Build() loads the latest snapshot automatically
     return builder.Build();
 }

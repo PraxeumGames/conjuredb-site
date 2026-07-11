@@ -1,9 +1,9 @@
 # Error and Diagnostic Codes
 
-Complete reference for all ConjureDB compiler, schema, and runtime diagnostic codes.
+Reference for ConjureDB compiler and schema diagnostic codes.
 
 > **Modeled after PostgreSQL Appendix A — Error Codes.**
-> Every code emitted by the compiler or schema processor is documented here with severity, description, and remediation guidance.
+> Diagnostic codes emitted by the compiler and schema processor are documented here with severity, description, and remediation guidance.
 
 ---
 
@@ -27,12 +27,13 @@ ConjureDB uses a structured diagnostic system across two subsystems:
 | **Error** | Query cannot be compiled. Must be fixed before code generation proceeds. |
 | **Warning** | Query compiles but may have performance or correctness issues. |
 | **Info** | Informational notice; no action required. |
+| **Trace** | Lowest level. Internal diagnostic-only detail (e.g. statistics deserialization) surfaced only in verbose trace tooling. |
 
 ### Where Diagnostics Appear
 
 - **MSBuild output** — during source-generator compilation.
 - **IDE** — as squiggles / warning list in Visual Studio / Rider.
-- **`[DebugGeneration]`** — attach attribute to emit optimization trace as code comments.
+- **Codegen CLI plan trace** — run `ConjureDB.CodeGen.Manual` with `--dump-plan=<QueryMethod> --dump-plan-report=<path>` to emit the strategy/optimization trace as a plan-diagnosis report.
 - **`CompilerDiagnostic.ToString()`** — formatted as `"{Id} {Location}: {Message}"`.
 
 ### Diagnostic Structure
@@ -42,7 +43,7 @@ Each `CompilerDiagnostic` contains:
 | Field | Type | Description |
 |---|---|---|
 | `Id` | `CompilerDiagnosticId` | Strongly-typed code (e.g., `UM1001`) |
-| `Severity` | `DiagnosticSeverity` | Error / Warning / Info |
+| `Severity` | `DiagnosticSeverity` | Trace / Info / Warning / Error |
 | `Message` | `string` | Human-readable description |
 | `Location` | `SourceLocation` | Source position (line, column) if available |
 | `OriginNodeId` | `IrNodeId?` | IR node for late-binding location mapping |
@@ -129,7 +130,7 @@ from Userz
 | `UM1023` | `InvalidLimitOffset` | Error | Invalid TAKE/SKIP value | TAKE or SKIP has a non-positive value or is out of Int32 range. | Use a positive integer literal or parameter for TAKE/SKIP. |
 | `UM1024` | `DeriveColumnError` | Error | Derive column expression error | A computed column in `derive` could not be resolved. | Check the expression syntax and referenced columns. |
 | `UM1025` | `FunctionArgumentError` | Error | Function argument error | Wrong number or type of arguments passed to a function. | Check function signature. See `QueryLanguage.md` for built-in function reference. |
-| `UM1026` | `CaseImplicitConversion` | Warning | Implicit type conversion in CASE expression | CASE branches have different types that were implicitly converted. May lose precision. | Add explicit CASTs to make the conversion intentional. |
+| `UM1026` | `CaseImplicitConversion` | Error | Reserved — not currently emitted | Defined and registered in the diagnostic catalog with `Error` severity, but the compiler does not currently produce this code. | No action — the compiler never raises this code today. |
 | `UM1027` | `AmbiguousNavigationPath` | Error | Navigation path is ambiguous | Multiple navigation paths exist between two entities; the compiler cannot pick deterministically. | Qualify the navigation or use an explicit JOIN with a specific FK. |
 | `UM1028` | `NavigationLineageUnavailable` | Error | Navigation path cannot be expanded — lineage metadata unavailable | The compiler cannot trace the FK chain because required metadata is missing. | Ensure all FK relationships are declared in the schema with `@relation`. |
 
@@ -287,7 +288,7 @@ Plan warnings indicate that your query compiles successfully but may have perfor
 | Code | Name | Severity | Message | Description | How to Fix |
 |---|---|---|---|---|---|
 | `UM7001` | `FullScanOnLargeTable` | Warning | Full scan on a large table (> threshold rows based on PGO) | No index covers the filter predicate, forcing a full table scan. With PGO data, the table is known to be large. | Add an appropriate index on the filtered column(s). |
-| `UM7003` | `UnusedIndex` | Warning | Unused index — a suitable index exists but was not used | An index on the table could theoretically cover the query but the optimizer chose not to use it. | Verify index column order matches the query pattern. Consider INCLUDE columns. |
+| `UM7003` | `UnusedIndex` | Warning | Reserved — not currently emitted | Defined and registered in the diagnostic catalog, but the compiler does not currently produce this warning. | No action — the compiler never raises this code today. |
 | `UM7004` | `SortWithoutLimit` | Warning | Sort without LIMIT on potentially large result set | An `order by` sorts the entire result set with no `take` to cap the output. | Add `take N` to limit results, or rely on an index that provides the desired order. |
 | `UM7008` | `FullSortOnLargeDataset` | Warning | Full sort on large dataset | PGO data indicates the sorted dataset is large, making sort expensive. | Add a covering index that matches the sort order, or add `take N`. |
 
@@ -320,11 +321,11 @@ from Users
 
 | Code | Name | Severity | Message | Description | How to Fix |
 |---|---|---|---|---|---|
-| `UM7006` | `MissingPgoStatistics` | Warning | Missing PGO statistics for a critical query | No profile data is available for this query, preventing the optimizer from making cost-based decisions. | Run PGO collection. See `PGO.md` for setup instructions. |
+| `UM7006` | `MissingPgoStatistics` | Warning | Reserved — not currently emitted | Defined and registered, but never produced. Missing or untrusted PGO data surfaces via `UM7016` (heuristic planning estimate) and `UM7013` (untrusted profile → heuristic estimation) instead. | No action — see `UM7016` / `UM7013` for the codes actually raised when PGO data is unavailable. |
 | `UM7009` | `IndexRecommendation` | Info | Index recommendation from the Index Advisor | The optimizer suggests adding an index to improve this query's performance. | Review the recommendation and add the suggested index if appropriate. |
-| `UM7013` | `PgoUntrustedHeuristicFallback` | Warning | PGO profile is untrusted — falling back to heuristic estimation | The PGO profile failed trust validation; the optimizer uses heuristic selectivity estimates instead. | Re-run PGO collection with representative workload data. |
-| `UM7014` | `PgoUntrustedOverrideBlocked` | Warning | PGO profile is untrusted — behavioral override blocked | A PGO-directed strategy override (e.g., SkipSort, NoOptimize) was blocked because the profile is untrusted. | Re-run PGO collection. Untrusted profiles cannot influence planning decisions. |
-| `UM7016` | `HeuristicPlanningFallback` | Warning | Planner used heuristic fallback | Costing or strategy selection fell back to heuristics because statistics or metadata was unavailable. | Provide PGO data or ensure schema metadata is complete. |
+| `UM7013` | `PgoUntrustedHeuristicEstimate` | Warning | PGO profile is untrusted — falling back to heuristic estimation | The PGO profile failed trust validation; the optimizer uses heuristic selectivity estimates instead. | Re-run PGO collection with representative workload data. |
+| `UM7014` | `PgoUntrustedOverrideBlocked` | Info | PGO profile is untrusted — behavioral override blocked | A PGO-directed strategy override (e.g., SkipSort, NoOptimize) was blocked because the profile is untrusted. | Re-run PGO collection. Untrusted profiles cannot influence planning decisions. |
+| `UM7016` | `HeuristicPlanningEstimate` | Info | Planner used a heuristic estimate | Costing or strategy selection used an explicit heuristic estimate because statistics or metadata was unavailable. | Provide PGO data or ensure schema metadata is complete. |
 | `UM7018` | `PgoProfileDataInconsistency` | Warning | Trusted PGO profile contains inconsistent data | The profile passed trust validation but contains internally contradictory data (e.g., invalid key ranges). | Re-collect PGO data. The profile may be from a stale schema version. |
 
 ---
@@ -335,16 +336,15 @@ These diagnostics are specific to join strategy selection during physical planni
 
 | Code | Name | Severity | Message | Description | Action |
 |---|---|---|---|---|---|
-| `JOIN0001` | `JoinNoStrategy` | Error | No applicable join strategy | The planner could not find any valid join implementation for the given predicate and available indexes. | Verify the join predicate uses equality on indexed columns. Add a primary or secondary index on the join key. |
+| `JOIN0001` | `JoinNoStrategy` | Warning | No applicable join strategy | The planner could not find any valid join implementation for the given predicate and available indexes; the query still compiles by falling back to a nested-loop join. Severity is **Warning** by default and escalates to **Error** only in strict mode. | Verify the join predicate uses equality on indexed columns. Add a primary or secondary index on the join key. |
 | `JOIN0003` | `JoinConjunctivePredicateUnsupported` | Warning | Conjunctive join predicate unsupported | A multi-condition join predicate (AND) cannot be served by non-BETWEEN strategies. | Simplify the join predicate or ensure the combined columns are covered by a composite index. |
 | `JOIN0002` | `JoinSecondaryIndexNotProduced` | Warning | Join secondary index strategy could not be produced | The planner attempted to use a secondary index for the join but failed (e.g., type mismatch, missing index). | Verify the secondary index definition matches the join key type and column. |
-| `JOIN0003` | `JoinSecondaryIndexProduced` | Info | Join secondary index strategy produced | Informational: a secondary index strategy was successfully generated for this join. | No action needed. This confirms an index-based join is available. |
+| `JOIN0003` | `JoinSecondaryIndexProduced` | Warning | Join secondary index strategy produced | A secondary index strategy was successfully generated for this join. | No action needed. This confirms an index-based join is available. |
 | `JOIN0004` | `JoinPgoHintUnavailable` | Warning | PGO join strategy hint unavailable | PGO data recommended a specific join strategy, but it could not be produced (e.g., missing index). | Add the index required by the PGO-recommended strategy, or re-collect PGO data. |
-| `JOIN0005` | `JoinPgoEnforceUnavailable` | Error | PGO join strategy enforcement failed | PGO enforcement mode requested a specific strategy that is not available. Unlike `JOIN0004` (hint), this is a hard error because enforcement is strict. | Add the required index, or change the PGO enforcement mode from `Enforce` to `Hint`. |
 
 ### Join Strategy Trace Codes
 
-When `[DebugGeneration]` is enabled, the optimization trace includes these codes indicating which join strategy was selected:
+When the codegen CLI plan trace is enabled (run `ConjureDB.CodeGen.Manual` with `--dump-plan=<QueryMethod> --dump-plan-report=<path>`), the optimization trace includes these codes indicating which join strategy was selected:
 
 | Trace Code | Strategy | Description |
 |---|---|---|
@@ -554,7 +554,7 @@ Schema diagnostics are emitted by the schema processor during `.conjure` file pa
 | `SCH2013` | Error | Fragment argument count mismatch | A fragment invocation passes the wrong number of arguments. | Match the number of arguments to the fragment's parameter list. |
 | `SCH2014` | Error | Duplicate key ordinal | Two fields in a table have the same key ordinal value. | Assign unique ordinal values to each key field. |
 | `SCH2015` | Error | Invalid enum backing type / Unterminated fragment | Enum backing type is invalid (allowed: byte, sbyte, short, ushort, int, uint, long, ulong). Also: unterminated fragment invocation syntax. | Use an allowed backing type for enums. Fix fragment syntax `@frag(...)`. |
-| `SCH2016` | Error | Invalid aggregation variant / Fragment expansion depth exceeded | An `aggregation_variant` value is not recognized (allowed: `all_stats`, `sum_count`, `count_only`). Also: fragment expansion recursion limit hit. | Use a valid variant name. Simplify fragment nesting. |
+| `SCH2016` | Error | Invalid aggregation variant / Fragment expansion depth exceeded | An `aggregation_variant` value is not recognized (allowed: `all_stats`, `sum_count`, `count_only`, `distinct_count`). Also: fragment expansion recursion limit hit. | Use a valid variant name. Simplify fragment nesting. |
 | `SCH2017` | Error | Aggregation variant on non-aggregation index | An index uses `aggregation_variant` but the index type is not `aggregation`. | Remove `aggregation_variant` or change the index type to `aggregation`. |
 | `SCH2019` | Error | Fragment expansion size exceeded | Fragment expansion produced more text than the maximum allowed. | Reduce fragment complexity. Avoid exponentially expanding patterns. |
 | `SCH2020` | Error | Declaration exceeds maximum field count | A table or type has more fields than the supported maximum. | Split the declaration into multiple types or reduce field count. |
@@ -690,7 +690,7 @@ Schema diagnostics are emitted by the schema processor during `.conjure` file pa
 | `UM1023` | InvalidLimitOffset | Error | TAKE/SKIP value invalid |
 | `UM1024` | DeriveColumnError | Error | Derive column expression failed |
 | `UM1025` | FunctionArgumentError | Error | Wrong function arguments |
-| `UM1026` | CaseImplicitConversion | Warning | Implicit conversion in CASE branches |
+| `UM1026` | CaseImplicitConversion | Error | Implicit conversion in CASE branches (reserved — not currently emitted) |
 | `UM1027` | AmbiguousNavigationPath | Error | Navigation path is ambiguous |
 | `UM1028` | NavigationLineageUnavailable | Error | Navigation lineage metadata missing |
 | `UM1030` | BinaryOperatorTypeMismatch | Error | Binary operator type mismatch |
@@ -735,32 +735,31 @@ Schema diagnostics are emitted by the schema processor during `.conjure` file pa
 | `UM6025` | PortableMutationNotSupported | Error | Mutation not portable |
 | `UM7001` | FullScanOnLargeTable | Warning | Full scan on large table |
 | `UM7002` | CartesianProduct | Warning | JOIN without condition |
-| `UM7003` | UnusedIndex | Warning | Suitable index not used |
+| `UM7003` | UnusedIndex | Warning | Suitable index not used (reserved — not currently emitted) |
 | `UM7004` | SortWithoutLimit | Warning | Sort without TAKE |
 | `UM7005` | CorrelatedSubqueryNotDecorrelated | Warning | Correlated subquery not decorrelated |
-| `UM7006` | MissingPgoStatistics | Warning | No PGO statistics available |
+| `UM7006` | MissingPgoStatistics | Warning | No PGO statistics available (reserved — not currently emitted) |
 | `UM7007` | NestedLoopOnLargeTables | Warning | Nested loop on large tables |
 | `UM7008` | FullSortOnLargeDataset | Warning | Full sort on large dataset |
 | `UM7009` | IndexRecommendation | Info | Index recommendation |
 | `UM7010` | SemiAntiJoinNestedLoop | Warning | Semi/Anti join using nested loop |
 | `UM7011` | NestedCollectionAllocation | Warning | Per-entity allocation in nested collection |
 | `UM7012` | NestedObjectProjectionNotEmittable | Warning | Nested object projection not emittable |
-| `UM7013` | PgoUntrustedHeuristicFallback | Warning | PGO untrusted — heuristic fallback |
-| `UM7014` | PgoUntrustedOverrideBlocked | Warning | PGO untrusted — override blocked |
+| `UM7013` | PgoUntrustedHeuristicEstimate | Warning | PGO untrusted — heuristic estimate |
+| `UM7014` | PgoUntrustedOverrideBlocked | Info | PGO untrusted — override blocked |
 | `UM7015` | SubqueryCorrelatedCompatibilityPath | Info | Scalar subquery per-row compatibility path |
-| `UM7016` | HeuristicPlanningFallback | Warning | Planner used heuristic fallback |
+| `UM7016` | HeuristicPlanningEstimate | Info | Planner used a heuristic estimate |
 | `UM7018` | PgoProfileDataInconsistency | Warning | PGO profile data inconsistent |
 
 ### Join Planning Diagnostics (JOINxxx)
 
 | Code | Name | Severity | One-Line Description |
 |---|---|---|---|
-| `JOIN0001` | JoinNoStrategy | Error | No join strategy available |
+| `JOIN0001` | JoinNoStrategy | Warning | No join strategy available (Error in strict mode) |
 | `JOIN0003` | JoinConjunctivePredicateUnsupported | Warning | Conjunctive predicate unsupported |
 | `JOIN0002` | JoinSecondaryIndexNotProduced | Warning | Secondary index strategy failed |
-| `JOIN0003` | JoinSecondaryIndexProduced | Info | Secondary index strategy available |
+| `JOIN0003` | JoinSecondaryIndexProduced | Warning | Secondary index strategy available |
 | `JOIN0004` | JoinPgoHintUnavailable | Warning | PGO join hint unavailable |
-| `JOIN0005` | JoinPgoEnforceUnavailable | Error | PGO join enforcement failed |
 
 ### Binding Resolution Errors (BIND_RES_xxx)
 

@@ -339,7 +339,12 @@ query ByLevel() -> Player[] = from Players | filter Level > 10
 **Solution:**
 
 1. Simplify the query and rebuild to isolate the problematic construct.
-2. Add `[DebugGeneration]` to the query method to inspect the plan trace.
+2. Emit a plan-diagnosis report for the query to inspect the physical plan and optimization trace:
+
+```bash
+dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md
+```
+
 3. If the issue persists, file a bug report with the query text, entity schema, and full diagnostic output.
 
 **See also:** [UM6xxx in Error Codes](/docs/reference/error-codes#emission-errors-um6xxx)
@@ -350,7 +355,7 @@ query ByLevel() -> Player[] = from Players | filter Level > 10
 
 ### "No active transaction" — InvalidOperationException
 
-**Problem:** `InvalidOperationException: No active transaction` when calling `Add()`, `Update()`, or `Remove()`.
+**Problem:** `InvalidOperationException: Transaction is not started` when calling `Add()`, `Update()`, or `Remove()`.
 
 **Cause:** All mutations require an explicit transaction.
 
@@ -528,7 +533,7 @@ query TopPlayers() -> Player[] = from Players | sort -Score | take 10
 **Solution:**
 
 1. Keep snapshots small — snapshot only on meaningful checkpoints, not every frame.
-2. Use `WithSnapshotCompression()` to reduce I/O time.
+2. Snapshots are already compressed by default (`SnapshotOptions.CompressSnapshots = true`); there is no separate `WithSnapshotCompression()` builder method to call.
 3. Profile startup with `System.Diagnostics.Stopwatch` around `DbContext` creation to identify the bottleneck (snapshot load vs. journal replay vs. index rebuild).
 
 ---
@@ -564,7 +569,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 1. If the snapshot is intact, delete the corrupted journal file — committed data up to the last snapshot is preserved.
 2. Implement a backup strategy: keep the previous snapshot alongside the current one.
-3. Inspect the exception's `Offset` and `StatusCode` properties for diagnostic details.
+3. Inspect the exception's `Offset` and `JournalFile` properties for diagnostic details (the read-status detail appears only in the exception message text).
 
 ---
 
@@ -858,22 +863,29 @@ A: Common causes:
 ---
 
 **Q: How do I debug a compiled query?**
-A: The compiler emits the optimization trace and physical plan as comments in the generated `.g.cs` file. Declare the query in a `.conjure` schema:
+A: The generated `.g.cs` file includes the original DSL text (`// DSL:`) and per-operator strategy comments (e.g. `// === Join Strategy: SecondaryIndexLookup ===`) under `obj/Debug/net8.0/generated/`. The full optimization trace and physical plan are **not** embedded in the generated file — emit them as a separate markdown report with `--dump-plan` / `--dump-plan-report`. Declare the query in a `.conjure` schema:
 
 ```text
 query GetTop() -> Player[] = from Players | filter Level > 10 | sort -Score | take 5
 ```
 
-Check `obj/Debug/net8.0/generated/` for the annotated output.
+```bash
+dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=GetTop --dump-plan-report=plan-report.md
+```
 
 ---
 
 ### Performance
 
 **Q: How do I know if my query uses an index?**
-A: Two approaches:
-1. **Compiler warnings** — if the query does a full scan, the compiler emits `UM7001` (full scan) or `UM7009` (index recommendation).
-2. **`[DebugGeneration]`** — the trace shows which index (if any) was selected for each scan node.
+A: Three approaches:
+1. **Compiler warnings** — if the query does a full scan, the compiler emits `UM7001` (full scan on a large table). `UM7009` (index recommendation) is produced only when the experimental index-access analyzer is explicitly enabled (`CompilerOptions.EnableExperimentalIndexAccessAnalyzer = true`); by default it is off, so rely on the auto-index advisory below.
+2. **Plan-diagnosis report** — emit the physical plan for the query to see which index (if any) was selected for each scan node:
+
+```bash
+dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md
+```
+
 3. **Auto-index advisory** — if you compile with `CompilerOptions.AutoIndexing.Mode = ReportOnly`, inspect `PlanExplain.AutoIndexAdvisory` or the derived `auto-index-report.json`. This shows which missing indexes would likely help, without mutating the schema or changing the selected executable plan.
 
 ---
@@ -918,6 +930,6 @@ A: Unity 2021.3 LTS and later, targeting .NET Standard 2.1. Both Mono and IL2CPP
 If your issue is not covered here:
 
 1. Check the [Error Codes](/docs/reference/error-codes) reference for detailed explanations of every diagnostic code.
-2. Add `[DebugGeneration]` to your query to inspect the compiler's decision trace.
+2. Emit a plan-diagnosis report with `dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md` to inspect the compiler's selected plan and optimization trace.
 3. Review the [Performance Tips](/docs/performance/performance-tips) for optimization guidance.
 4. File a bug report with: query text, entity schema, full diagnostic output, and .NET / Unity version.

@@ -76,8 +76,9 @@ Use lower-case terminals in schema queries:
 | to_list
 ```
 
-`first` and `first_or_default` should have deterministic ordering when exposed
-as generated APIs. The compiler warns when order cannot be proven.
+`first`/`first_or_default` return the first row in the pipeline's current
+order; pair them with an explicit `sort` for a deterministic result, as results
+are otherwise unordered.
 
 ## Parameters
 

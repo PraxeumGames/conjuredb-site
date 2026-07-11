@@ -47,8 +47,11 @@ and fails fast with an explicit reason code if a requested lane is unavailable o
   interpreter**.
 
 You do not pick the lane per call at random — it is determined at compile time and by explicit host
-policy. Mark a query hot-path-critical to keep it in the AOT lane; mark it config-dynamic to make it
-portable.
+policy. Every query you declare in your build compiles to the AOT C# lane (the default). The portable
+interpreter runs a query only when a portable bytecode artifact is delivered and registered for that
+operation at runtime (for example a live-ops query override); the runtime's override cache routes
+matching operations to it. Emitting the portable artifact at all is a compiler emission option, not a
+per-query author annotation.
 
 ## Performance expectations
 
@@ -73,10 +76,12 @@ The portable interpreter is built to be the kind of interpreter you can run in a
   shapes, from 4.2× (product stock top-N) to ~50× (window running sum), while
   allocating a fraction of the memory. See the
   [Performance](/performance) page for the full per-scenario table.
-- **Measured superinstructions.** v1 fused opcodes are applied only where the planner can prove the
-  producer register is single-use and the expression program has no jumps. The full corpus improves
-  +1.9% geomean overall and +6.5% on hit scenarios; VM-bound projection casts, null-tests and
-  comparisons are the practical wins.
+- **Opcode fusion (super-instructions).** Opcode fusion is implemented but not yet wired into the
+  shipping emission pipeline. When enabled it fuses adjacent instruction pairs — LoadColumn+compare,
+  LoadColumn+cast, and LoadImm+add/subtract — where the produced register directly feeds the next
+  operation and the column index or immediate fits the narrowed 8-bit encoding. In the A/B benchmark
+  the full corpus improves +1.9% geomean overall and +6.5% on hit scenarios; VM-bound projection
+  casts, null-tests and comparisons are the practical wins.
 - **Parity with the AOT lane.** Same results, same ordering, same null semantics — the interpreter is
   a strict consumer of the same planned metadata the AOT lane uses.
 

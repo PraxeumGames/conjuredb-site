@@ -24,7 +24,9 @@ query compilation and optimization. Every value in ConjureDB belongs to one of t
 | **Class**      | Reference types with named members               | User-defined `table` declarations|
 | **Enum**       | Enumeration types with named constants            | `enum PlayerStatus { ... }`      |
 | **Collection** | Ordered sequences of a single element type        | `int[]`, `list<string>`          |
+| **Dictionary** | Map types with distinct key and value descriptors | `IReadOnlyDictionary<string, int>` |
 | **Nullable**   | Wrapper indicating a value type may be absent     | `int?`, `DateTime?`              |
+| **Unknown**    | Placeholder for unresolved or untyped external values | Internal compiler use only   |
 | **Error**      | Sentinel for type errors (compatible with all)    | Internal compiler use only       |
 
 The compiler tracks types through a unified `TypeDescriptor` system. All type descriptors are
@@ -37,14 +39,16 @@ type checks throughout the compilation pipeline.
 
 ### Integer Types
 
-ConjureDB supports all eight .NET integer types — four signed and four unsigned.
+ConjureDB supports six integer types as field/scalar types — `byte`, `short`, `int`, `uint`, `long`,
+and `ulong`. The signed 8-bit (`sbyte`) and unsigned 16-bit (`ushort`) types are available **only as
+enum backing types** (see [Backing Types](#backing-types)), not as field or scalar types.
 
 | Schema Name | C# Type         | Size    | Minimum                    | Maximum                     | Notes           |
 |-------------|-----------------|---------|----------------------------|-----------------------------|-----------------|
-| `sbyte`     | `System.SByte`  | 1 byte  | −128                       | 127                         | Signed 8-bit    |
+| `sbyte`     | `System.SByte`  | 1 byte  | −128                       | 127                         | Signed 8-bit — enum backing only |
 | `byte`      | `System.Byte`   | 1 byte  | 0                          | 255                         | Unsigned 8-bit  |
 | `short`     | `System.Int16`  | 2 bytes | −32,768                    | 32,767                      | Signed 16-bit   |
-| `ushort`    | `System.UInt16` | 2 bytes | 0                          | 65,535                      | Unsigned 16-bit |
+| `ushort`    | `System.UInt16` | 2 bytes | 0                          | 65,535                      | Unsigned 16-bit — enum backing only |
 | `int`       | `System.Int32`  | 4 bytes | −2,147,483,648             | 2,147,483,647               | **Default integer type** |
 | `uint`      | `System.UInt32` | 4 bytes | 0                          | 4,294,967,295               | Unsigned 32-bit |
 | `long`      | `System.Int64`  | 8 bytes | −9,223,372,036,854,775,808 | 9,223,372,036,854,775,807   | Signed 64-bit   |
@@ -102,6 +106,35 @@ table Transaction {
 }
 ```
 
+### Fixed-Point Types
+
+ConjureDB provides deterministic binary fixed-point types for game logic that must produce
+bit-identical results across platforms (e.g. lockstep simulation, replay verification). Unlike
+`float`/`double`, they have no rounding drift.
+
+| Schema Name          | C# Type                        | Size    | Format  | Backing | Notes                    |
+|----------------------|--------------------------------|---------|---------|---------|--------------------------|
+| `fixed` / `fixed64`  | `ConjureDB.Numerics.Fixed64`   | 8 bytes | Q32.32  | `long`  | 32 integer + 32 fractional bits |
+| `fixed32`            | `ConjureDB.Numerics.Fixed32`   | 4 bytes | Q16.16  | `int`   | 16 integer + 16 fractional bits (range ±32,768) |
+
+`fixed` is an alias for the Q32.32 `fixed64` type.
+
+**Literals** use the suffixes `fx` / `fx64` for `Fixed64` and `fx32` for `Fixed32`
+(e.g. `10.5fx`, `3fx32`). **C-style and SQL-style casts** accept the targets `fixed`, `fixed64`,
+and `fixed32` (e.g. `(fixed)x`, `cast(x as fixed32)`).
+
+Fixed-point types are numeric, but they form their own family: they do **not** implicitly promote
+to or from `int`, `float`, `double`, or `decimal`. Converting between fixed-point and other numeric
+families requires an explicit cast.
+
+```
+// Schema
+table PhysicsBody {
+    position_x: fixed
+    velocity:   fixed32
+}
+```
+
 ### Numeric Promotion Hierarchy
 
 When two numeric values of different types appear in the same expression (comparison, arithmetic,
@@ -121,8 +154,9 @@ ranking:
 The promoted type is the one with the higher rank. The result inherits nullability if either
 operand is nullable.
 
-> **Note:** `decimal` and `float`/`double` are not implicitly compatible. Mixing `decimal` with
-> `float` or `double` requires an explicit cast.
+> **Note:** Mixing `decimal` with `float` or `double` in arithmetic or comparison is allowed. Because
+> `decimal` is the highest-ranked numeric type, the expression promotes to `decimal` and the
+> `float`/`double` operand is coerced to `decimal` automatically — no explicit cast is required.
 
 ### Aggregate Type Inference
 
@@ -135,7 +169,10 @@ Aggregate functions infer their result type from the input:
 | `float`                  | `double`       | `double`       |
 | `double`                 | `double`       | `double`       |
 
-Nullability is preserved: `sum(nullable_int)` returns `long?`.
+Nullability rules differ by aggregate. `avg`, `min`, and `max` **always** return a nullable type,
+because an empty group yields NULL regardless of input nullability (e.g. `avg(nonnull_int) → double?`).
+`sum` preserves its input's nullability (`sum(nullable_int) → long?`, `sum(nonnull_int) → long`), and
+`count` always returns a non-nullable `long`.
 
 ---
 
@@ -263,7 +300,7 @@ table Event {
 }
 
 // Query
-from Event | filter created_at > datetime(2024, 1, 1)
+from Event | filter created_at > @2024-01-01
 ```
 
 ### DateTimeOffset
@@ -366,7 +403,7 @@ table Player {
 }
 
 // Query
-from Player | filter id == guid("550e8400-e29b-41d4-a716-446655440000")
+from Player | filter id == cast('550e8400-e29b-41d4-a716-446655440000' as guid)
 ```
 
 ---
@@ -429,7 +466,7 @@ The compiler propagates nullability through expressions:
 | `CASE` without `ELSE`           | Always nullable                                 |
 | `CASE` with any nullable branch | Nullable                                        |
 | Comparison (any operands)       | `bool?` if either operand is nullable            |
-| Logical AND/OR                  | Always `bool?` (SQL three-valued logic context)  |
+| Logical AND/OR                  | `bool?` if either operand is nullable, else `bool` |
 
 ---
 
@@ -651,8 +688,9 @@ table Player {
 }
 ```
 
-Extern types are resolved as `Unknown` category with the specified full name. They participate in
-limited type checking — the compiler tracks them for consistency but cannot inspect their members.
+Extern types are resolved as an opaque `Class` type with the specified full name and no inspectable
+members. They participate in limited type checking — the compiler tracks them for consistency (using
+nominal, exact-name compatibility) but cannot inspect their members.
 
 ---
 
@@ -684,9 +722,13 @@ No cast syntax is required.
 | `guid`          | `string`      | Formatting  | GUID → string representation    |
 | Non-null `T`    | `T?`          | Nullability | Value → nullable wrapper        |
 
-**General rule:** A conversion is implicit if the target type's rank (in the numeric promotion
-hierarchy) is strictly higher than the source type's rank, and both types are in the same numeric
-family (integer or floating-point).
+**General rule:** A numeric conversion is implicit whenever both operands are numeric and
+`rank(source) ≤ rank(target)` in the numeric promotion hierarchy — spanning the integer,
+floating-point, and `decimal` families. Because the rule uses `≤` (not strictly `<`), same-rank
+cross-sign pairs (`int` ↔ `uint`, `byte` ↔ `sbyte`, `short` ↔ `ushort`, `long` ↔ `ulong`) are
+implicit in both directions. Only rank-decreasing conversions (e.g. `long → int`, `double → float`,
+`decimal → double`) require an explicit cast. (Fixed-point types are excluded — see
+[Fixed-Point Types](#fixed-point-types).)
 
 ### Explicit Casts
 
@@ -742,16 +784,16 @@ This matrix shows which type conversions are supported and in what mode.
 
 | From ↓ \ To → | `sbyte` | `byte` | `short` | `ushort` | `int`  | `uint`  | `long` | `ulong` | `float` | `double` | `decimal` |
 |----------------|---------|--------|---------|----------|--------|---------|--------|---------|---------|----------|-----------|
-| `sbyte`        | ➖      | 🔶     | ✅      | 🔶       | ✅     | 🔶      | ✅     | 🔶      | 🔶      | 🔶       | 🔶        |
-| `byte`         | 🔶      | ➖     | ✅      | ✅       | ✅     | ✅      | ✅     | ✅      | 🔶      | 🔶       | 🔶        |
-| `short`        | 🔶      | 🔶     | ➖      | 🔶       | ✅     | 🔶      | ✅     | 🔶      | 🔶      | 🔶       | 🔶        |
-| `ushort`       | 🔶      | 🔶     | 🔶      | ➖       | ✅     | ✅      | ✅     | ✅      | 🔶      | 🔶       | 🔶        |
-| `int`          | 🔶      | 🔶     | 🔶      | 🔶       | ➖     | 🔶      | ✅     | 🔶      | 🔶      | 🔶       | 🔶        |
-| `uint`         | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | ➖      | ✅     | ✅      | 🔶      | 🔶       | 🔶        |
-| `long`         | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | ➖     | 🔶      | 🔶      | 🔶       | 🔶        |
-| `ulong`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | ➖      | 🔶      | 🔶       | 🔶        |
-| `float`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | ➖      | ✅       | 🔶        |
-| `double`       | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | 🔶      | ➖       | 🔶        |
+| `sbyte`        | ➖      | ✅     | ✅      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `byte`         | ✅      | ➖     | ✅      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `short`        | 🔶      | 🔶     | ➖      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `ushort`       | 🔶      | 🔶     | ✅      | ➖       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `int`          | 🔶      | 🔶     | 🔶      | 🔶       | ➖     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `uint`         | 🔶      | 🔶     | 🔶      | 🔶       | ✅     | ➖      | ✅     | ✅      | ✅      | ✅       | ✅        |
+| `long`         | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | ➖     | ✅      | ✅      | ✅       | ✅        |
+| `ulong`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | ✅     | ➖      | ✅      | ✅       | ✅        |
+| `float`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | ➖      | ✅       | ✅        |
+| `double`       | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | 🔶      | ➖       | ✅        |
 | `decimal`      | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | 🔶      | 🔶       | ➖        |
 
 ### Cross-Category Conversions
@@ -780,7 +822,7 @@ valid for each type family.
 |----------------|-------------|--------------------------|------------------------------------------|
 | Integer types  | ✅          | ✅                       | Cross-type comparison with promotion     |
 | Floating-point | ✅          | ✅                       | Cross-type comparison with promotion     |
-| `decimal`      | ✅          | ✅                       | Not mixable with float/double            |
+| `decimal`      | ✅          | ✅                       | Mixes with float/double; promotes to decimal |
 | `bool`         | ✅          | ❌                       | Equality only                            |
 | `string`       | ✅          | ✅                       | Ordinal comparison                       |
 | `char`         | ✅          | ✅                       | Compatible with string for equality      |
@@ -803,10 +845,10 @@ Quick reference for mapping between schema file syntax, C# types, and the intern
 
 | Schema (`.conjure`) | C# Type                 | ScalarKind          | Type Family | Value Type? |
 |---------------------|-------------------------|---------------------|-------------|-------------|
-| `sbyte`             | `System.SByte`          | `SByte`             | Numeric     | Yes         |
+| `sbyte`²            | `System.SByte`          | `SByte`             | Numeric     | Yes         |
 | `byte`              | `System.Byte`           | `Byte`              | Numeric     | Yes         |
 | `short`             | `System.Int16`          | `Int16`             | Numeric     | Yes         |
-| `ushort`            | `System.UInt16`         | `UInt16`            | Numeric     | Yes         |
+| `ushort`²           | `System.UInt16`         | `UInt16`            | Numeric     | Yes         |
 | `int`               | `System.Int32`          | `Int32`             | Numeric     | Yes         |
 | `uint`              | `System.UInt32`         | `UInt32`            | Numeric     | Yes         |
 | `long`              | `System.Int64`          | `Int64`             | Numeric     | Yes         |
@@ -814,6 +856,8 @@ Quick reference for mapping between schema file syntax, C# types, and the intern
 | `float`             | `System.Single`         | `Single`            | Numeric     | Yes         |
 | `double`            | `System.Double`         | `Double`            | Numeric     | Yes         |
 | `decimal`           | `System.Decimal`        | `Decimal`           | Numeric     | Yes         |
+| `fixed` / `fixed64` | `ConjureDB.Numerics.Fixed64` | `Fixed64`      | Numeric     | Yes         |
+| `fixed32`           | `ConjureDB.Numerics.Fixed32` | `Fixed32`      | Numeric     | Yes         |
 | `bool`              | `System.Boolean`        | `Boolean`           | Boolean     | Yes         |
 | `char`              | `System.Char`           | `Char`              | String      | Yes         |
 | `string`            | `System.String`         | `String`            | String      | No          |
@@ -831,6 +875,9 @@ Quick reference for mapping between schema file syntax, C# types, and the intern
 ¹ `T?` for value types creates `Nullable<T>` (still a value type). For reference types, `?`
 is a nullability annotation only.
 
+² `sbyte` and `ushort` are usable only as [enum backing types](#backing-types), not as field or
+scalar types.
+
 ---
 
 ## Type Families
@@ -847,7 +894,9 @@ are generally incompatible unless an explicit exception applies.
 | **Binary**     | `binary` (`byte[]`)                                                 |
 | **Guid**       | `guid`                                                              |
 | **Collection** | `T[]`, `list<T>`, and other collection kinds                        |
+| **Dictionary** | Map types with key and value descriptors (`IReadOnlyDictionary<K, V>`) |
 | **Object**     | Struct/class types without a specific family                        |
+| **Unknown**    | Unresolved / external placeholder (compatible with all types)        |
 | **Null**       | NULL literals (no type — compatible with all nullable types)        |
 | **Error**      | Type errors (compatible with all types to prevent cascading errors)  |
 
@@ -902,7 +951,7 @@ representation.
 
 | Property           | Type                                 | Description                                |
 |--------------------|--------------------------------------|--------------------------------------------|
-| `Category`         | `TypeCategory`                       | Scalar, Struct, Class, Enum, Collection, Nullable, Error |
+| `Category`         | `TypeCategory`                       | Unknown, Scalar, Struct, Class, Enum, Collection, Dictionary, Nullable, Error |
 | `ScalarKind`       | `ScalarKind`                         | Specific scalar (valid when Category == Scalar) |
 | `FullName`         | `string?`                            | CLR type name (composite/enum types)       |
 | `IsValueType`      | `bool`                               | True for struct, enum, scalar (except String, Binary, Object) |
@@ -959,7 +1008,8 @@ TypeDescriptor.FromClrType(typeof(int))          // → cached Int32
 // Parse type name string
 TypeDescriptor.ParseTypeName("int?")             // → NullableInt32
 TypeDescriptor.ParseTypeName("int[]")            // → Collection<Int32>
-TypeDescriptor.ParseTypeName("List<int>")        // → Collection<Int32, ReadOnlyList>
+TypeDescriptor.ParseTypeName("IReadOnlyList<int>") // → Collection<Int32, ReadOnlyList>
+// Note: mutable container names such as "List<int>" throw InvalidOperationException.
 ```
 
 ---
@@ -972,9 +1022,9 @@ TypeDescriptor.ParseTypeName("List<int>")        // → Collection<Int32, ReadOn
 ├─────────────┬───────────────────────────────────────────────┤
 │  Scalar     │ SByte, Byte, Int16, UInt16, Int32, UInt32,   │
 │             │ Int64, UInt64, Single, Double, Decimal,       │
-│             │ Boolean, Char, String, DateTime,              │
-│             │ DateTimeOffset, DateOnly, TimeOnly, TimeSpan, │
-│             │ Guid, Binary, Object                          │
+│             │ Fixed64, Fixed32, Boolean, Char, String,      │
+│             │ DateTime, DateTimeOffset, DateOnly, TimeOnly, │
+│             │ TimeSpan, Guid, Binary, Object                │
 ├─────────────┼───────────────────────────────────────────────┤
 │  Struct     │ User-defined value types (type keyword)       │
 ├─────────────┼───────────────────────────────────────────────┤
@@ -985,7 +1035,11 @@ TypeDescriptor.ParseTypeName("List<int>")        // → Collection<Int32, ReadOn
 │  Collection │ Array, ReadOnlyList, ReadOnlyCollection,      │
 │             │ Sequence (mutable kinds disallowed)            │
 ├─────────────┼───────────────────────────────────────────────┤
+│  Dictionary │ Map types (key + value descriptors)           │
+├─────────────┼───────────────────────────────────────────────┤
 │  Nullable   │ Nullable<T> wrapper for value types           │
+├─────────────┼───────────────────────────────────────────────┤
+│  Unknown    │ Unresolved / external placeholder             │
 ├─────────────┼───────────────────────────────────────────────┤
 │  Error      │ Sentinel — compatible with all types          │
 └─────────────┴───────────────────────────────────────────────┘

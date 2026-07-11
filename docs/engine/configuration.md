@@ -8,7 +8,7 @@ Complete reference for all ConjureDB configuration parameters.
 
 ## Overview
 
-ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance may be used exactly once — calling `Build()` or `BuildAsync()` a second time throws `InvalidOperationException`.
+ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance is intended to be used once: `BuildAsync()` throws `InvalidOperationException` if the builder is reused, while `Build()` currently has no reuse guard — do not call it twice on the same builder.
 
 ```csharp
 var db = DbContextBuilder<GameDb>.Create()
@@ -93,8 +93,8 @@ var db = DbContextBuilder<GameDb>.Create().Build();
 
 | Method | Description |
 |--------|-------------|
-| `Build()` | Synchronous. Blocks until recovery (snapshot + journal replay) completes. Safe for Unity's synchronous init. |
-| `BuildAsync()` | Asynchronous. Preferred in async contexts. Avoid calling from code with a `SynchronizationContext` to prevent deadlocks. |
+| `Build()` | Synchronous. Blocks (sync-over-async) until recovery (snapshot + journal replay) completes. Convenient for Unity's synchronous init, but avoid calling it from code with an active `SynchronizationContext` to prevent deadlocks. |
+| `BuildAsync()` | Asynchronous. Recommended in async contexts — it `await`s recovery and is deadlock-safe under a `SynchronizationContext`. |
 
 ---
 
@@ -150,7 +150,7 @@ public interface IBinarySerializer
 | **Default** | Default factory (uses `DefaultSettingsAccessProvider` and `MessagePackBinarySerializer`) |
 | **Builder method** | `WithSettingsLoaderFactory(SettingsLoaderFactory)` |
 
-Factory for creating settings loaders used to hydrate non-persistent `DbSet`s that carry a `[Settings]` attribute. Override to provide custom settings data sources.
+Factory for creating settings loaders used to hydrate non-persistent `DbSet`s declared as settings sets in the schema (identified at runtime by their `SettingsName`). Override to provide custom settings data sources.
 
 ```csharp
 .WithSettingsLoaderFactory(new SettingsLoaderFactory(customLoaders, accessProvider, serializerFactory))
@@ -203,7 +203,7 @@ Sets a maximum memory allocation budget. When enabled, all allocations are track
 | `Warning` | ≥ 90% of budget | `MemoryPressureChanged` event fired |
 | `Critical` | ≥ 100% of budget | New allocations rejected, event fired |
 
-The `MemoryBudget` instance is accessible via `DbConfiguration.MemoryBudget` after build and exposes:
+The `MemoryBudget` instance is not exposed publicly on the built context. It can only be captured inside your derived `DbContext(DbConfiguration config)` constructor via `config.MemoryBudget`, which exposes:
 
 | Property / Method | Type | Description |
 |-------------------|------|-------------|
@@ -308,7 +308,7 @@ Overrides the runtime mode for the current context.
 | Value | Behavior |
 |-------|----------|
 | `Client` | Client-oriented runtime mode. This is the default when no server override is active. |
-| `Server` | Server-oriented runtime mode. Also sets the process-level `ConjureDB.ServerMode` AppContext switch. |
+| `Server` | Server-oriented runtime mode. Only stores the mode on the context; it does not mutate any process-level `AppContext` switch. |
 
 ```csharp
 .WithRuntimeMode(ConjureDBRuntimeMode.Server)
@@ -913,13 +913,16 @@ Remote snapshot sync enables cloud save / backup functionality. Configured via `
 Handler implementation responsible for uploading and downloading remote snapshots. The handler must implement:
 
 ```csharp
-public interface IRemoteSnapshotHandler
+public interface IRemoteSnapshotHandler : IAsyncDisposable
 {
     Task<ulong?> GetRemoteVersionAsync();
     Task LoadSnapshotAsync(DbContext context);
     Task UploadSnapshotAsync(DbContext context, ulong version);
+    // plus ValueTask DisposeAsync() from IAsyncDisposable
 }
 ```
+
+The handler extends `IAsyncDisposable`, so implementers must also provide `ValueTask DisposeAsync()`.
 
 #### RequestTimeout
 
@@ -1207,16 +1210,25 @@ var db = DbContextBuilder<GameDb>.Create()
 | Desktop game client | 256–512 MB |
 | Desktop simulation | 512 MB–2 GB |
 
-Subscribe to `MemoryPressureChanged` to react to pressure levels:
+Capture the budget inside your derived `DbContext` constructor and subscribe to `MemoryPressureChanged` to react to pressure levels:
 
 ```csharp
-budget.MemoryPressureChanged += (sender, args) =>
+public class GameDb : DbContext
 {
-    if (args.Level == MemoryPressureLevel.Warning)
-        EvictCaches();
-    else if (args.Level == MemoryPressureLevel.Critical)
-        ReduceEntityPools();
-};
+    public GameDb(DbConfiguration config) : base(config)
+    {
+        if (config.MemoryBudget is { } budget)
+        {
+            budget.MemoryPressureChanged += (sender, args) =>
+            {
+                if (args.Level == MemoryPressureLevel.Warning)
+                    EvictCaches();
+                else if (args.Level == MemoryPressureLevel.Critical)
+                    ReduceEntityPools();
+            };
+        }
+    }
+}
 ```
 
 ### Encryption Performance Impact

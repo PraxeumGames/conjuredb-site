@@ -255,7 +255,7 @@ from Players | filter Name is not null
 
 ```
 from Players | filter Name like 'A%'
-from Players | filter Name contains @searchTerm
+from Players | filter contains(Name, @searchTerm)
 ```
 
 **Examples — existence tests:**
@@ -809,11 +809,11 @@ from Sales | window by (Region, Category) (Rn = row_number)
 | `row_number` | 0 | Sequential number within partition | `int` |
 | `rank` | 0 | Rank with gaps for ties | `int` |
 | `dense_rank` | 0 | Rank without gaps | `int` |
-| `ntile(N)` | 1 | Distribute rows into N buckets | `int` |
+| `ntile N` | 1 | Distribute rows into N buckets | `int` |
 | `lag col` | 1 | Value from previous row | `Nullable<T>` |
-| `lag col, offset` | 2 | Value from N rows back | `Nullable<T>` |
+| `lag col offset` | 2 | Value from N rows back | `Nullable<T>` |
 | `lead col` | 1 | Value from next row | `Nullable<T>` |
-| `lead col, offset` | 2 | Value from N rows ahead | `Nullable<T>` |
+| `lead col offset` | 2 | Value from N rows ahead | `Nullable<T>` |
 | `first_value col` | 1 | First value in window frame | `Nullable<T>` |
 | `last_value col` | 1 | Last value in window frame | `Nullable<T>` |
 | `sum col` | 1 | Running/partitioned sum | Same as aggregate `sum` |
@@ -896,7 +896,7 @@ from Sales
 ```
 from Players
 | sort -Score
-| window (Quartile = ntile(4))
+| window (Quartile = ntile 4)
 | select Id, Name, Score, Quartile
 ```
 
@@ -1389,7 +1389,7 @@ from Players | derive DisplayName = Name ?? "Anonymous"
 | Operator | Syntax | Description |
 |----------|--------|-------------|
 | `like` | `col like 'pattern'` | SQL LIKE pattern (`%` = any chars, `_` = single char) |
-| `contains` | `col contains value` | Substring search |
+| `contains()` | `contains(col, value)` | Substring search |
 | `startswith()` | `startswith(col, prefix)` | Prefix test |
 | `endswith()` | `endswith(col, suffix)` | Suffix test |
 
@@ -1398,7 +1398,6 @@ from Players | derive DisplayName = Name ?? "Anonymous"
 ```
 from Players | filter Name like 'A%'        # Names starting with 'A'
 from Players | filter Name like 'A_%'       # Names starting with 'A', at least 2 chars
-from Players | filter Name contains @term   # Substring search
 ```
 
 **Function forms:**
@@ -1585,7 +1584,7 @@ END
 Expressions support method-call syntax for function invocation:
 
 ```
-from Players | filter Name.Contains("admin")
+from Players | filter Name.Contains("admin") == true
 from Players | derive Upper = Name.ToUpper()
 ```
 

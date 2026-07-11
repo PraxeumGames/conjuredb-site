@@ -37,7 +37,7 @@ identifiers in most positions:
 
 ```
 from    select   filter   derive   group   aggregate  sort    take    skip
-join    left     right    inner    full    semi       anti    window  loop
+join    left     right    inner    full    semi       anti    window
 union   remove   intersect except  and     or         not     null    true
 false   in       as       switch   cast    sum        count   avg     average
 min     max      distinct asc      desc    version    like    is      by
@@ -252,7 +252,9 @@ Supported bare-prefix functions: `len`, `length`, `lower`, `upper`, `trim`.
 count(distinct UserId)
 ```
 
-Currently `distinct` is supported only inside `count(…)`.
+In this general expression context, `distinct` is currently supported only inside
+`count(…)`. Inside `aggregate`/`group` blocks it is also accepted for `sum`, `avg`,
+`min`, and `max` (see [§11.5](#115--distinct-modifier)).
 
 **Method-call syntax** — property-style invocation on column references:
 
@@ -360,7 +362,7 @@ Subqueries are pipeline expressions enclosed in parentheses:
 
 ```
 # Scalar subquery
-TotalAmount > (from Orders | filter UserId == u.Id | aggregate sum(Amount))
+TotalAmount > (from Orders | filter UserId == u.Id | aggregate { sum(Amount) })
 
 # EXISTS subquery
 exists(from Orders | filter UserId == u.Id)
@@ -866,7 +868,7 @@ x switch {
 
 | Aggregate | Input Type | Result Type |
 |-----------|-----------|-------------|
-| `count` | Any | `int` (never nullable) |
+| `count` | Any | `long` (never nullable) |
 | `sum` | Integer types | `long` (nullable if input is nullable) |
 | `sum` | `float`, `double` | `double` (nullable if input is nullable) |
 | `sum` | `decimal` | `decimal` (nullable if input is nullable) |
@@ -919,7 +921,7 @@ Spatial functions test geometric relationships between entity coordinates and qu
 | Function | Signature (2D) | Signature (3D) | Description |
 |----------|-----------------|-----------------|-------------|
 | `within_radius` | `(entityX, entityY, centerX, centerY, radius: float) → bool` | `(entityX, entityY, entityZ, centerX, centerY, centerZ, radius: float) → bool` | `true` if entity is within Euclidean radius of center |
-| `within_bounds` | `(entityX, entityY, minX, minY, maxX, maxY: float) → bool` | `(entityX, entityY, entityZ, minX, minY, minZ, maxX, maxY, maxZ: float) → bool` | `true` if entity is inside axis-aligned bounding box |
+| `within_bounds` | `(entityX, entityY, minX, minY, maxX, maxY: float) → bool` | — (no 3D overload) | `true` if entity is inside axis-aligned bounding box |
 | `distance` | `(x1, y1, x2, y2: float) → float` | `(x1, y1, z1, x2, y2, z2: float) → float` | Euclidean distance between two points |
 
 **Notes:**
@@ -1005,11 +1007,13 @@ Use `distinct` inside `count` to count only unique values:
 
 ```
 from Orders
-| aggregate UniqueCustomers = count(distinct CustomerId)
+| aggregate { UniqueCustomers = count(distinct CustomerId) }
 ```
 
-Currently, `distinct` is supported only for `count(…)`. Using `distinct` with other
-aggregates produces a parse error.
+Inside `aggregate`/`group` blocks, `distinct` is supported for `count`, `sum`, `avg`,
+`min`, and `max` (not `first`/`last` or the boolean/bitwise aggregates). In a plain
+expression context (e.g. `select sum(distinct X)`), `distinct` is currently restricted
+to `count(distinct …)`.
 
 ### 11.6  Nested Aggregate Prohibition
 
@@ -1047,14 +1051,24 @@ without collapsing groups.
 ### 12.1  Syntax
 
 ```
-function(args) | window (
-    partition_by Column1, Column2
-    sort Column3
-    frame between N preceding and M following
+from Source
+| sort OrderColumn
+| window by PartitionCol1, PartitionCol2 (
+    Alias1 = func Column [n] [frame: start..end],
+    Alias2 = func Column
 )
 ```
 
-Window expressions are specified through the `window` pipeline transform.
+Window expressions are specified through the `window` pipeline transform. Partitioning
+is expressed with `window by <cols>` (or `window` alone for a single global partition);
+row ordering is established by a preceding `sort` transform. Each output column is
+declared inside the block as `alias = func col [n]`, with an optional per-function
+`frame:` clause (see [§12.5](#125--frame-specification)).
+
+The signatures in §12.2–12.4 use conventional `func(args)` notation to convey arity and
+argument types; in a query they are written in the block form above. For example,
+`row_number` takes no column (`Rn = row_number`), and `lag`/`lead` take a column plus an
+optional integer offset (`Prev = lag Price 1`).
 
 ### 12.2  Ranking Functions
 
@@ -1094,29 +1108,26 @@ The following aggregates can also be used as window functions:
 
 ### 12.5  Frame Specification
 
-The frame clause defines the subset of partition rows used for computation:
+An optional per-function `frame:` clause defines the subset of partition rows used for
+computation. Frame bounds are integer offsets relative to the current row, written as an
+inclusive `start..end` range; omit a bound to make it unbounded in that direction:
 
 ```
-frame between <start> and <end>
+frame: -1..1      # one row before through one row after the current row
+frame: ..0        # unbounded preceding through the current row
+frame: -5..       # five rows before through the end of the partition
 ```
 
-| Bound | Meaning |
-|-------|---------|
-| `N preceding` | N rows before current |
-| `current row` | The current row |
-| `N following` | N rows after current |
-| `unbounded preceding` | First row of partition |
-| `unbounded following` | Last row of partition |
+Three frame kinds are available: `frame:` (rows — the default), `frame range:` (range),
+and `frame groups:` (groups). Each uses the same `start..end` offset form.
 
 **Example — 3-row moving average:**
 
 ```
 from Sales
-| window (
-    partition_by Region
-    sort SaleDate
-    frame between 1 preceding and 1 following
-    derive MovingAvg = avg(Amount)
+| sort SaleDate
+| window by Region (
+    MovingAvg = avg Amount frame: -1..1
 )
 ```
 
@@ -1140,13 +1151,13 @@ Expressions are evaluated in one of two contexts:
 | Context | Description | Example |
 |---------|-------------|---------|
 | Scalar | Per-row evaluation | `filter Age > 18` |
-| Aggregate | Per-group evaluation | `aggregate Total = sum(Amount)` |
+| Aggregate | Per-group evaluation | `aggregate { Total = sum(Amount) }` |
 
 Mixing contexts is an error:
 
 ```
 # ERROR: scalar column in aggregate context without aggregation
-from Orders | aggregate Total = sum(Amount) + CustomerId
+from Orders | aggregate { Total = sum(Amount) + CustomerId }
 ```
 
 ### 13.3  Operator Evaluation
@@ -1211,9 +1222,9 @@ or comparison operator. Read as: `result = promote(row, column)`.
 | **`short`** | int | int | int | long | float | double | decimal |
 | **`int`** | int | int | int | long | float | double | decimal |
 | **`long`** | long | long | long | long | float | double | decimal |
-| **`float`** | float | float | float | float | float | double | — |
-| **`double`** | double | double | double | double | double | double | — |
-| **`decimal`** | decimal | decimal | decimal | decimal | — | — | decimal |
+| **`float`** | float | float | float | float | float | double | decimal |
+| **`double`** | double | double | double | double | double | double | decimal |
+| **`decimal`** | decimal | decimal | decimal | decimal | decimal | decimal | decimal |
 
 > **Note:** `byte` and `short` types are widened to `int` for all arithmetic
 > operations. The `int` entries in those rows reflect the post-widening result type.

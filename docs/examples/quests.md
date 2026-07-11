@@ -38,16 +38,16 @@ scan — even with thousands of rows.
 ## Complete a quest with a command
 
 ```prql
-module Quests
+module Quests {
+    command CompleteQuest(playerId: int, questId: int) -> CompleteQuestResult
+    kind local
+    {
+        upsert QuestProgressRows
+        | key { PlayerId: playerId, QuestId: questId }
+        | set Completed = true
 
-command CompleteQuest(playerId: int, questId: int) -> CompleteQuestResult
-kind local
-{
-    upsert QuestProgressRows
-    | key { PlayerId: playerId, QuestId: questId }
-    | set Completed = true
-
-    return { questId: questId }
+        return { questId: questId }
+    }
 }
 ```
 
@@ -64,5 +64,5 @@ using var ctx = DbContextBuilder<GameDbContext>.Create()
 var open = ctx.GetOpenQuests(playerId: 1);
 ```
 
-See [Indexing](/docs/schema/indexing) for how to choose `lookup` vs `sorted` vs `unique`
-indexes for each access pattern.
+See [Indexing](/docs/schema/indexing) for how to choose `lookup` vs `sorted_set` / `sorted_list`
+vs `unique` indexes for each access pattern.

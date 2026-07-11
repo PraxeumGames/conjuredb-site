@@ -22,8 +22,12 @@ table InventorySlot(plural: InventorySlots, persistence: local, capacity: 4096, 
 }
 ```
 
-The `@@unique` constraint on `(PlayerId, ItemId)` is both a correctness guarantee and the
-index that makes per-player lookups fast.
+The `@@unique(PlayerId, ItemId)` constraint guarantees at most one slot per (PlayerId, ItemId)
+and accelerates exact full-pair lookups. It does **not** accelerate the per-player
+`GetInventory` query, which binds only the leading `PlayerId` column — a unique index is a
+full-key hash probe with no partial-key/prefix capability, so that filter would full-scan. To
+make per-player lookups fast, add a dedicated leading-column index: `@@index(fields:
+[PlayerId], kind: lookup)` (a multi-value hash returning all of a player's slots).
 
 ## Query
 
@@ -41,21 +45,21 @@ Granting an item is a single, atomic state transition — an upsert that accumul
 amount, with a guard that rejects invalid input at compile-checked boundaries:
 
 ```prql
-module Inventory
+module Inventory {
+    command GrantItem(playerId: int, itemId: int, amount: int) -> GrantItemResult
+    kind local
+    {
+        require amount > 0 else InvalidAmount
 
-command GrantItem(playerId: int, itemId: int, amount: int) -> GrantItemResult
-kind local
-{
-    require amount > 0 else InvalidAmount
+        upsert InventorySlots
+        | key { PlayerId: playerId, ItemId: itemId }
+        | set Amount += amount
+        | returning { amountAfter: Amount } into slotAfter
 
-    upsert InventorySlots
-    | key { PlayerId: playerId, ItemId: itemId }
-    | set Amount += amount
-    | returning { amountAfter: Amount } into slotAfter
-
-    return {
-        itemId: itemId,
-        amountAfter: slotAfter.amountAfter
+        return {
+            itemId: itemId,
+            amountAfter: slotAfter.amountAfter
+        }
     }
 }
 ```

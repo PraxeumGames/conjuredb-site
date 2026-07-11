@@ -13,8 +13,8 @@ Key properties:
 
 | Property | Description |
 |----------|-------------|
-| **Deterministic** | Same seed + same input = identical output across all platforms (IEEE 754 compliant, integer-only arithmetic in hash functions). |
-| **Efficient** | Zero-allocation in generated code. No managed collections on the hot path. |
+| **Deterministic** | Same seed + same input = identical output across platforms. The integer hashing core and `hash_float` are bit-reproducible; `hash_normal` is the one exception (see [Design Notes](#design-notes)). |
+| **Efficient** | `generate` compiles to an allocation-free counted loop. `sample`/`shuffle` currently buffer their input into managed lists (see [Design Notes](#design-notes)). |
 | **Composable** | DPG operators (`generate`, `sample`, `shuffle`, `materialize`) compose freely with all other pipeline stages (`filter`, `sort`, `join`, `derive`, `select`, etc.). |
 
 ---
@@ -24,9 +24,11 @@ Key properties:
 ### Deterministic Hashing
 
 DPG is built on a runtime hashing library (`DpgHash`) based on xxHash64. Every
-hash function is **pure** — no side effects, no global state, no floating-point
-arithmetic in the mixing core — ensuring bit-identical results regardless of
-platform, JIT, or runtime version.
+hash function is **pure** — no side effects, no global state, and an integer-only
+mixing core. The integer hash functions (`hash`, `hash_int`, `hash_index`) and
+`hash_float` produce bit-identical results regardless of platform, JIT, or runtime
+version. `hash_normal` is the exception — its Box-Muller transform uses
+floating-point transcendental math (see [Design Notes](#design-notes)).
 
 #### Hash Functions
 
@@ -35,7 +37,7 @@ platform, JIT, or runtime version.
 | `hash` | `hash(seed: long, key: long) → long` | `long` | Core 64-bit hash. Combines a seed with an arbitrary key. |
 | `hash_int` | `hash_int(seed: long, value: long, min: int, max: int) → int` | `int` | Uniform integer in `[min, max)`. |
 | `hash_float` | `hash_float(seed: long, value: long) → double` | `double` | Uniform double in `[0.0, 1.0)`. IEEE 754 compliant. |
-| `hash_normal` | `hash_normal(seed: long, value: long, mean: double, stddev: double) → double` | `double` | Normally distributed double (Box-Muller, deterministic). |
+| `hash_normal` | `hash_normal(seed: long, value: long, mean: double, stddev: double) → double` | `double` | Normally distributed double (Box-Muller transform; **not** guaranteed bit-identical across platforms — see [Design Notes](#design-notes)). |
 | `hash_index` | `hash_index(seed: long, value: long, count: int) → int` | `int` | Uniform index in `[0, count)`. Sugar for `hash_int(seed, value, 0, count)`. |
 
 All public DPG hash functions accept a `long` seed as the first argument and
@@ -74,8 +76,10 @@ sample <count> seed <seed_expr> [by <weight_expr>]
 ```
 
 **Uniform sampling** (no `by` clause): each row is hashed with the provided
-seed; the top-N rows by hash priority are selected. This is an O(N) single-pass
-algorithm with zero allocations beyond the output buffer.
+seed; the top-N rows by hash priority are selected. The current implementation
+buffers the input rows and their priorities into managed lists, then performs an
+O(N·K) partial selection of the top-N (K = requested count) — it is not a
+single-pass, allocation-free scan.
 
 **Weighted sampling** (`by weight_expr`): implements the Efraimidis-Spirakis
 one-pass weighted reservoir algorithm. Each row's priority is
@@ -112,9 +116,11 @@ controls when that table is refreshed:
 materialize into <TableName> [refresh on(<sources>) [every(<interval>)]]
 ```
 
-Materialized results are stored as a regular `DbSet` and can be queried by
-other compiled queries. Refresh is tick-driven (game-loop model, no OS timers),
-ensuring deterministic update timing.
+The `materialize` clause records the target table and its refresh policy (the
+source tables and interval) as plan metadata on the compiled query. Note that
+automatic population of the target `DbSet` and scheduled regeneration are **not
+yet wired** — the compiled query currently returns the generated rows directly;
+treat the `refresh on(...)` / `every(...)` policy as declarative intent for now.
 
 ---
 
@@ -198,8 +204,9 @@ from generate(50, @townSeed) g
 from ... | materialize into Cache refresh on(Templates, Config)
 ```
 
-When `Templates` or `Config` tables receive commits, `Cache` is scheduled for
-full regeneration on the next tick.
+This declares that `Cache` should be regenerated when `Templates` or `Config`
+change. (The refresh policy is recorded as metadata; automatic regeneration is
+not yet wired — see [Materialization](#materialization).)
 
 ### Interval-Based Refresh
 
@@ -207,9 +214,8 @@ full regeneration on the next tick.
 from ... | materialize into DailyDeals every(86400 s)
 ```
 
-Regenerated every 86 400 seconds (24 hours) in game-loop ticks — not
-wall-clock time. The tick counter is owned by the `DbContext` and advanced
-explicitly by the game loop.
+Declares a 24-hour (86 400 s) regeneration interval for the materialized target.
+(Declarative today — see [Materialization](#materialization).)
 
 ### Combined
 
@@ -236,14 +242,19 @@ interval timer resets.
 
 ## Design Notes
 
-- **Determinism guarantee.** All hash functions use integer-only arithmetic for
-  the mixing core. Floating-point conversions happen only at the final output
-  step and follow IEEE 754 rules, ensuring cross-platform reproducibility.
+- **Determinism guarantee.** The integer mixing core uses integer-only
+  arithmetic, and `hash`, `hash_int`, `hash_index`, and `hash_float` are
+  bit-reproducible across platforms. `hash_normal` is the exception: its
+  Box-Muller transform calls `System.Math` transcendental functions
+  (`log`/`sqrt`/`cos`), which are not guaranteed to be bit-identical across
+  platforms and runtimes — treat `hash_normal` as best-effort rather than
+  bit-reproducible.
 
-- **Performance.** Generated code is zero-allocation on the hot path. `generate`
-  compiles to a counted loop; `sample` is a single-pass O(N) scan; `shuffle`
-  reuses the `sample` implementation. No managed heap allocations occur during
-  execution.
+- **Performance.** `generate` compiles to an allocation-free counted loop.
+  `sample` (and therefore `shuffle`, which desugars to it) buffers the input rows
+  and their priorities into managed `List<T>` collections and performs an O(N·K)
+  partial selection of the top-N by priority — so the sample/shuffle path does
+  allocate and is not single-pass.
 
 - **Composability.** DPG operators are regular pipeline stages. They can be
   freely combined with `filter`, `sort`, `join`, `derive`, `group`, `select`,
@@ -251,10 +262,11 @@ interval timer resets.
   relational operator — they participate in predicate pushdown, join reordering,
   and emission.
 
-- **Materialization scheduler.** Refresh is tick-driven, not timer-driven. The
-  game loop calls `DbContext.Tick()` which checks pending refresh conditions.
-  This avoids OS timer jitter and keeps regeneration deterministic with respect
-  to game state.
+- **Materialization.** The `materialize into … refresh on(…) every(…)` clause is
+  parsed and records the target table, refresh sources, and interval as plan
+  metadata. Runtime auto-population and scheduled regeneration of the target are
+  not yet implemented (there is no game-loop tick API), so treat the refresh
+  policy as declarative today.
 
 - **Compatibility with PGO.** DPG queries benefit from
   [Profile-Guided Optimization](/docs/performance/pgo) — PGO data can size output buffers,

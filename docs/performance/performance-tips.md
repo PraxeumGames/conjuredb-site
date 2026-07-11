@@ -26,7 +26,7 @@ ConjureDB is an in-memory database designed for game clients where every microse
 
 ## Compiled Queries vs Runtime Queries
 
-The single most impactful performance decision is whether your queries are compiled at build time or interpreted at runtime. Compiled (schema `query`) declarations are lowered into optimized C# methods during `dotnet build` with zero runtime parsing or planning, while runtime `context.Query(...)` calls pay the full compilation cost on every invocation — see [Compiled Queries](/docs/query-language/compiled-queries#basic-query) for the canonical reference.
+The single most impactful performance decision is whether your queries are known at build time. Compiled (schema `query`) declarations are lowered into optimized C# methods during `dotnet build` with zero runtime parsing or planning — see [Compiled Queries](/docs/query-language/compiled-queries#basic-query) for the canonical reference. Queries that are *not* known at build time (config-delivered, server-authored) run through the [portable interpreter](#config-delivered-queries-the-portable-interpreter-lane) lane described below, which executes pre-compiled, pre-verified bytecode rather than re-parsing or re-compiling on every call.
 
 ### Always Use `query` for Production Code
 
@@ -42,21 +42,14 @@ query GetTopPlayers(minLevel: int, n: int) -> Player[] {
 Player[] top = context.Players.GetTopPlayers(minLevel, n);
 ```
 
-Runtime queries are useful for debugging and development tools, but should never appear in game loops.
-
-```csharp
-// ❌ BAD — full compilation pipeline on every call
-var result = context.Query("from Players | filter Level > 10 | take 5");
-```
-
 ### Performance Comparison
 
-| Aspect | Compiled Query | Runtime Query |
+| Aspect | Compiled Query (AOT) | Portable Interpreter (config-delivered) |
 |--------|---------------|---------------|
-| Parse + bind + optimize | Build time (zero at runtime) | Every call |
-| Index selection | Pre-computed optimal path | Computed per call |
-| Allocation | Zero (NoAlloc variants) | Query plan + result containers |
-| Suitable for game loop | ✅ Yes | ❌ No |
+| Parse + bind + optimize | Build time (zero at runtime) | Pre-compiled to bytecode — no per-call parse/bind/optimize |
+| Index selection | Pre-computed optimal path | Baked into the bytecode (index-aware) |
+| Allocation | Zero (NoAlloc variants) | Allocation-lean (no per-call plan build) |
+| Best for | Build-time-known hot-path queries | Queries delivered later as content/config |
 | Suitable for dev tools | ✅ Yes | ✅ Yes |
 
 ### Config-Delivered Queries: the Portable Interpreter Lane
@@ -80,7 +73,7 @@ performance expectations.
 
 ### NoAlloc Variants for Zero-Allocation Hot Paths
 
-Every compiled query automatically generates `...NoAlloc()` and `...ForEach<TConsumer>()` helper surfaces. Use these in performance-critical paths where even a `List<T>` allocation is unacceptable:
+Every **collection-returning** compiled query automatically generates `...NoAlloc()` and `...ForEach<TConsumer>()` helper surfaces (scalar- and dictionary-returning queries do not — their result is already a value or has no pooled container). Use these in performance-critical paths where even a `List<T>` allocation is unacceptable:
 
 ```csharp
 // Standard — allocates a List<T> internally
@@ -124,7 +117,6 @@ Choosing the right index type is the difference between O(1) and O(n). ConjureDB
 | EXISTS range check (`does order X have qty > 100?`) | **RangeLookupIndex** | O(1) | Sparse min/max arrays |
 | Pre-computed totals (`sum Score where GuildId == @g`) | **AggregationIndex** | O(1) | Incrementally maintained aggregates |
 | Multiple grouped aggregates (`sum, avg, count per guild`) | **UniversalAggregationIndex** | O(1) per metric | Pre-computed grouped stats |
-| Global metrics (`total gold across all players`) | **GlobalAggregationIndex** | O(1) | Running sum/count/min/max |
 | Small, rarely-mutated sorted data | **SortedListIndex** | O(log n) lookup | Dense array, cache-friendly iteration |
 
 ### Index Overhead
@@ -136,7 +128,7 @@ From a query-tuning standpoint, two additional access-pattern cases argue agains
 - **Columns only used in projections** — indexes help filters and sorts, not `select`.
 - **Low-selectivity columns** (e.g., `bool IsActive` on a table where 95% are active) — the index returns nearly all rows; a scan is comparable.
 
-**Rule of thumb:** If the compiler emits warning `UM7003` (unused index), remove the index to save memory and update cost.
+**Rule of thumb:** Remove any index that no query uses — it adds memory and per-write update cost with no read benefit.
 
 ---
 
@@ -144,21 +136,21 @@ From a query-tuning standpoint, two additional access-pattern cases argue agains
 
 ### Filter Before Join
 
-Applying filters before joins reduces the number of rows that participate in the join, dramatically reducing work for large tables.
+The optimizer pushes filters below joins and reorders inner joins automatically — predicate pushdown and inner-join reordering are default, unconditional transformations that do not require PGO data. For a side-local predicate like `filter Age > 18`, both forms below compile to the same physical plan:
 
 ```dsl
-# ❌ BAD — joins all users with all orders, then filters
+# The optimizer pushes the filter below the join...
 from Users
 | join Orders o (Id == o.UserId)
 | filter Age > 18
 
-# ✅ GOOD — filters users first, then joins only matching users
+# ...so this converges to the same plan
 from Users
 | filter Age > 18
 | join Orders o (Id == o.UserId)
 ```
 
-The compiler's optimizer will attempt predicate pushdown automatically, but writing filters early makes intent clear and ensures optimal plans even without PGO data.
+Writing filters early still makes intent clearer, so prefer the second form for readability — just don't expect it to change the plan.
 
 ### Use Projections to Reduce Data
 
@@ -190,7 +182,7 @@ from Players
 | take 10
 ```
 
-When a `take` limit is present, the compiler can use a heap-based TopN algorithm (O(n log k) where k = limit) instead of a full O(n log n) sort. For k ≤ 64, the heap is stack-allocated with zero GC pressure.
+When a `take` limit is present, the compiler can use a heap-based TopN algorithm (O(n log k) where k = limit) instead of a full O(n log n) sort. For k ≤ 64 **and when all selected columns are unmanaged primitive types**, the TopN heap is stack-allocated with zero GC pressure; otherwise it falls back to a list-backed heap.
 
 ### Prefer Indexed Lookups Over Full Scans
 
@@ -237,24 +229,24 @@ query GetTopGuildPlayers(g: int, n: int) -> Player[] {
 Don't scan tables to compute sums and counts. Use pre-computed aggregation indexes:
 
 ```text
-// ❌ BAD — scans all players to compute sum (declared as a query)
-query GetTotalScore() -> long {
-    from Players | aggregate { Total = sum Score }
+// ❌ BAD — scans a guild's players to compute the sum on every call
+query GetGuildTotalScore(guildId: int) -> long {
+    from Players | filter GuildId == @guildId | aggregate { Total = sum Score }
 }
 
-// ✅ GOOD — declare a GlobalAggregationIndex on the Score column, O(1) read
+// ✅ GOOD — per-key aggregation index on Score, grouped by GuildId, O(1) read
 struct table Player(plural: Players, persistence: local) {
-    Score: int @index(name: "GlobalScore", kind: aggregation)
+    GuildId: int @index(name: "ScoreByGuild", kind: aggregation, value: Score)
 }
-// O(1): context.Players.SyncIndex.GlobalScore.GetGlobalSum()
+// O(1) per guild: context.Players.ScoreByGuild.GetSum(guildId)
 ```
 
-For grouped aggregations, use `UniversalAggregationIndex`:
+For multiple metrics per group (sum + average + count together), use `universal_aggregation`:
 
 ```text
 // O(1) per guild — no GROUP BY scan required
 struct table Player(plural: Players, persistence: local) {
-    GuildId: int @index(name: "ScoreByGuild", kind: universal_aggregation, value: Score)
+    GuildId: int @index(name: "GuildScoreStats", kind: universal_aggregation, value: Score)
 }
 ```
 
@@ -266,7 +258,7 @@ In game loops running at 60 FPS, you have ~16.6 ms per frame. Every heap allocat
 
 ### NoAlloc Query Overloads
 
-Every compiled query has `...NoAlloc()` and `...ForEach<TConsumer>()` helpers:
+Every **collection-returning** compiled query has `...NoAlloc()` and `...ForEach<TConsumer>()` helpers (scalar- and dictionary-returning queries do not):
 
 ```csharp
 // Allocating version — creates a List<T>
@@ -293,8 +285,10 @@ for (int i = 0; i < buf.Length; i++)
 Use `ref readonly` access to avoid copying entity structs:
 
 ```csharp
-// O(1) lookup returning a reference — no struct copy
-ref readonly var player = ref context.Players.FindById(playerId);
+// O(1) lookup returning a ref readonly — no struct copy.
+// TryFindByIdRef reports via the out flag whether the id was present.
+ref readonly var player = ref context.Players.TryFindByIdRef(playerId, out bool found);
+// use `player` only when `found` is true
 
 // Zero-copy enumeration over all entities
 ReadOnlyMemory<T> all = context.Players.All();
@@ -312,11 +306,11 @@ Secondary indexes provide `QueryDirect` and `QueryDirectByRef` methods that retu
 
 ```csharp
 // Struct enumerable — no heap allocation
-var directResults = context.Players.SyncIndex.GuildId_Lookup.QueryDirect(guildId);
+var directResults = context.Players.GuildId_Lookup.QueryDirect(guildId);
 foreach (var player in directResults) { /* ... */ }
 
 // By-ref struct enumerable — no copies of large structs
-var refResults = context.Players.SyncIndex.GuildId_Lookup.QueryDirectByRef(guildId);
+var refResults = context.Players.GuildId_Lookup.QueryDirectByRef(guildId);
 foreach (ref readonly var player in refResults) { /* ... */ }
 ```
 
@@ -348,17 +342,15 @@ The ConjureDB compiler produces structured warnings (UM7xxx) when it detects sub
 |---------|-------------|--------|------------|
 | `UM7001` | Full scan on large table | O(n) scan instead of indexed access | Add a `LookupIndex` or `SortedSetIndex` on the filtered column |
 | `UM7002` | Cartesian product (JOIN without condition) | O(n × m) cross join | Add a join condition: `join Orders o (Id == o.UserId)` |
-| `UM7003` | Unused index — a suitable index exists but was not used | Index update overhead with no query benefit | Remove the unused index or adjust query filters to use it |
 | `UM7004` | Sort without LIMIT on large result set | Full O(n log n) sort with unbounded output | Add `take N` to enable heap-based TopN, or add a `SortedSetIndex` |
 | `UM7005` | Correlated subquery not decorrelated | Per-row re-evaluation, O(n × m) | Rewrite as a join or use `exists` with an indexed predicate |
-| `UM7006` | Missing PGO statistics for a critical query | Compiler uses conservative heuristic defaults | Collect a PGO profile (see [PGO Workflow](#pgo-workflow-summary)) |
 | `UM7007` | Nested loop join on large tables | O(n × m) without index | Add a `LookupIndex` on the join key, or enable PGO for strategy selection |
 | `UM7008` | Full sort on large dataset | O(n log n) with no limit or index | Add `take N`, add a `SortedSetIndex`, or use PGO |
-| `UM7009` | Index recommendation from Index Advisor | Advisor detected a missing index opportunity | Review the recommendation and add the suggested index |
+| `UM7009` | Index recommendation from the Index Advisor — experimental, opt-in **Info** (requires enabling the experimental index-access analyzer) | Advisor detected a missing index opportunity | Review the recommendation and add the suggested index |
 | `UM7010` | Semi/Anti join fell back to NestedLoop | EXISTS not fully decorrelated or no index | Add index on the correlated column or restructure the subquery |
 | `UM7011` | Nested collection allocation in projection | Per-entity `List<T>` allocation, O(n × m) | Flatten with a join instead of nested collections |
 | `UM7013` | PGO profile untrusted | Stale or low-quality profile → heuristic fallback | Recollect the profile on a representative workload |
-| `UM7014` | PGO profile version mismatch | Profile schema doesn't match current entities | Regenerate the profile after schema changes |
+| `UM7014` | PGO profile untrusted — behavioral strategy override (SkipSort/NoOptimize) was blocked (Info, not Warning) | Planner ignores the untrusted override and uses its default strategy | Recollect a trusted profile on a representative workload |
 | `UM7015` | Correlated scalar subquery fallback | Per-row evaluation of scalar subquery | Rewrite as join + aggregation or decorrelate manually |
 | `UM7016` | Heuristic planning fallback | Missing statistics or metadata | Provide PGO data or manual hints via `query` attributes |
 | `UM7018` | PGO profile data inconsistency | Invalid key range or conflicting data in profile | Recollect the profile; check for data corruption |
@@ -368,9 +360,7 @@ The ConjureDB compiler produces structured warnings (UM7xxx) when it detects sub
 | Warning | Description | How to Fix |
 |---------|-------------|------------|
 | `JOIN0001` | No applicable join strategy for predicate | Ensure join predicate uses equality on indexed columns |
-| `JOIN0003` | Conjunctive join predicate unsupported | Simplify the join predicate or split into separate joins |
 | `JOIN0004` | PGO join strategy hint unavailable | The hinted strategy doesn't exist for this join; remove or change the hint |
-| `JOIN0005` | PGO enforce failed — strategy unavailable | Relax enforcement to `Hint` mode, or add the required index |
 
 ### Interpreting Warnings in Build Output
 
@@ -419,7 +409,7 @@ struct table Player(plural: Players, persistence: local) { ... }
 struct table Player(plural: Players, persistence: local, capacity: 10000) { ... }
 ```
 
-For secondary indexes, use `PrewarmIndexAllocator`:
+For secondary indexes, pre-size with `EnsureCapacity(maxId, valueCapacity)`:
 
 ```csharp
 context.Players.EnsureCapacity(maxId: 10_000, valueCapacity: 10_000);
@@ -494,7 +484,7 @@ The primary source of GC pauses in Unity games is frequent small allocations tha
 |-----------|---------------|----------------|
 | Query results | `IEnumerable<T>` return | `Get...NoAlloc()` / `Get...ForEach<TConsumer>()` |
 | Index lookup | `Query(key)` → `IEnumerable<T>` | `QueryDirect(key)` → struct enumerable |
-| Entity access | `FindById(id)` → copy | `ref readonly` via `FindById` |
+| Entity access | `FindById(id)` → copy (throws on miss) | `ref readonly` via `TryFindByIdRef` / `FindByIdRefUnchecked` |
 | Full iteration | `foreach` on `IEnumerable` | `All()` → `ReadOnlyMemory<T>.Span` |
 
 **Rule of thumb:** In your `Update()` loop, use only NoAlloc query helpers and `ref readonly` access.
@@ -520,8 +510,11 @@ reactive query TopPlayers() -> Player[] {
 ```
 
 ```csharp
+// Cache the reactive query once — each call constructs a fresh ReactiveQuery
+var topPlayers = context.Players.TopPlayers();
+
 // In Update() — O(1) read, zero allocation
-ReadOnlySpan<Player> top = context.TopPlayers.Current;
+ReadOnlySpan<Player> top = topPlayers.Current;
 ```
 
 2. **Amortize writes across frames** — batch mutations and commit once per frame, not per operation:
@@ -640,9 +633,9 @@ struct table Player(plural: Players, persistence: local) {
 
 ## Benchmarking Your Queries
 
-### `[DebugGeneration]` Trace Levels
+### Compiler Trace Levels
 
-Enable generator trace output via the code generator's debug trace level to inspect the compiler's decisions. With trace enabled, the generated diagnostics describe the plan chosen for each declared query, for example:
+To inspect the compiler's plan decisions for a declared query, run the code generator with both `--dump-plan=<method>` and `--dump-plan-report=<path>` (see [Plan Dumping via CLI](#plan-dumping-via-cli) below). This writes a **Summary**-level trace describing the plan chosen for that query, for example:
 
 ```text
 query GetTopPlayers() -> Player[] {
@@ -650,12 +643,14 @@ query GetTopPlayers() -> Player[] {
 }
 ```
 
-| Level | What You See |
+Internally the tracer defines four levels; the CLI report always runs at `Summary`. `Normal` and `Verbose` are internal levels exercised by compiler tests, not an authorable knob:
+
+| Level | What It Captures |
 |-------|-------------|
 | `None` | No output |
-| `Summary` | Stage boundaries and final decisions |
-| `Normal` | IR snapshots between compilation stages |
-| `Verbose` | Full pipeline trace: parsing → binding → optimization → planning → emission |
+| `Summary` | Stage boundaries and final decisions (the level the CLI report emits) |
+| `Normal` | IR snapshots between compilation stages (internal only) |
+| `Verbose` | Full pipeline trace: parsing → binding → optimization → planning → emission (internal only) |
 
 ### Plan Dumping via CLI
 
@@ -824,8 +819,11 @@ reactive query TopPlayersLive() -> Player[] {
 ```
 
 ```csharp
+// Cache the reactive query once, then read Current each frame
+var live = context.Players.TopPlayersLive();
+
 // In Update() — always current, zero allocation
-ReadOnlySpan<Player> top = context.TopPlayersLive.Current;
+ReadOnlySpan<Player> top = live.Current;
 ```
 
 ### Config Tables (Read-Only Patterns)
@@ -910,8 +908,11 @@ reactive query NearestEnemies() -> Enemy[] {
 ```
 
 ```csharp
+// Cache the reactive query once (each call builds a fresh ReactiveQuery)
+var nearest = context.Enemies.NearestEnemies();
+
 // In Update() — current snapshot, zero allocation, O(1)
-var enemies = context.NearestEnemies.Current;
+var enemies = nearest.Current;
 ```
 
 ---
@@ -925,7 +926,7 @@ Before shipping, verify every item:
 - [ ] All `UM7xxx` compiler warnings are resolved
 - [ ] `table` capacity matches expected steady-state entity count
 - [ ] Every filtered/sorted/joined column has an appropriate index
-- [ ] No indexes on columns that are never queried (`UM7003`)
+- [ ] No indexes on columns that are never queried
 - [ ] Aggregation metrics use `AggregationIndex`, not full-table scans
 - [ ] Mutations are batched — one `Commit()` per frame, not per operation
 - [ ] Reactive queries are used for UI-bound data (leaderboards, HUD metrics)

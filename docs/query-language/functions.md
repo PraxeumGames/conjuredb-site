@@ -245,18 +245,21 @@ from Players
 
 ### Window Functions
 
-Window functions compute values across a set of rows related to the current row, defined by `OVER` clause with optional `PARTITION BY` and `ORDER BY`.
+Window functions compute values across a set of rows related to the current row. They are produced by the `window` pipeline transform, optionally partitioned with `window by <columns>`. Ordering (for ranking and navigation functions) comes from a preceding `| sort` stage — there is no SQL `OVER` clause, no `partition` keyword, and no inline `ORDER BY`.
 
 **Syntax:**
 
 ```dsl
-function_name(args) over ([partition Column1, Column2] sort [-]Column3, Column4)
+| sort [-]OrderColumn
+| window [by PartitionColumn1, PartitionColumn2] (
+    Alias = function_name [column] [numericArg] [frame: spec]
+)
 ```
 
 #### Ranking Functions
 
-| Function | Aliases | Requires ORDER BY | Signature | Description |
-|----------|---------|-------------------|-----------|-------------|
+| Function | Aliases | Requires preceding `sort` | Signature | Description |
+|----------|---------|---------------------------|-----------|-------------|
 | `row_number` | — | Yes | `() → int` | Sequential number within partition |
 | `rank` | — | Yes | `() → int` | Rank with gaps for ties |
 | `dense_rank` | — | Yes | `() → int` | Rank without gaps for ties |
@@ -264,8 +267,8 @@ function_name(args) over ([partition Column1, Column2] sort [-]Column3, Column4)
 
 #### Navigation Functions
 
-| Function | Aliases | Requires ORDER BY | Signature | Description |
-|----------|---------|-------------------|-----------|-------------|
+| Function | Aliases | Requires preceding `sort` | Signature | Description |
+|----------|---------|---------------------------|-----------|-------------|
 | `lag` | — | Yes | `(object) → object?` | Value from previous row |
 | `lag` | — | Yes | `(object, int) → object?` | Value from N rows before |
 | `lead` | — | Yes | `(object) → object?` | Value from next row |
@@ -275,8 +278,8 @@ function_name(args) over ([partition Column1, Column2] sort [-]Column3, Column4)
 
 #### Windowed Aggregates
 
-| Function | Aliases | Requires ORDER BY | Signature | Description |
-|----------|---------|-------------------|-----------|-------------|
+| Function | Aliases | Requires preceding `sort` | Signature | Description |
+|----------|---------|---------------------------|-----------|-------------|
 | `count` | — | No | `() → int` | Count rows in window |
 | `count` | — | No | `(object) → int` | Count non-nulls in window |
 | `sum` | — | No | `(numeric) → numeric?` | Sum over window |
@@ -289,7 +292,8 @@ function_name(args) over ([partition Column1, Column2] sort [-]Column3, Column4)
 ```dsl
 # Ranking within guild
 from Players
-| derive GuildRank = row_number() over (partition GuildId sort -Score)
+| sort -Score
+| window by GuildId (GuildRank = row_number)
 | filter GuildRank <= 3
 | select Id, Name, GuildId, Score, GuildRank
 ```
@@ -297,7 +301,8 @@ from Players
 ```dsl
 # Running total
 from Orders
-| derive RunningTotal = sum(Amount) over (partition CustomerId sort OrderDate)
+| sort OrderDate
+| window by CustomerId (RunningTotal = sum Amount)
 | select OrderId, CustomerId, Amount, RunningTotal
 ```
 
@@ -305,15 +310,16 @@ from Orders
 # Compare with previous value
 from Players
 | sort -Score
-| derive PrevScore = lag(Score) over (sort -Score)
+| window (PrevScore = lag Score)
 | derive ScoreDiff = Score - coalesce(PrevScore, 0)
 | select Id, Name, Score, ScoreDiff
 ```
 
 ```dsl
-# Top-K per partition (optimized by WindowRowNumberTopKPerPartitionPlanningPass)
+# Top-K per partition
 from Players
-| derive Rank = row_number() over (partition GuildId sort -Score)
+| sort -Score
+| window by GuildId (Rank = row_number)
 | filter Rank <= @topK
 | select GuildId, Id, Name, Score, Rank
 ```
@@ -321,8 +327,8 @@ from Players
 ```dsl
 # Dense ranking with ntile
 from Players
-| derive Tier = ntile(4) over (sort -Score)
-| derive DenseRank = dense_rank() over (sort -Score)
+| sort -Score
+| window (Tier = ntile 4, DenseRank = dense_rank)
 | select Id, Name, Score, Tier, DenseRank
 ```
 
@@ -401,17 +407,17 @@ from Players
 
 ## Function Requirements
 
-Custom function methods **must** satisfy all of the following:
+The C# method you bind must satisfy all of the following. These are **not** checked by a ConjureDB validation pass — the compiler emits a **direct static call** to the fully qualified method name, so any method that cannot be called that way simply fails to compile as ordinary C# at the generated call site:
 
-| Requirement | Validation |
-|-------------|-----------|
-| Be `static` | Instance methods are rejected with a compile-time warning |
-| Not be generic | Generic methods are rejected |
-| No `ref` / `out` / `in` parameters | `RefKind != RefKind.None` → rejected per parameter |
-| No `params` parameters | `IsParams` → rejected |
-| No optional/default parameters | `HasExplicitDefaultValue` → rejected |
+| Requirement | Why |
+|-------------|-----|
+| Be `static` | The call is emitted as `Type.Method(...)` with no receiver; an instance method would not resolve. |
+| Not be generic | The call site supplies no type arguments; an open generic method would not compile. |
+| No `ref` / `out` / `in` parameters | Arguments are passed by value; a by-reference parameter would not bind at the call site. |
+| No `params` parameters | Arguments are emitted positionally; no `params` array is constructed. |
+| No optional/default parameters | Every declared parameter is passed explicitly; defaults are never relied upon. |
 
-> **Note:** Methods violating these constraints produce a **compile-time warning** and are skipped. Other valid functions continue to work normally.
+> **Note:** ConjureDB does not detect a non-conforming method and skip it — there is no warn-and-skip pass. A method that violates these rules produces a hard **C# compilation error** in the generated code.
 
 ---
 
@@ -429,7 +435,7 @@ Custom function methods **must** satisfy all of the following:
 | Read-only collections | `T[]`, `IReadOnlyList<T>`, `IReadOnlyCollection<T>`, `IEnumerable<T>` |
 | Structs / Classes | Any CLR-resolvable value or reference type |
 
-> **Prohibited:** Mutable collection types (`List<T>`, `Dictionary<K,V>`) are rejected to ensure generated code remains allocation-free.
+> **Recommendation:** Prefer read-only collection types (`IReadOnlyList<T>`, `T[]`) over mutable ones (`List<T>`, `Dictionary<K,V>`) to keep generated code allocation-free. Mutable collection types are **not** rejected — they bind verbatim and compile — but read-only types better match the zero-allocation execution model.
 
 ---
 
@@ -460,7 +466,7 @@ When multiple overloads exist for a function (e.g., `round(double)` and `round(d
 | Limitation | Details |
 |-----------|---------|
 | **Scalar only** | Custom functions must be scalar. Aggregate and window custom functions are not supported. |
-| **Deterministic** | Functions must be deterministic — the compiler may evaluate them at compile time for constant folding. |
+| **Deterministic** | Functions should be deterministic — the same arguments should always yield the same result. The optimizer may reorder, deduplicate, or elide expressions, so a non-deterministic function can give surprising results. Custom-function calls are **never** evaluated at compile time; the compiler cannot execute your C# method during compilation. |
 | **Side-effect free** | Functions may be called in any order, possibly not at all if the optimizer eliminates the expression. |
 | **No duplicate signatures** | Each `(name, arity)` pair must be unique. Multiple arities for the same DSL name are allowed, but duplicate `(name, arity)` registrations produce a compile-time error. |
 | **No recursion** | Custom functions cannot call other custom functions within the DSL (they can in C# implementation). |
@@ -554,8 +560,10 @@ from Players
 ```dsl
 from Players
 | derive CP = combatPower(Attack, Defense, Speed)
-| derive NormalizedCP = round(CP / max(CP) over (), 4)
-| derive Rank = dense_rank() over (sort -CP)
+| window (MaxCP = max CP)
+| derive NormalizedCP = round(CP / MaxCP, 4)
+| sort -CP
+| window (Rank = dense_rank)
 | filter Rank <= @topN
 | select Id, Name, CP, NormalizedCP, Rank
 ```

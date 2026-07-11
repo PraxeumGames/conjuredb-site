@@ -41,8 +41,8 @@ using var ctx = DbContextBuilder<GameDbContext>.Create()
     .WithDefaultSnapshot()
     .Build();
 
-// Compiled, allocation-free: walks PlayersByScore and stops after `count` rows.
-var top10 = ctx.GetTopScorers(minScore: 0, count: 10);
+// Compiled: walks PlayersByScore and stops after `count` rows.
+var top10 = ctx.Players.GetTopScorers(minScore: 0, count: 10);
 ```
 
 ## Keep it fresh reactively

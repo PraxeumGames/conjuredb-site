@@ -148,11 +148,11 @@ FROM top_players t JOIN Guilds g ON t.GuildId = g.Id;
 ---
 ## SQL-Style WITH Status
 
-Non-recursive SQL-style `with Name as (...)` IS supported: the parser maps `with` CTEs to the same internal binding as `let`, including comma-separated multi-CTE declarations and optional column lists (`Name(col1, col2) as (...)`).
+Non-recursive SQL-style `with Name as (...)` IS supported: the parser maps `with` CTEs to the same internal binding as `let`, including comma-separated multi-CTE declarations and an optional column list (`Name(col1, col2) as (...)`), which is accepted but currently ignored (output column names come from the pipeline's `select`).
 
 - Use `let name = (pipeline)` or the equivalent `with name as (pipeline)` for named-subquery reuse.
 - Use `| into name` for a lightweight single-pipeline handoff.
-- `with recursive ... as (...)` parses and compiles, but the `recursive` keyword is currently ignored (only the anchor pipeline runs) — true recursive/transitive-closure traversal is not yet implemented, so recursive CTEs produce non-recursive results rather than failing at compile time.
+- The `recursive` keyword is accepted after `with` but ignored — there is no anchor/recursive-term handling. A `with recursive` whose body does NOT reference the CTE itself compiles as an ordinary non-recursive CTE. A genuinely recursive (self-referencing) CTE fails to bind with error BIND_RES_010 ("Let binding not found in scope"), because a CTE's own name is not in scope within its own body. So self-referencing recursive CTEs are rejected at compile time, not silently degraded to non-recursive results.
 
 ---
 
@@ -248,7 +248,7 @@ from high_value h
 | sort -h.TotalAmount
 ```
 
-For staged composition, use `let` bindings, the equivalent non-recursive SQL-style `with name as (pipeline)`, or `| into` handoffs. Note that while `with recursive` parses and compiles, its recursive semantics are not yet implemented (the `recursive` keyword is ignored), so it does not perform true transitive-closure traversal.
+For staged composition, use `let` bindings, the equivalent non-recursive SQL-style `with name as (pipeline)`, or `| into` handoffs. Note that `with recursive` is accepted but its recursive semantics are not implemented: the `recursive` keyword is ignored, so a `with recursive` whose body references the CTE itself fails to bind (error BIND_RES_010), and one that does not reference itself behaves as a plain non-recursive CTE. It never performs transitive-closure traversal.
 
 **Pipeline with into:**
 

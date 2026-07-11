@@ -94,7 +94,7 @@ version-chain overhead.
 context.BeginTransaction();
 
 context.Players.Add(new Player { Id = 1, Name = "Alice", Level = 10 });
-context.Players.Update(2, new Player { Id = 2, Name = "Bob", Level = 20 });
+context.Players.Update(new Player { Id = 2, Name = "Bob", Level = 20 });
 context.Items.Remove(42);
 
 context.Commit();
@@ -200,7 +200,7 @@ context.BeginTransaction();
 context.Players.Add(new Player { Id = 1, GuildId = 5 });
 await context.CommitAsync();
 // Secondary indices are now current — safe to query
-var guildMembers = context.Players.GetIndex<int>().Find(5);
+var guildMembers = context.Players.GuildIndex.Query(5);
 ```
 
 **When to use:** Async mutation flows and callers that should not block a
@@ -213,7 +213,7 @@ This is the strongest durability guarantee.
 
 ```csharp
 context.BeginTransaction();
-context.Players.Update(player.Id, playerWithPurchase);
+context.Players.Update(playerWithPurchase);
 await context.CommitAsync(forceFlush: true);
 // Data is on disk — safe to confirm "purchase complete" to the user
 ```
@@ -250,7 +250,7 @@ inverse operation on the primary index:
 | Original Operation | Rollback Action |
 |-------------------|-----------------|
 | `Add(entity)` | Remove the entity from the primary index |
-| `Update(id, newValue)` | Restore the entity to its `OldItem` value |
+| `Update(newValue)` | Restore the entity to its `OldItem` value |
 | `Remove(id)` | Re-insert the removed entity |
 
 ### What Rollback Does NOT Do
@@ -289,7 +289,7 @@ Debug.Assert(v1 == v0 + 1);
 | **Journal** | Each `ChangeRecord` carries the transaction version. Recovery replays only `version > snapshotVersion`. |
 | **Snapshot** | The snapshot header records the version at capture time. |
 | **Worker thread** | Processes versions sequentially to maintain ordered secondary index updates. |
-| **Reactive queries** | `ReactiveQuery<T>.Version` tracks which database version the materialized view reflects. |
+| **Reactive queries** | `ReactiveQuery<T>.Version` is a separate per-query counter, incremented once per completed refresh/notification cycle — it is **not** the database version (multiple commits can coalesce into one refresh cycle, and non-matching commits advance the DB version without bumping it). |
 | **`HasPendingCommits()`** | Returns `true` if the worker has not yet processed the latest version. |
 
 ### Version Invariants
@@ -339,7 +339,7 @@ Main Thread (writer, 60 fps)            Worker Thread (background)
 | `Commit()` | ❌ Writer thread only | |
 | `CommitAsync()` | ❌ Writer thread only | Internal semaphore serializes the async wait |
 | `Rollback()` | ❌ Writer thread only | |
-| `IsTransactionInStarted` | ✅ Any thread | Uses `Volatile.Read/Write` for safe cross-thread visibility |
+| `IsTransactionInStarted` | ⚠️ Cross-thread only with persistence | Uses `Volatile.Read/Write` for cross-thread visibility **only** when snapshot capture / persistence is enabled. In the no-persistence SR-SW hot path it is a writer-thread-local flag — do not read it from reader threads. |
 | Secondary index queries | ✅ Any thread | Safe after the worker has processed the version |
 
 ### CommitAsync Serialization
@@ -413,7 +413,7 @@ For critical data, always use `CommitAsync(forceFlush: true)`:
 ```csharp
 // Non-critical: daily quest progress (acceptable to lose last few seconds)
 context.BeginTransaction();
-context.Quests.Update(questId, updatedQuest);
+context.Quests.Update(updatedQuest);
 context.Commit();
 
 // Critical: in-app purchase (must survive crash)
@@ -556,12 +556,12 @@ consistency contract without blocking the calling thread:
 context.BeginTransaction();
 context.Players.Add(new Player { Id = 1, GuildId = 5 });
 context.Commit();
-var guildMembers = context.Players.GetIndex<int>().Find(5);
+var guildMembers = context.Players.GuildIndex.Query(5);
 
 context.BeginTransaction();
 context.Players.Add(new Player { Id = 2, GuildId = 5 });
 await context.CommitAsync();
-var updatedGuildMembers = context.Players.GetIndex<int>().Find(5);
+var updatedGuildMembers = context.Players.GuildIndex.Query(5);
 ```
 
 ### 4. Buffer Overflow in Large Transactions
@@ -712,7 +712,7 @@ var newGold = player.Gold - cost;
 if (newGold < 0)
     return PurchaseResult.InsufficientFunds; // auto-rollback
 
-context.Players.Update(playerId, player with { Gold = newGold });
+context.Players.Update(player with { Gold = newGold });
 context.Inventory.Add(new InventoryItem { PlayerId = playerId, ItemId = itemId });
 
 tx.Commit();
@@ -729,7 +729,7 @@ try
     foreach (var playerId in eligiblePlayers)
     {
         var player = context.Players.FindById(playerId);
-        context.Players.Update(playerId, player with
+        context.Players.Update(player with
         {
             Gold = player.Gold + rewardAmount,
             LastRewardTime = DateTime.UtcNow
@@ -754,7 +754,7 @@ context.BeginTransaction();
 
 // Deduct currency
 var player = context.Players.FindById(playerId);
-context.Players.Update(playerId, player with { Gems = player.Gems - price });
+context.Players.Update(player with { Gems = player.Gems - price });
 
 // Grant item
 context.Inventory.Add(new InventoryItem

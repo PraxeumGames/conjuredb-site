@@ -179,7 +179,7 @@ module LootGeneration {
 
     query RollLoot(seed: long) -> LootItem[] =
         from generate(64, @seed) g
-        | join LootItem i on hash_index(g.Seed, 0L, 6) == i.Id
+        | join LootItem i (hash_index(g.Seed, 0L, 6) == i.Id)
         | select i.*
 }
 ```
@@ -221,11 +221,13 @@ context.Module<ILootGeneration>().RollLoot(seed);
 
 #### Diagnostics
 
-| Code    | Description                           |
-|---------|---------------------------------------|
-| SCH3001 | Duplicate module name                 |
-| SCH3003 | Duplicate table name across modules   |
-| SCH3004 | Duplicate enum/type across modules    |
+| Code    | Description                                                         |
+|---------|---------------------------------------------------------------------|
+| SCH3001 | Duplicate declaration across files (generic cross-file duplicate of any kind, including modules) |
+| SCH3003 | Import cycle detected                                               |
+| SCH3004 | Duplicate canonical file identity (two files normalize to the same path) |
+
+In-module duplicate declarations are reported as `SCH2001`.
 
 ---
 
@@ -582,7 +584,7 @@ table Guild {
 }
 ```
 
-**Alternative option separator:** both `key: value` and `key = value` syntax are accepted for table options.
+Table options use `key: value` syntax only; `=` is reserved for field default values.
 
 ### 6.3  Struct Tables
 
@@ -942,6 +944,7 @@ When `kind` is omitted, the default index type is `lookup`.
 | `universal_aggregation` | `UniversalAggregation` | Universal aggregation index |
 | `range_lookup` | `RangeLookup` | Range-based lookup |
 | `grouped_sorted` | `GroupedSorted` | Grouped and sorted index |
+| `spatial_grid` | `SpatialGrid` | Spatial grid index for coordinate/proximity queries |
 
 **Index options:**
 
@@ -956,7 +959,10 @@ When `kind` is omitted, the default index type is `lookup`.
 | `filter` | `"predicate"` | All | Filter predicate string for partial/filtered indexes |
 | `filter_columns` | `[field1, field2]` | All | Columns referenced in the filter predicate |
 | `encoding` | identifier | All | Key encoding strategy. Emitted as `IndexKeyEncoding.<value>` |
-| `aggregation_variant` | `all_stats` \| `sum_count` \| `count_only` | `aggregation`, `universal_aggregation` | Controls which aggregate statistics are maintained |
+| `aggregation_variant` | `all_stats` \| `sum_count` \| `count_only` \| `distinct_count` | `aggregation`, `universal_aggregation` | Controls which aggregate statistics are maintained |
+| `cell_size` | numeric literal | `spatial_grid` | Grid cell size for the spatial index |
+| `dimensions` | integer literal | `spatial_grid` | Number of spatial dimensions |
+| `coordinates` | `[field1, field2]` | `spatial_grid` | Coordinate fields that form the spatial key |
 | `is_pgo_recommended` | `true` \| `false` | All | Marks this index as recommended by Profile-Guided Optimization |
 
 **Examples:**
@@ -1101,7 +1107,7 @@ Declares a multi-field composite index at the table level.
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `fields` | Yes | Bracket list of field names. Each field may have an inline `asc`/`desc` modifier |
-| `name` | No | Index name for generated `schema index` or `[CompositeIndex]` attribute |
+| `name` | No | Index name for the generated index property on the `…Set` class |
 | `kind` | No | Index type (same values as `@index`). Defaults to `lookup` |
 | `order` | No | Sort direction list applied positionally to fields: `[asc, desc, asc]` |
 
@@ -1144,13 +1150,17 @@ table Player {
 }
 ```
 
-**Single-field `@@index`:** When `@@index` has exactly one field, it is emitted as a regular `schema index` attribute on that field (same as `@index`). Multi-field `@@index` generates a `[CompositeIndex]` attribute on the table.
+Both `@index` and `@@index` emit a strongly-typed index property on the generated `…Set` class, constructed via a `CreateIndex(...)` factory call rather than a C# attribute. Composite (multi-field) `@@index` keys use a value-tuple key selector; single-field indexes use a single-column selector.
 
 **Generated C# for composite indexes:**
 
 ```csharp
-// Multi-field @@index:
-[CompositeIndex("Player_ByGuildLevel", Fields = new[] { "GuildId", "Level" }, Kind = IndexType.SortedSet)]
+// Multi-field @@index(fields: [guild_id, level], name: "Player_ByGuildLevel", kind: sorted_set):
+PlayerByGuildLevelIndex = (SynchronizedIndex<Player>.SortedSetIndex<(int?, int)>)CreateIndex(
+    global::ConjureDB.IndexType.SortedSet,
+    static (Player x) => (x.GuildId, x.Level),
+    null,
+    null);
 ```
 
 ### 9.2  `@@unique(…)` — Composite Unique Constraint
@@ -1346,12 +1356,12 @@ from <Entity> [<alias>]
 | `select` | `\| select field1, field2` | Project specific fields |
 | `select … as` | `\| select { f1, f2 } as TypeName` | Project into a named DTO |
 | `select … as extern` | `\| select { … } as extern ExternalType` | Project into an extern CLR type |
-| `join` | `\| join <Entity> [<alias>] [on <expr>]` | Inner join |
-| `left join` | `\| left join <Entity> [<alias>] on <expr>` | Left outer join |
-| `right join` | `\| right join <Entity> on <expr>` | Right outer join |
-| `full join` | `\| full join <Entity> on <expr>` | Full outer join |
-| `semi join` | `\| semi join <Entity> on <expr>` | Semi join |
-| `anti join` | `\| anti join <Entity> on <expr>` | Anti join |
+| `join` | `\| join <Entity> [<alias>] (<predicate>)` | Inner join |
+| `left join` | `\| left join <Entity> [<alias>] (<predicate>)` | Left outer join |
+| `right join` | `\| right join <Entity> [<alias>] (<predicate>)` | Right outer join |
+| `full join` | `\| full join <Entity> [<alias>] (<predicate>)` | Full outer join |
+| `semi join` | `\| semi join <Entity> [<alias>] (<predicate>)` | Semi join |
+| `anti join` | `\| anti join <Entity> [<alias>] (<predicate>)` | Anti join |
 | `distinct` | `\| distinct` | Remove duplicate rows |
 | `group` | `\| group <expr>` | Group by expression |
 | `require found` | `\| require found` | Assert at least one result |
@@ -1450,7 +1460,7 @@ The mutation body starts with a verb instead of `from`:
 | `mutation Ban(…) -> int` | `int` | Affected row count |
 | `mutation Create(…) -> Player` | `Player` | Single entity |
 | `mutation Batch(…) -> Player[]` | `Player[]` | Array of entities |
-| `command Buy(…) -> Result` | `CommandResult<Result, BuyErrorCode>` plus command handler metadata | Deterministic command contract |
+| `command Buy(…) -> Result` | `BuyOutcome` record struct (`IsSuccess`, `Result`, `ErrorCode`, `ErrorPayload`) plus a `BuyErrorCode` enum, a `BuyErrorPayload` struct, and command handler metadata | Deterministic command contract |
 
 ### 11.5  Examples
 
@@ -1620,8 +1630,8 @@ For each command, schema emission produces deterministic C# artifacts in generat
 | Artifact | Purpose |
 |----------|---------|
 | Request record | Typed command input with PascalCase properties for parameters. |
-| Result record / `CommandResult` shape | Typed success payload, error code, and command-result carrier. |
-| Error enum | `None` plus errors declared by `require`, pipeline `else`, and invoked subcommands. |
+| Outcome record struct (`{CommandName}Outcome`) | Typed carrier with `IsSuccess`, `Result`, `ErrorCode`, and `ErrorPayload`. |
+| Error enum (`{CommandName}ErrorCode`) | `None` plus errors declared by `require`, pipeline `else`, and invoked subcommands. |
 | Handler class | Deterministic command execution over the generated context/editor APIs; `internal` commands emit executors and metadata but are not externally registered as handlers. |
 | Metadata class | Canonical identity, `CommandKind`, authorization, idempotency, scope descriptors, and effect manifest. |
 | Context registration partial | Registers external handlers and all command metadata in deterministic canonical-identity order. |

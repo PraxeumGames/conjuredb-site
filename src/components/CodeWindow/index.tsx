@@ -73,7 +73,7 @@ export const PLAN_TABS: CodeTab[] = [
       <>{' '}</>,
       <><T>TopN</T> (limit=count, order=<V>score</V> <K>desc</K>)</>,
       <>└── <T>Scan</T> (<T>Player</T>,</>,
-      <>{'         '}strategy=<K>SortedSetIndexScan</K>,</>,
+      <>{'         '}strategy=<K>SortedSetScan</K>,</>,
       <>{'         '}index=<V>Player_ByScore</V>)</>,
     ],
   },

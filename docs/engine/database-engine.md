@@ -390,7 +390,7 @@ Override these `virtual` methods in your `DbContext` subclass to hook into initi
 1. **`Build()` / `BuildAsync()`** — creates the context, calls `InitializeAsync()`:
    - Invokes `OnBeforeBuild()` → generated `Build()` → `OnAfterBuild()`.
    - Starts the background worker thread.
-   - Loads settings for `[Settings]`-marked DbSets.
+   - Loads settings for `persistence: none` settings DbSets.
    - Recovers state from the latest snapshot + journal replay.
    - Initializes journal.
    - Takes post-migration snapshot if needed.
@@ -443,7 +443,7 @@ var context = DbContextBuilder<GameDbContext>.Create()
 |--------|-------------|
 | `WithDataDirectory(string)` | Root directory for all persistence files. Default: `{AppDomain.BaseDirectory}/db_data`. Throws if empty/whitespace. |
 | `WithSerializer(IBinarySerializer)` | Binary serializer for snapshots and journals. Default: `MessagePackBinarySerializer`. |
-| `WithSettingsLoaderFactory(SettingsLoaderFactory)` | Custom loader factory for `[Settings]`-marked DbSets. |
+| `WithSettingsLoaderFactory(SettingsLoaderFactory)` | Custom loader factory for schema-declared settings (`persistence: none`) DbSets. |
 | `WithSnapshot(Action<SnapshotOptionsBuilder>)` | Configure snapshot persistence (intervals, journaling, incremental snapshots). |
 | `WithDefaultSnapshot()` | Enable snapshot persistence with all default settings. |
 | `WithNoPersistence()` | Disable all file-based persistence (snapshots, journals, incremental snapshots). |
@@ -1003,8 +1003,8 @@ table Player(plural: Players, persistence: local) {
 | `unique` | Hash map | O(1) equality | Uniqueness constraints |
 | `sorted_list` | Sorted list | O(log n) range | Range queries with duplicates |
 | `sorted_set` | Sorted set | O(log n) range | Range queries, ordered enumeration |
-| `aggregation` | Hash map | O(1) grouped | Pre-computed COUNT aggregates |
-| `universal_aggregation` | Hash map | O(1) grouped | Pre-computed SUM/AVG/MIN/MAX/COUNT |
+| `aggregation` | Hash map | O(1) grouped | Grouped aggregates (COUNT/SUM/AVG/MIN/MAX); minimal storage variant auto-selected per query usage |
+| `universal_aggregation` | Hash map | O(1) grouped | Grouped aggregates (COUNT/SUM/AVG/MIN/MAX); minimal storage variant auto-selected per query usage |
 | `range_lookup` | Composite | O(1) existence | Group + range existence queries |
 | `grouped_sorted` | Composite | O(log n) | Group + sorted range queries |
 | `spatial_grid` | Grid | O(1) cell | Spatial proximity queries |
@@ -1133,20 +1133,22 @@ table Player(persistence: local, schema_version: 2) {
 |----------|------|-------------|
 | `schema_version` | `uint` | Schema version (must be > 0). |
 
-### `[Settings]` — Configuration Entity
+### Settings Tables — Configuration Entities
 
-Marks entities loaded from external configuration (not persisted via snapshots).
+Entities loaded from external configuration are declared as ordinary
+non-persistent (`persistence: none`) tables in the `.conjure` schema — not with a
+C# attribute. Their rows are populated at startup by a settings loader factory
+instead of snapshot/journal recovery.
 
-```csharp
-[Settings("GameConfig")]
-public class GameConfig { ... }
+```text
+table GameConfig(plural: GameConfigs, persistence: none) {
+  id : int @id
+  // config fields...
+}
 ```
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Name` | `string` | — | Settings identifier. Required. |
-| `SerializerType` | `Type?` | `null` | Custom serializer type. |
-| `LoaderType` | `Type?` | `null` | Custom loader type. |
+Register a custom loader with `DbContextBuilder<T>.WithSettingsLoaderFactory(...)`.
+There is no `[Settings]` attribute.
 
 ### `type_id` — Stable Runtime Type ID
 
@@ -1163,19 +1165,17 @@ table Player(plural: Players, persistence: local, type_id: 42) {
 |----------|------|-------------|
 | `type_id` | `ushort` | Type identifier (must be > 0). |
 
-### `[PgoMode]` — Profile-Guided Optimization
+### Profile-Guided Optimization (PGO)
 
-Configures PGO mode for compiled queries.
+PGO is not configured with a C# attribute — there is no `[PgoMode]` attribute or
+`PgoMode` enum. It is driven through the codegen build and CLI:
 
-```csharp
-[PgoMode(PgoMode.Use, profilePath: "profile.json")]
-public class GameDbContext : DbContext { ... }
-```
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Mode` | `PgoMode` | `None` | `None`, `Collect` (runtime instrumentation), `Use` (apply pre-collected stats). |
-| `ProfilePath` | `string?` | `null` | Path to profile JSON when `Mode = Use`. |
+1. **Collect** — pass `--pgo` to `ConjureDB.CodeGen.Manual` to enable
+   instrumentation, run representative workloads, then export with
+   `context.SaveProfile("profile.json")`.
+2. **Apply** — rebuild with the MSBuild property `ConjureDBPgoMode=use` plus
+   `--profile=<path>` (or a `*.pgo.json` AdditionalFile) so the compiler reads the
+   collected statistics during planning.
 
 ### `@relation` — Reference Injection
 
@@ -1200,35 +1200,13 @@ table Player(plural: Players, persistence: local) {
 }
 ```
 
-### `[FixedArray]` / `[FixedBlob]` / `[FixedLength]` — Fixed-Size Collections
+### Compiler Plan Traces
 
-Control fixed-size serialization for arrays, byte blobs, and collections respectively.
-
-```csharp
-[FixedArray(10)]
-public int[] Scores { get; set; }
-
-[FixedBlob(256)]
-public byte[] Avatar { get; set; }
-
-[FixedLength(5)]
-public List<string> Tags { get; set; }
-```
-
-### `[DebugGeneration]` — Compiler Debug Traces
-
-Enables detailed compiler debugging output during code generation.
-
-```text
-query HighLevelPlayers() -> Player[] = from Players | filter Level > 10
-```
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `TraceLevel` | `DebugTraceLevel` | `Normal` | `None`, `Summary`, `Normal`, `Verbose` |
-| `OutputPath` | `string?` | `null` | Trace output file; `null` = console |
-| `Stages` | `string?` | `null` | Comma-separated stages: Parsing, Binding, Validation, Optimization, Planning, Emission |
-| `TracePoints` | `string?` | `null` | Fine-grained trace point control |
+There is no `[DebugGeneration]` attribute and no user-selectable trace level. To
+inspect the compiler's selected plan for a generated query, run codegen with the
+CLI pair `--dump-plan=<method> --dump-plan-report=<path>` on
+`ConjureDB.CodeGen.Manual`; this writes a Summary-level plan-diagnosis report for
+the named query method.
 
 ---
 

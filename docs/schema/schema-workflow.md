@@ -94,14 +94,12 @@ Example output on success:
 
 ```
 Found 3 .conjure file(s)
-  Parsing types.conjure...
-  Parsing player.conjure...
-  Parsing inventory.conjure...
-Resolving imports...
-Merging declarations...
-Binding...
-Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s).
+Validation succeeded: 3 table(s), 3 enum(s), 1 type(s), 6 query/queries, 5 mutation(s), 0 command(s).
 ```
+
+Stage headers (`Resolving imports...`, `Merging declarations...`, `Binding...`)
+only appear when a stage emits diagnostics — a clean validate prints just the
+file count and the success line.
 
 ### 3. Generate
 
@@ -135,11 +133,19 @@ Use `**/*.cs`, not `**/*.g.cs`, because schema emission currently produces a
 mixed surface: metadata/context files are `.g.cs`, while repository interfaces
 such as `I<Entity>Queries.cs` and `I<Entity>Mutations.cs` are plain `.cs`.
 
-Then run the ConjureDB CodeGen for the executable query/mutation layer:
+The Schema CLI emits lightweight stubs (entity, interface, and context
+definitions). To generate the full executable query/mutation layer, run the
+ConjureDB CodeGen — the compiler-backed generator that reads the same `.conjure`
+schema source directly (it re-emits the entities and DbContext alongside the
+runtime layer). Point it at the schema source directory, not the CLI output:
 
 ```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- ./Generated ./GeneratedRuntime
+dotnet run --project ConjureDB.CodeGen.Manual -- ./schemas ./GeneratedRuntime
 ```
+
+Schema CLI and CodeGen.Manual are two front-ends over the same schema source,
+not a chained pipeline — CodeGen.Manual does not consume the CLI's `./Generated`
+output.
 
 ### 5. Iterate
 
@@ -323,8 +329,8 @@ import.
 **Duplicate declarations across files**
 
 If two files define `enum Rarity { ... }`, the merge stage reports
-`SCH3001: Duplicate enum Rarity across files`. Move shared types to a single
-file and import it.
+`SCH3001: Duplicate enum 'Rarity' declared in 'inventory.conjure'; first declared in 'types.conjure'.`
+Move shared types to a single file and import it.
 
 **Unknown type references**
 

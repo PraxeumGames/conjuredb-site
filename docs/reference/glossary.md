@@ -12,7 +12,7 @@ A function that computes a single result from a set of input rows. ConjureDB sup
 
 ### AggregationIndex
 
-A secondary index that maintains running scalar aggregates (Sum, Count, Avg, Min, Max) over an entire table in O(1) time. Updates are applied incrementally on each commit, avoiding full-table scans for global metrics.
+A secondary index (`kind: aggregation`) that maintains per-group (per-key) running scalar aggregates (Sum, Count, Avg, Min, Max), O(1) per key. Updates are applied incrementally on each commit. Whole-table/global aggregation is a distinct, runtime-only `GlobalAggregationIndex` that is not declarable via `@index kind:`.
 
 **See also:** [Indexing — Aggregation](/docs/schema/indexing#aggregationindex)
 
@@ -66,9 +66,9 @@ An index defined over multiple columns (a composite key). Declared via the table
 
 ### CrossTableArrayIndex
 
-A dense-array secondary index that maintains O(1) foreign-key lookups across tables. Indexed by parent entity ID, it provides direct array access to related child entities without hash-map overhead.
+`IndexType.CrossTableArray` is a reserved, unimplemented enum value: there is no runtime index class and no schema `kind:` keyword for it, so it cannot be declared. Foreign-key access is served by [LookupIndex](#lookupindex) plus generated [Navigation Editors](#navigation-editor).
 
-**See also:** [Indexing — CrossTableArray](/docs/schema/indexing#crosstablearrayindex)
+**See also:** [LookupIndex](#lookupindex), [Navigation Editors](/docs/advanced/navigation-editors)
 
 ### CTE (Common Table Expression)
 
@@ -84,13 +84,13 @@ The central entry point for a ConjureDB database instance. `DbContext` is an abs
 
 ### DbContextBuilder
 
-A fluent API for configuring and constructing a `DbContext` instance. Allows setting persistence options, encryption, memory budgets, profiling, and migration registrations before calling `Build()`.
+A fluent API for configuring and constructing a `DbContext` instance. Allows setting persistence options, encryption, memory budgets, and migration registrations before calling `Build()`.
 
 **See also:** [Database Engine](/docs/engine/database-engine)
 
 ### DbSet\<T\>
 
-A typed collection representing a single entity table within a `DbContext`. Provides CRUD operations (`Add`, `Update`, `Remove`), primary-key lookup, secondary index access, change subscriptions, and `IEnumerable<T>` iteration over all entities.
+A typed collection representing a single entity table within a `DbContext`. Provides CRUD operations (`Add`, `Update`, `Remove`), primary-key lookup, secondary index access, change subscriptions, and full-collection access via `All()` (returns `ReadOnlyMemory<T>`).
 
 **See also:** [Database Engine — DbSet](/docs/engine/database-engine#core-types)
 
@@ -205,7 +205,7 @@ A data structure that provides sub-linear access paths (O(1) or O(log n)) to ent
 
 ### JOIN (Transform)
 
-A pipeline transform that combines rows from two tables based on a join predicate. ConjureDB supports `inner`, `left`, `right`, `semi`, and `anti` join types. The syntax is `join Table alias (predicate)` with an optional join-type prefix. The optimizer selects join strategies (hash, nested-loop, index) based on available indexes and PGO data.
+A pipeline transform that combines rows from two tables based on a join predicate. ConjureDB supports `inner`, `left`, `right`, `full`, `semi`, and `anti` join types. The syntax is `join Table alias (predicate)` with an optional join-type prefix. The optimizer selects join strategies (hash, nested-loop, index) based on available indexes and PGO data.
 
 **See also:** [Query Language — JOIN](/docs/query-language/reference#join)
 
@@ -261,7 +261,7 @@ A generated `ref struct` type that provides zero-allocation, type-safe access to
 
 ### NoAlloc
 
-A variant of compiled query or mutation that guarantees zero heap allocations during execution. NoAlloc methods use `Span<T>`, `stackalloc`, and `ref struct` patterns to keep all data on the stack. Indicated by `NoAlloc` return types in repository interfaces.
+A variant of compiled query or mutation that guarantees zero heap allocations during execution. NoAlloc methods use `Span<T>`, `stackalloc`, and `ref struct` patterns to keep all data on the stack. `NoAlloc` is a method-name suffix (e.g. `GetTopPlayersNoAlloc`) on the generated entity set, returning `DisposableQueryResult<T>`; it is generated on the concrete set, not declared on the `I<Entity>Queries` interface.
 
 **See also:** [Compiled Queries — NoAlloc Variants](/docs/query-language/compiled-queries#noalloc-variants)
 
@@ -279,7 +279,7 @@ A query or mutation parameter, prefixed with `@` in the DSL. Parameters are decl
 
 ### PGO (Profile-Guided Optimization)
 
-A two-phase optimization strategy where runtime statistics (collected via `[PgoMode(PgoMode.Collect)]`) are exported as a JSON profile and fed back into the compiler. PGO data guides strategy selection for joins, aggregations, sorting, buffer sizing, and operator fusion — producing code optimized for the observed workload.
+A two-phase optimization strategy where runtime statistics (collected by building codegen with the `--pgo` flag, which sets the MSBuild property `ConjureDBPgoMode=Collect`) are exported as a JSON profile and fed back into the compiler. PGO data guides strategy selection for joins, aggregations, sorting, buffer sizing, and operator fusion — producing code optimized for the observed workload.
 
 **See also:** [Profile-Guided Optimization](/docs/performance/pgo)
 
@@ -337,7 +337,7 @@ An explicit version number assigned to a table via the `schema_version: N` table
 
 ### Secondary Index
 
-Any index beyond the automatic `PrimaryIndex<T>`. Secondary indexes use a deferred-commit consistency model: they are maintained by the background worker thread after each transaction commit. Types include Lookup, Unique, SortedSet, SortedList, RangeLookup, GroupedSorted, Aggregation, UniversalAggregation, and CrossTableArray.
+Any index beyond the automatic `PrimaryIndex<T>`. Secondary indexes use a deferred-commit consistency model: they are maintained by the background worker thread after each transaction commit. Types include Lookup, Unique, SortedSet, SortedList, RangeLookup, GroupedSorted, Aggregation, UniversalAggregation, and SpatialGrid.
 
 **See also:** [Indexing — Overview](/docs/schema/indexing#overview)
 
@@ -407,7 +407,7 @@ A high-performance NoSQL in-memory database designed for game clients, embedded 
 
 ### UniqueIndex
 
-A secondary index that enforces a uniqueness constraint on a column or composite key. Backed by `Dictionary<TKey, int>` with O(1) lookup. Insert or update operations that violate uniqueness produce an error at commit time.
+A secondary index that enforces a uniqueness constraint on a column or composite key. Backed by a custom key→id hash map (`NullableKeyDictionary<TKey, int>`) with O(1) lookup. Insert or update operations that violate uniqueness produce an error at commit time.
 
 **See also:** [Indexing — UniqueIndex](/docs/schema/indexing#uniqueindex)
 

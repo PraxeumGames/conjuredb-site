@@ -67,7 +67,11 @@ ConjureDB supports different durability/performance tradeoffs:
 |---------|--------------|----------|
 | `FastMobile` | Non-critical game state where low latency matters most. | Journal and snapshot policies may optimize throughput, but corruption policies must remain explicit. |
 | `CriticalState` | Purchases, currency, inventory, entitlement state. | Commit must use fail-fast recovery and durable flush semantics. |
-| `ForceFlushEveryCommit` | Maximum local durability for critical flows. | Each commit waits for durable journal flush and cannot use permissive corruption handling. |
+| `ForceFlushEveryCommit` | Explicit alias of `CriticalState` for critical flows. | Each commit waits for durable journal flush and cannot use permissive corruption handling. |
+
+`ForceFlushEveryCommit` is an explicit alias of `CriticalState` — identical
+semantics (every commit forces a durable journal flush and requires
+`JournalCorruptionPolicy.Fail`), not a stronger durability tier.
 
 Critical durability profiles must fail fast on persistence corruption. They must
 not silently stop replay, skip fsync failures, or continue with ambiguous state.
