@@ -152,20 +152,31 @@ from Users
 
 Writing filters early still makes intent clearer, so prefer the second form for readability — just don't expect it to change the plan.
 
-### Use Projections to Reduce Data
+### Reading Entities: Prefer the Whole Entity Over a Projection
 
-Select only the columns you need. The compiler eliminates reads of unused fields, reducing memory bandwidth:
+This is the opposite of the disk/columnar-database rule. Entities are stored as **immutable** structs, so reading one back *as is* is the cheapest possible read: the compiler hands you the stored struct **by reference** — a zero-copy `ReadOnlySpan<T>` (`All().Span`), a `ref readonly` (`TryFindByIdRef` / `FindByIdRefUnchecked`), a `QueryDirectByRef` enumerable, or a `ForEach<TConsumer>(in T)` callback — with no per-row copy or construction.
+
+A `select` that returns a subset of columns is **not** free, and for the "give me these rows" case it is usually *slower*. The projected shape is not a type that exists in storage, so the compiler must **materialize a new row object for every result** (`new SomeProjectedRow { ... }` per row) — adding a construction per row and forfeiting the by-ref / zero-copy access to the stored entity.
 
 ```dsl
-# ❌ BAD — reads all 15 columns per entity
+# ✅ GOOD for reading entities — returns the stored struct by-ref, zero per-row copy
 from Players
 | filter GuildId == @guildId
 
-# ✅ GOOD — reads only the 3 columns needed
+# ⚠️ Materializes a new projected row per result — no faster (often slower) than reading the whole entity
 from Players
 | filter GuildId == @guildId
 | select Id, Name, Score
 ```
+
+Reach for `select` to **shape the result contract**, not to shrink it for speed:
+
+- compute derived columns (`select Name, Score * 2 as DoubleScore`),
+- rename or reorder columns for the caller,
+- combine columns across joined tables (where there is no single stored entity to return),
+- expose a deliberately narrow DTO as a public API surface.
+
+Column pruning *does* still cut work for **intermediate** operators: a `join`, `sort`, or `window` that would otherwise carry wide rows only carries the columns downstream stages actually need, so projecting inside a large pipeline can help. What does **not** hold here is the "fewer columns → less to read → faster" intuition for the final entity read — with resident, immutable, by-ref entities there is nothing to save, and building a new row shape costs more.
 
 ### Use TAKE to Limit Results
 

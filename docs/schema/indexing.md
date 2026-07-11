@@ -729,17 +729,18 @@ table Player {
 
 ## Covering Indexes and Index-Only Scans
 
-When a query only accesses columns that are part of the index key plus `IncludedColumns`, the optimizer can perform an **index-only scan** — reading data directly from the index without dereferencing the main table. This is significant I/O savings on mobile devices.
+An `included: [...]` list duplicates those columns into the secondary index so that a query touching only the index key plus the included columns *can* be answered from the index without a separate lookup into the primary store.
 
 ```
 table Player {
   GuildId: int @index(name: "PlayersByGuild", kind: lookup, included: [Name, Level])
 }
 
-// This query can use an index-only scan:
 // from Players | filter GuildId == 42 | select Name, Level
-// No table dereference needed — Name and Level are in the index.
+// Name and Level live in the index, so no separate primary-store lookup is needed.
 ```
+
+Unlike a disk-based database, this is **not** an I/O optimization on ConjureDB. Entities are immutable structs resident in RAM, and the "table dereference" you avoid is an O(1) index into a dense array — not a page fetch — so there is no read I/O to save (the only disk I/O is snapshot/journal *writes*). The `included` columns also **cost extra memory** — they are copied into the index, and memory is the scarce resource for an in-memory database — and the projection still materializes a new row either way. The planner currently costs an index-only scan the **same** as a full/dense scan (a native covered-row read path is not yet in place), so treat `included` as a niche memory/shaping tool, not a read-throughput optimization.
 
 ---
 
@@ -774,7 +775,7 @@ The `ScanStrategyPlanner` generates multiple physical alternatives for every tab
 | `SecondaryIndexScan` | Hash lookup via LookupIndex | `filter Column == value` |
 | `SortedSetScan` | Ordered iteration via SortedSetIndex | `sort Column` without filter |
 | `IndexedScan` | Range scan via SortedSetIndex | `filter Column >= X and Column <= Y` |
-| `IndexOnlyScan` | Covering index scan (no table dereference) | Query uses only indexed + included columns |
+| `IndexOnlyScan` | Covering scan over indexed + included columns (currently cost-neutral vs full scan) | Query uses only indexed + included columns |
 
 ### Filter Index Selection
 
