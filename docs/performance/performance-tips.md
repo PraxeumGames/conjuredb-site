@@ -247,7 +247,10 @@ query GetGuildTotalScore(guildId: int) -> long {
 
 // ✅ GOOD — per-key aggregation index on Score, grouped by GuildId, O(1) read
 struct table Player(plural: Players, persistence: local) {
-    GuildId: int @index(name: "ScoreByGuild", kind: aggregation, value: Score)
+    GuildId: int
+    Score: int
+
+    @@index(fields: [GuildId], name: "ScoreByGuild", kind: aggregation, value: Score)
 }
 // O(1) per guild: context.Players.ScoreByGuild.GetSum(guildId)
 ```
@@ -257,7 +260,10 @@ For multiple metrics per group (sum + average + count together), use `universal_
 ```text
 // O(1) per guild — no GROUP BY scan required
 struct table Player(plural: Players, persistence: local) {
-    GuildId: int @index(name: "GuildScoreStats", kind: universal_aggregation, value: Score)
+    GuildId: int
+    Score: int
+
+    @@index(fields: [GuildId], name: "GuildScoreStats", kind: universal_aggregation, value: Score)
 }
 ```
 
@@ -588,8 +594,8 @@ ConjureDB automatically defers non-critical I/O operations (periodic snapshots, 
 | String concatenation in filters | GC pressure from temporary strings | Use `@parameters` in DSL queries |
 | Unbounded queries (no `take`) | Memory spike, O(n log n) sort | Always add `take N` to limit results |
 | Missing indexes on join keys | O(n × m) nested loop join | Add `LookupIndex` on foreign key columns |
-| Updating inside enumeration | "Collection was modified" exception | Collect IDs first, then mutate in separate loop |
-| Commit per mutation | Worker thread overhead per commit | Batch mutations, commit once per frame |
+| Row-by-row `Update()` in a loop | Per-call overhead; a `DbSet` isn't even enumerable | Use a set-based `mutation` (`update … \| where … \| set …`), or a batch `Update(list)` reading via `All().Span` |
+| Commit per mutation | Worker thread overhead per commit | Batch the writes (`Update(list)` / `Add(list)`) and `Commit()` once per frame |
 | Ignoring compiler warnings | Undetected full scans, cartesian products | Fix every `UM7xxx` warning before shipping |
 | Over-indexing (index every column) | Wasted memory, slower writes | Only index columns used in filters/sorts/joins |
 | Scanning for aggregates | O(n) per frame for sum/count | Use `AggregationIndex` or `UniversalAggregationIndex` |
@@ -597,31 +603,41 @@ ConjureDB automatically defers non-critical I/O operations (periodic snapshots, 
 
 ### Anti-Pattern Deep Dives
 
-#### Updating Inside Enumeration
+#### Updating Many Rows
+
+Don't loop and update row-by-row. (Iterating a `DbSet` directly doesn't even compile — it is not `IEnumerable<T>`; read via `All().Span`. And a per-row `Update()` in a loop pays per-call overhead.)
+
+The idiomatic way to change many rows is a **declarative set-based mutation**: declare it once in your schema and the engine updates every matching row in bulk — no manual enumeration, no "collection was modified" hazard, no risk of wiping unset columns:
+
+```
+// .conjure schema — a mutation is the recommended way to change many rows
+mutation BumpHighLevelScores() -> int =
+    update Player
+    | where Level > 50
+    | set Score = Score + 100
+```
 
 ```csharp
-// ❌ BAD — modifying collection during iteration
-foreach (var player in context.Players)
-{
-    if (player.Level > 50)
-        context.Players.Update(new Player { Id = player.Id, Score = player.Score + 100 });
-}
+// One call, one bulk update; returns the number of rows changed
+context.BeginTransaction();
+int changed = context.Players.BumpHighLevelScores();
+context.Commit();
+```
 
-// ✅ GOOD — collect IDs first, then mutate
-var toUpdate = new List<int>();
-var allPlayers = context.Players.All().Span;
-for (int i = 0; i < allPlayers.Length; i++)
+When the new values must be computed in C#, collect them and apply a **batch update** in a single call (the `Update(list)` overload is more efficient than one `Update()` per row). Read via `All().Span`, and copy the whole entity with `with` so you don't zero out the columns you didn't set:
+
+```csharp
+var updates = new List<Player>();
+var players = context.Players.All().Span;
+for (int i = 0; i < players.Length; i++)
 {
-    if (allPlayers[i].Level > 50)
-        toUpdate.Add(allPlayers[i].Id);
+    ref readonly var p = ref players[i];
+    if (p.Level > 50)
+        updates.Add(p with { Score = p.Score + 100 }); // copy all fields, change one
 }
 
 context.BeginTransaction();
-foreach (var id in toUpdate)
-{
-    var player = context.Players.FindById(id);
-    context.Players.Update(new Player { Id = id, Score = player.Score + 100 });
-}
+context.Players.Update(updates); // bulk update — one call, not one per row
 context.Commit();
 ```
 
@@ -688,23 +704,9 @@ Key things to look for:
 - **`Sort(strategy=NoOp)`** — good, sort eliminated (pre-sorted data)
 - **`cost=0`** — operator is free (eliminated by optimizer)
 
-### Stopwatch Measurement
+### Measure With BenchmarkDotNet
 
-For quick benchmarking during development:
-
-```csharp
-var sw = System.Diagnostics.Stopwatch.StartNew();
-for (int i = 0; i < 10_000; i++)
-{
-    _ = context.Players.GetTopPlayers(minLevel: 10, n: 10);
-}
-sw.Stop();
-Console.WriteLine($"Avg: {sw.Elapsed.TotalMicroseconds / 10_000:F1} µs/query");
-```
-
-### BenchmarkDotNet Integration
-
-For rigorous benchmarking with statistical significance:
+Always measure query performance with **BenchmarkDotNet** — never an ad-hoc `Stopwatch` loop. Hand-rolled `Stopwatch` timing is unreliable for the sub-millisecond work these queries do: it has no warmup/JIT isolation, is polluted by GC and background noise, applies no statistical treatment, and routinely reports figures that are off by an order of magnitude. BenchmarkDotNet handles warmup, isolation, and variance for you:
 
 ```csharp
 [MemoryDiagnoser]
@@ -755,11 +757,16 @@ dotnet run -c Release --project ConjureDB.Benchmarks
 ```text
 struct table InventoryItem(plural: Inventory, persistence: local, capacity: 50000) {
     Id: int @id
-    PlayerId: int @index(name: "ByPlayer", kind: lookup)
-    Rarity: int @index(name: "ByPlayerAndRarity", kind: grouped_sorted, keys: [PlayerId], range: Rarity)
-    Quantity: int @index(name: "ItemCount", kind: universal_aggregation, keys: [PlayerId], value: Quantity)
+    PlayerId: int
+    Rarity: int
+    Quantity: int
     ItemTemplateId: int
     EnchantLevel: int
+
+    // Indexes declared together at the bottom read more clearly than inline field annotations
+    @@index(fields: [PlayerId], name: "ByPlayer", kind: lookup)
+    @@index(fields: [PlayerId], name: "ByPlayerAndRarity", kind: grouped_sorted, range: Rarity)
+    @@index(fields: [PlayerId], name: "ItemCount", kind: universal_aggregation, value: Quantity)
 }
 ```
 
@@ -783,9 +790,9 @@ query GetRarestItems(pid: int, n: int) -> InventoryItem[] {
 ```
 
 **Performance characteristics:**
-- Player items lookup: O(1) via `LookupIndex` → microseconds
-- Item count: O(1) via `UniversalAggregationIndex` → nanoseconds
-- Rarest items: O(1) group access via `GroupedSortedIndex` → microseconds
+- Player items lookup: O(1) via the `lookup` index → microseconds
+- Item count: O(1) via the `universal_aggregation` index → nanoseconds
+- Rarest items: O(1) group access via the `grouped_sorted` index → microseconds
 
 ### Leaderboard
 
@@ -795,9 +802,12 @@ query GetRarestItems(pid: int, n: int) -> InventoryItem[] {
 struct table Player(plural: Players, persistence: local, capacity: 100000) {
     Id: int @id
     Name: string
-    Score: int @index(name: "Score_Sorted", kind: sorted_set)
-    GuildId: int @index(name: "ScoresByGuild", kind: grouped_sorted, keys: [GuildId], range: Score)
-        @index(name: "GuildTotalScore", kind: universal_aggregation, keys: [GuildId], value: Score)
+    Score: int
+    GuildId: int
+
+    @@index(fields: [Score], name: "Score_Sorted", kind: sorted_set)
+    @@index(fields: [GuildId], name: "ScoresByGuild", kind: grouped_sorted, range: Score)
+    @@index(fields: [GuildId], name: "GuildTotalScore", kind: universal_aggregation, value: Score)
 }
 ```
 
@@ -845,8 +855,10 @@ Game config (item templates, level requirements, skill trees) is loaded once and
 struct table ItemTemplate(plural: ItemTemplates, persistence: none, capacity: 5000) {
     Id: int @id
     Name: string
-    Rarity: int @index(name: "ByRarity", kind: sorted_set)
+    Rarity: int
     BasePrice: int
+
+    @@index(fields: [Rarity], name: "ByRarity", kind: sorted_set)
 }
 ```
 
@@ -881,11 +893,10 @@ foreach (var update in networkUpdates)
     context.Commit(); // triggers worker sync each time
 }
 
-// ✅ GOOD — single commit per network tick
+// ✅ GOOD — one bulk update + one commit per network tick
 context.BeginTransaction();
-foreach (var update in networkUpdates)
-    context.Players.Update(update);
-context.Commit(); // one worker sync for all updates
+context.Players.Update(networkUpdates); // batch overload (Player[] / List<Player>) — one call, not one per row
+context.Commit();                       // one worker sync for the whole batch
 ```
 
 **Delta subscriptions for state sync:**
