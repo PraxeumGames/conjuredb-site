@@ -702,6 +702,10 @@ catch
 
 ### Pattern 5: ECS Multi-System Reads
 
+This pattern is about *persistent* tables read from gameplay code. For per-frame
+simulation state see [Ephemeral Tables and Frame Systems](/docs/advanced/ephemeral-tables),
+where systems declare their access and the scheduler orders them.
+
 In an ECS architecture, multiple systems can read concurrently. Only one system
 should write per frame:
 

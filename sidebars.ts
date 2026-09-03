@@ -54,6 +54,7 @@ const sidebars: SidebarsConfig = {
       label: 'Advanced Features',
       items: [
         'advanced/reactive-queries',
+        'advanced/ephemeral-tables',
         'advanced/procedural-generation',
         'advanced/navigation-editors',
       ],
@@ -72,12 +73,13 @@ const sidebars: SidebarsConfig = {
         'examples/inventory',
         'examples/reporting',
         'examples/quests',
+        'examples/arena-ecs',
       ],
     },
     {
       type: 'category',
       label: 'Reference',
-      items: ['reference/error-codes', 'reference/glossary', 'reference/troubleshooting'],
+      items: ['reference/error-codes', 'reference/ephemeral-tables-reference', 'reference/glossary', 'reference/troubleshooting'],
     },
   ],
 };

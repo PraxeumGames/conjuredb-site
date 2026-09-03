@@ -787,6 +787,44 @@ View and materialized-view fields are bound in a complete typed relation
 catalog before projection validation, so references to later declarations are
 validated the same way as references to earlier declarations.
 
+### 6.5b  Ephemeral Tables, Events, Singletons, Domains, And Systems
+
+Frame-local storage has three declarations — `ephemeral table`, `event table`,
+`singleton table` — grouped by `entity domain` and driven by top-level `system`
+declarations:
+
+```prql
+ephemeral table Body(plural: Bodies, capacity: 100000) {
+    Id: int @id
+    X: float
+    Y: float
+    Vx: float
+    Vy: float
+}
+
+event table HitEvent(plural: HitEvents, lifetime: next_frame) {
+    TargetId: int
+    Damage: int
+}
+
+singleton table ArenaClock {
+    Tick: long
+}
+
+entity domain Actors { Unit, Body }
+
+system IntegrateBodies(phase: fixed_update) {
+    update Body b
+    | set b.X += b.Vx * @dt, b.Y += b.Vy * @dt
+}
+```
+
+`ephemeral table` requires one non-nullable `int @id`; `event table` is keyless and takes
+`lifetime: frame` or `lifetime: next_frame`; `singleton table` has exactly one row.
+Persistence options, `type_id`, `@index` and non-blittable column types are rejected
+(`UMEP001`…`UMEP015`). See [Ephemeral Tables and Frame Systems](/docs/advanced/ephemeral-tables)
+and the [reference](/docs/reference/ephemeral-tables-reference).
+
 ### 6.6  Diagnostics
 
 | Code | Condition |

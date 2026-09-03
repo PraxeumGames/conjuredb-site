@@ -911,7 +911,7 @@ A: Yes. ConjureDB is designed for IL2CPP from the ground up. Use `DbContextBuild
 ---
 
 **Q: Can I use ConjureDB in a Unity ECS (DOTS)?**
-A: ConjureDB is a separate in-memory database, not an ECS replacement. You can use it alongside DOTS for persistent game data (inventory, progression, configuration) while DOTS handles simulation. Access ConjureDB from the main thread and copy results into ECS components as needed.
+A: Two answers. Alongside DOTS: use ConjureDB for persistent game data (inventory, progression, configuration) from the main thread and copy results into ECS components. Instead of an ECS: [ephemeral tables](/docs/advanced/ephemeral-tables) give frame state its own chunked storage, frame systems and compiled queries in the same schema — on .NET 8 hosts today; Unity support arrives with the netstandard2.1 emission profile that is in progress.
 
 ---
 
