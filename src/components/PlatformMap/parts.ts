@@ -15,7 +15,7 @@ export type Part = {
   status: Status;
   also?: {status: Status; note: string}; // a second badge
   body: string;
-  items?: [PartItem, PartItem, PartItem];
+  items?: PartItem[];
   links?: {label: string; to: string}[];
 };
 
@@ -39,11 +39,13 @@ export const PARTS: Part[] = [
       'Typed diagnostics instead of runtime failures',
       'Explainable plans — read what it picked',
       'Generated code you can open and read',
+      'Profile-guided plans from real sessions and replays',
     ],
     links: [
       {label: 'Getting started', to: '/docs/getting-started'},
       {label: 'Schema language', to: '/docs/schema/schema-language'},
       {label: 'How it works', to: '/how-it-works'},
+      {label: 'PGO', to: '/docs/performance/pgo'},
     ],
   },
   {

@@ -106,6 +106,13 @@ function Optimizer(): ReactNode {
           choice is inspectable. The plan is output you can read; the strategy names are real
           and finite; nothing is hidden.
         </p>
+        <p className="cdb-lead" style={{marginTop: '1rem'}}>
+          The optimizer can also read a profile of real sessions — including deterministic
+          replays — so cardinality estimates, plan choices and buffer sizes come from how the game
+          is actually played, not from guesses. The profile is governed and fail-closed: a stale,
+          unapproved or schema-mismatched profile is rejected, never silently used.{' '}
+          <Link to="/docs/performance/pgo">Profile-guided optimization →</Link>
+        </p>
         <div style={{maxWidth: '42rem', margin: '1.6rem auto 0'}}>
           <CodeWindow tabs={PLAN_TABS} />
           <p className={styles.codeCaption}>
