@@ -3,7 +3,7 @@ import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import PlatformMap from '@site/src/components/PlatformMap';
-import {GROUPS, PARTS, partsIn, type Part} from '@site/src/components/PlatformMap/parts';
+import {GROUPS, partsIn, type Part} from '@site/src/components/PlatformMap/parts';
 import StatusBadge, {STATUS_LABEL, type Status} from '@site/src/components/StatusBadge';
 import mk from './marketing.module.css';
 import styles from './platform.module.css';
@@ -38,11 +38,11 @@ function Header(): ReactNode {
   );
 }
 
-function PartCard({part, wide}: {part: Part; wide?: boolean}): ReactNode {
+function PartCard({part}: {part: Part}): ReactNode {
   useBrokenLinks().collectAnchor(part.id);
   const links = part.status === 'shipped' ? part.links : undefined;
   return (
-    <article id={part.id} className={`cdb-card ${styles.part} ${wide ? styles.partWide : ''}`}>
+    <article id={part.id} className={`cdb-card ${styles.part}`}>
       <div className={styles.partHead}>
         <h3>{part.name}</h3>
         <div className={styles.badges}>
@@ -85,12 +85,11 @@ function PartCard({part, wide}: {part: Part; wide?: boolean}): ReactNode {
 }
 
 function Parts(): ReactNode {
-  const compiler = PARTS.find((p) => p.group === 'compiler')!;
+  const sections = [{id: 'schema' as const, title: 'Schema'}, ...GROUPS];
   return (
     <section className={`cdb-section ${styles.partsSection}`}>
       <div className="container">
-        <PartCard part={compiler} wide />
-        {GROUPS.map((g) => (
+        {sections.map((g) => (
           <div key={g.id} className={styles.group}>
             <h2 className={styles.groupTitle}>{g.title}</h2>
             <div className={styles.grid}>

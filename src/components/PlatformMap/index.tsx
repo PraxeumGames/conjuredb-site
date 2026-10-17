@@ -2,11 +2,12 @@ import {useEffect, useRef, useState, type ReactNode} from 'react';
 import clsx from 'clsx';
 import {DeviceFrame, ServerFrame} from '@site/src/components/Glyphs';
 import {StatusDot} from '@site/src/components/StatusBadge';
-import {GROUPS, PARTS, partsIn, type GroupId} from './parts';
+import {GROUPS, partsIn, type GroupId} from './parts';
 import styles from './styles.module.css';
 
-// The platform as a diagram: the schema in the centre, four groups around it,
-// each part a pill that jumps to its card. A static CSS grid; the client and
+// The platform as a diagram: the schema in the centre (its three parts as
+// pills), four groups around it — Client, Server, Liveops, Services — each
+// part a pill that jumps to its card. A static CSS grid; the client and
 // server groups sit on the shared DeviceFrame / ServerFrame silhouettes.
 
 /** Pixel size of an element, so a backdrop SVG can match it without distortion. */
@@ -56,7 +57,7 @@ function Backdrop({kind}: {kind: 'device' | 'server'}) {
   );
 }
 
-function Group({id, title}: {id: Exclude<GroupId, 'compiler'>; title: string}) {
+function Group({id, title}: {id: Exclude<GroupId, 'schema'>; title: string}) {
   const framed = id === 'client' || id === 'server';
   return (
     <div className={clsx(styles.group, styles[id], framed && styles.framed)}>
@@ -69,11 +70,10 @@ function Group({id, title}: {id: Exclude<GroupId, 'compiler'>; title: string}) {
 }
 
 export default function PlatformMap(): ReactNode {
-  const compiler = PARTS.find((p) => p.group === 'compiler')!;
   return (
     <div className={styles.map}>
       <div className={styles.center}>
-        <a className={styles.schema} href={`#${compiler.id}`}>
+        <div className={styles.schema} role="group" aria-label="Schema">
           <span className={styles.schemaName}>game.conjure</span>
           <span className={styles.schemaLines}>
             <span>
@@ -93,11 +93,17 @@ export default function PlatformMap(): ReactNode {
               <b>module</b> BattlePass {'{ … }'}
             </span>
           </span>
-          <span className={styles.schemaFoot}>
-            <StatusDot status={compiler.status} />
-            {compiler.name}
-          </span>
-        </a>
+          <ul className={styles.schemaFoot}>
+            {partsIn('schema').map((p) => (
+              <li key={p.id}>
+                <a className={styles.schemaPill} href={`#${p.id}`}>
+                  <StatusDot status={p.status} />
+                  {p.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
       {GROUPS.map((g) => (
         <Group key={g.id} id={g.id} title={g.title} />

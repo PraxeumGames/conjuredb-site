@@ -13,7 +13,7 @@
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
     'client center server'
-    'delivery center services';
+    'liveops center services';
   column-gap: var(--pm-gap);
   row-gap: var(--pm-row-gap);
   margin: 0 auto;
@@ -62,12 +62,7 @@
   text-decoration: none;
   transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
-.schema:hover {
-  color: var(--cdb-ink);
-  text-decoration: none;
-  transform: translateY(-2px);
-  box-shadow: 0 0 70px -10px rgba(236, 194, 92, 0.5);
-}
+
 .schemaName {
   padding: 0.8rem 1rem 0.7rem;
   font-weight: 600;
@@ -91,13 +86,34 @@
 }
 .schemaFoot {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1rem 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.75rem 1rem 0.85rem;
+  list-style: none;
   border-top: 1px solid rgba(236, 194, 92, 0.28);
   font-family: var(--ifm-font-family-base);
+}
+/* The schema's own parts: same pills as the groups, on the card. */
+.schemaPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+  background: var(--cdb-surface);
+  color: var(--cdb-ink);
   font-size: var(--fs-sm);
-  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.schemaPill:hover {
+  color: var(--cdb-ink);
+  text-decoration: none;
+  border-color: var(--ifm-color-primary);
 }
 
 /* ---- Groups ------------------------------------------------------------- */
@@ -117,8 +133,8 @@
 .server {
   grid-area: server;
 }
-.delivery {
-  grid-area: delivery;
+.liveops {
+  grid-area: liveops;
 }
 .services {
   grid-area: services;
@@ -133,7 +149,7 @@
   border-top: 1px dashed var(--pm-line);
 }
 .client::after,
-.delivery::after {
+.liveops::after {
   right: calc(var(--pm-gap) * -1);
 }
 .server::after,
@@ -213,7 +229,7 @@
   .map {
     grid-template-columns: 1fr;
     grid-template-rows: none;
-    grid-template-areas: 'center' 'client' 'server' 'delivery' 'services';
+    grid-template-areas: 'center' 'client' 'server' 'liveops' 'services';
     row-gap: 1rem;
     max-width: 26rem;
   }

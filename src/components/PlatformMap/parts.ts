@@ -3,7 +3,7 @@ import type {Status} from '@site/src/components/StatusBadge';
 // Every part of the platform and its real status. Single source for the map
 // on /platform and the part cards below it — copy is final, do not add claims.
 
-export type GroupId = 'compiler' | 'client' | 'server' | 'delivery' | 'services';
+export type GroupId = 'schema' | 'client' | 'server' | 'liveops' | 'services';
 
 /** A "what's in it" line; a few link to the page that explains them. */
 export type PartItem = string | {label: string; to: string};
@@ -19,18 +19,20 @@ export type Part = {
   links?: {label: string; to: string}[];
 };
 
-export const GROUPS: {id: Exclude<GroupId, 'compiler'>; title: string}[] = [
+/** The four groups around the schema card, in map and page order. */
+export const GROUPS: {id: Exclude<GroupId, 'schema'>; title: string}[] = [
   {id: 'client', title: 'Client'},
   {id: 'server', title: 'Server'},
-  {id: 'delivery', title: 'Delivery'},
+  {id: 'liveops', title: 'Liveops'},
   {id: 'services', title: 'Services'},
 ];
 
 export const PARTS: Part[] = [
+  // Schema
   {
     id: 'schema-compiler',
     name: 'Schema & compiler',
-    group: 'compiler',
+    group: 'schema',
     status: 'shipped',
     body: 'One .conjure schema declares tables, indexes, queries, commands, mutations, modules and frame systems. The compiler binds, type-checks, plans with a cost-based optimizer and emits plain C# — nothing is parsed or planned on the device.',
     items: [
@@ -44,8 +46,24 @@ export const PARTS: Part[] = [
       {label: 'How it works', to: '/how-it-works'},
     ],
   },
-
-  // Device
+  {
+    id: 'schema-modules',
+    name: 'Schema modules & overrides',
+    group: 'schema',
+    status: 'shipped',
+    body: 'A feature is a module of the schema: its tables, commands and queries in one place. Modules can be overridden by the project that uses them, so a shared feature stays yours to change.',
+    items: ['Module declarations in the schema', 'Overrides without forking', {label: 'Vertical slices across client and server', to: '/architecture'}],
+    links: [{label: 'Schema language', to: '/docs/schema/schema-language'}],
+  },
+  {
+    id: 'ready-made-modules',
+    name: 'Ready-made modules',
+    group: 'schema',
+    status: 'planned',
+    body: 'Battle pass, store, inventory and similar features shipped as schema modules you can read, override and extend — not as a closed SDK.',
+    items: ['Battle pass', 'Store', 'Inventory'],
+  },
+  // Client
   {
     id: 'client-data-layer',
     name: 'Client data layer',
@@ -90,7 +108,6 @@ export const PARTS: Part[] = [
       'Parity tests between execution lanes',
     ],
   },
-
   // Server
   {
     id: 'player-server',
@@ -113,14 +130,6 @@ export const PARTS: Part[] = [
     ],
   },
   {
-    id: 'config-server',
-    name: 'Config server',
-    group: 'server',
-    status: 'prototype',
-    body: 'Game configuration served per version from its own grains, so old clients keep the config they shipped with while new ones get the new one. Validated in the backend prototype.',
-    items: ['Versioned config', 'Same schema types on both sides', 'Rollout without a client release'],
-  },
-  {
     id: 'shared-state',
     name: 'Shared state',
     group: 'server',
@@ -128,43 +137,40 @@ export const PARTS: Part[] = [
     body: 'Clans, leaderboards and other state that belongs to many players, declared in the same schema and served by their own owner on the server.',
     items: ['Declared ownership and access', 'Same queries as player state', 'Schema keyword, not a separate service'],
   },
-
-  // Delivery
+  // Liveops
+  {
+    id: 'liveops',
+    name: 'Liveops',
+    group: 'liveops',
+    status: 'prototype',
+    body: 'Rules, offers and queries delivered after the build and executed identically on the device and on the server. Change the game without a release and without the two sides disagreeing. Validated in a prototype.',
+    items: ['Runs on the interpreter lane', 'Same verification as everything else', 'No second rules engine'],
+  },
+  {
+    id: 'config-server',
+    name: 'Config server',
+    group: 'liveops',
+    status: 'prototype',
+    body: 'Game configuration served per version from its own grains, so old clients keep the config they shipped with while new ones get the new one. Validated in the backend prototype.',
+    items: ['Versioned config', 'Same schema types on both sides', 'Rollout without a client release'],
+  },
   {
     id: 'portable-interpreter',
     name: 'Portable interpreter',
-    group: 'delivery',
+    group: 'liveops',
     status: 'shipped',
     body: 'A no-JIT, allocation-lean bytecode lane for queries that arrive as content after the build. Same semantics as the compiled lane, verified by differential tests, running wherever AOT runs.',
     items: ['No runtime code generation', 'Bit-identical results to compiled code', 'Fast enough for a frame budget'],
     links: [{label: 'Portable interpreter', to: '/docs/query-language/portable-interpreter'}],
   },
   {
-    id: 'liveops',
-    name: 'Liveops',
-    group: 'delivery',
-    status: 'prototype',
-    body: 'Rules, offers and queries delivered after the build and executed identically on the device and on the server. Change the game without a release and without the two sides disagreeing. Validated in a prototype.',
-    items: ['Runs on the interpreter lane', 'Same verification as everything else', 'No second rules engine'],
-  },
-  {
-    id: 'schema-modules',
-    name: 'Schema modules & overrides',
-    group: 'delivery',
-    status: 'shipped',
-    body: 'A feature is a module of the schema: its tables, commands and queries in one place. Modules can be overridden by the project that uses them, so a shared feature stays yours to change.',
-    items: ['Module declarations in the schema', 'Overrides without forking', {label: 'Vertical slices across client and server', to: '/architecture'}],
-    links: [{label: 'Schema language', to: '/docs/schema/schema-language'}],
-  },
-  {
-    id: 'ready-made-modules',
-    name: 'Ready-made modules',
-    group: 'delivery',
+    id: 'ab-groups',
+    name: 'A/B groups',
+    group: 'liveops',
     status: 'planned',
-    body: 'Battle pass, store, inventory and similar features shipped as schema modules you can read, override and extend — not as a closed SDK.',
-    items: ['Battle pass', 'Store', 'Inventory'],
+    body: 'Experiment groups declared in the schema, assigned on the server and read by the same queries the game already runs.',
+    items: ['Declared groups', 'Server assignment', 'No special-case code'],
   },
-
   // Services
   {
     id: 'sign-in',
@@ -181,14 +187,6 @@ export const PARTS: Part[] = [
     status: 'planned',
     body: 'Unity IAP with regional prices; receipts verified on the server and granted through the same compiled commands.',
     items: ['Regional price tables', 'Server-side receipt checks', 'Grants are ordinary commands'],
-  },
-  {
-    id: 'ab-groups',
-    name: 'A/B groups',
-    group: 'services',
-    status: 'planned',
-    body: 'Experiment groups declared in the schema, assigned on the server and read by the same queries the game already runs.',
-    items: ['Declared groups', 'Server assignment', 'No special-case code'],
   },
   {
     id: 'analytics',
