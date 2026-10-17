@@ -56,6 +56,11 @@ type Props = {
   stageClassName?: string;
   /** Columns of the step rail on phones (default 2). */
   narrowColumns?: number;
+  /**
+   * Start as a poster: the last step as a static frame under a ▶ play button,
+   * no autoplay. Play (or picking a step) starts the demo as usual.
+   */
+  poster?: boolean;
   children: ReactNode | ((ctx: DemoContext) => ReactNode);
 };
 
@@ -71,9 +76,11 @@ export default function DemoStage({
   stageMinHeight,
   stageClassName,
   narrowColumns = 2,
+  poster = false,
   children,
 }: Props): ReactNode {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(poster ? steps.length - 1 : 0);
+  const [posterOn, setPosterOn] = useState(poster);
   const [playing, setPlaying] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [seen, setSeen] = useState(false);
@@ -107,7 +114,8 @@ export default function DemoStage({
     const start = () => {
       ios.forEach((io) => io.disconnect());
       setSeen(true);
-      setPlaying(true);
+      // A poster waits for its ▶ play.
+      if (!poster) setPlaying(true);
     };
     const watch = (el: Element, threshold: number) =>
       new IntersectionObserver(([e]) => e.isIntersecting && start(), {threshold});
@@ -131,6 +139,7 @@ export default function DemoStage({
   }, [playing, index, last, go, run]);
 
   const replay = () => {
+    setPosterOn(false);
     setRun((r) => r + 1);
     if (reduced) return;
     setSeen(true);
@@ -138,6 +147,16 @@ export default function DemoStage({
     setPlaying(true);
   };
   const pick = (id: string) => {
+    if (posterOn && !reduced) {
+      // Leaving the poster through a step starts the demo from that step.
+      setPosterOn(false);
+      setSeen(true);
+      setRun((r) => r + 1);
+      go(Math.max(0, steps.findIndex((s) => s.id === id)));
+      setPlaying(true);
+      return;
+    }
+    setPosterOn(false);
     setSeen(true);
     setPlaying(false);
     setRun((r) => r + 1);
@@ -147,13 +166,13 @@ export default function DemoStage({
     if (id === mode) return;
     onMode?.(id);
     setRun((r) => r + 1);
-    if (!reduced && seen) {
+    if (!reduced && seen && !posterOn) {
       go(0);
       setPlaying(true);
     }
   };
 
-  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced};
+  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced && !posterOn};
   const stageStyle = stageMinHeight
     ? ({'--stage-h': stageMinHeight.wide, '--stage-h-narrow': stageMinHeight.narrow} as CSSProperties)
     : undefined;
@@ -168,6 +187,13 @@ export default function DemoStage({
 
       <div className={clsx(styles.stage, stageClassName)} style={stageStyle}>
         {typeof children === 'function' ? children(ctx) : children}
+        {posterOn && !reduced && (
+          <div className={styles.poster}>
+            <button type="button" className={styles.playBtn} onClick={replay} aria-label={`Play: ${title}`}>
+              ▶ play
+            </button>
+          </div>
+        )}
       </div>
 
       {cost && <p className={styles.cost}>{cost}</p>}

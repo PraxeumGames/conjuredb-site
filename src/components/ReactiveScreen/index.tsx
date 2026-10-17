@@ -166,7 +166,7 @@ const view = (r: Row, gold: number) =>
 const ROW_H = 46;
 const ROWS_TOP = DEVICE_STATUS_H + 48;
 
-export default function ReactiveScreen(): ReactNode {
+export default function ReactiveScreen({poster = false}: {poster?: boolean}): ReactNode {
   const [mode, setMode] = useState<Mode>('reactive');
   const wired = mode === 'wired';
   const steps: DemoStep[] = EVENTS.map((label, i) => ({
@@ -179,6 +179,7 @@ export default function ReactiveScreen(): ReactNode {
   return (
     <DemoStage
       title="UI view stays in sync"
+      poster={poster}
       modes={[
         {id: 'reactive', label: 'reactive'},
         {id: 'wired', label: 'hand-wired'},

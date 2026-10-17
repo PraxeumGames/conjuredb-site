@@ -141,7 +141,7 @@ const CLAIMS: Claim[] = [
     ],
     link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
     link2: {label: 'How IVM works →', to: '/how-it-works#ivm'},
-    visual: <ReactiveScreen />,
+    visual: <ReactiveScreen poster />,
     wide: true,
   },
   {
@@ -152,7 +152,7 @@ const CLAIMS: Claim[] = [
       {label: 'persistent + frame joins', status: 'shipped'},
     ],
     link: {label: 'Ephemeral tables →', to: '/docs/advanced/ephemeral-tables'},
-    visual: <MetaCore />,
+    visual: <MetaCore poster />,
     wide: true,
   },
   {
@@ -165,7 +165,7 @@ const CLAIMS: Claim[] = [
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
     link2: {label: 'Vertical slices →', to: '/architecture'},
-    visual: <FeatureSlice />,
+    visual: <FeatureSlice poster />,
     wide: true,
   },
 ];

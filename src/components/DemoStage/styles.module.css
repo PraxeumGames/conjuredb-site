@@ -109,6 +109,42 @@
   }
 }
 
+/* Poster: the last step as a static frame under a play button. */
+.poster {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--cdb-surface) 45%, transparent);
+}
+.playBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 44px;
+  padding: 0 1.4rem;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--ifm-color-primary);
+  color: var(--cdb-on-accent);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 28px -8px rgba(236, 194, 92, 0.6);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.playBtn:hover {
+  transform: scale(1.04);
+}
+.playBtn:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 3px;
+}
+
 /* c. Cost line */
 .root .cost {
   margin: var(--gap-sm) 0 0;
