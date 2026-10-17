@@ -63,13 +63,13 @@ export function CodeWindow({tabs}: {tabs: CodeTab[]}) {
   );
 }
 
-// How-it-works signature: the physical plan, in the planner's real tree format.
+// How-it-works signature: the shape of the plan it picks.
 export const PLAN_TABS: CodeTab[] = [
   {
     name: 'query plan',
     lang: 'explain',
     lines: [
-      <C>// the plan ConjureDB picks for GetTopScorers — inspectable</C>,
+      <C>// illustrative: the plan ConjureDB picks for GetTopScorers</C>,
       <>{' '}</>,
       <><T>TopN</T> (limit=count, order=<V>Score</V> <K>desc</K>)</>,
       <>└── <T>Scan</T> (<T>Player</T>,</>,
@@ -82,7 +82,7 @@ export const PLAN_TABS: CodeTab[] = [
 // The hero's "compile" story: a .conjure source file and the plain C# it emits.
 export const HERO_TABS: CodeTab[] = [
   {
-    name: 'game.conjure',
+    name: 'game.conjure · syntax v3',
     lang: 'ConjureDB schema',
     lines: [
       <><K>table</K> <T>Player</T>(</>,
@@ -107,17 +107,18 @@ export const HERO_TABS: CodeTab[] = [
     lang: 'generated C#',
     lines: [
       <C>// Generated at build time — plain C#, no reflection.</C>,
-      <><K>public</K> <T>IEnumerable</T>&lt;<T>Player</T>&gt; <F>GetTopScorers</F>(<K>int</K> count)</>,
+      <><K>public</K> <T>Player</T>[] <F>GetTopScorers</F>(<K>int</K> count)</>,
       <>{'{'}</>,
       <>    <K>var</K> results = <K>new</K> <T>Player</T>[<T>Math</T>.<F>Max</F>(<N>1</N>, <F>ClampResultCapacity</F>(count))];</>,
       <>    <K>var</K> n = <N>0</N>;</>,
-      <>    <K>foreach</K> (<K>var</K> p <K>in</K> <V>_context</V>.<V>Players</V>.<V>PlayerScoreIndex</V>.<F>TakeReverse</F>(count))</>,
+      <>    <K>var</K> ordered = <V>Context</V>.<V>Players</V>.<V>Player_ByScore</V>.<F>TakeReverseByRef</F>(count);</>,
+      <>    <K>for</K> (<K>var</K> i = <N>0</N>; i &lt; ordered.<V>Length</V>; i++)</>,
       <>    {'{'}</>,
+      <>        <K>ref readonly var</K> p = <K>ref</K> ordered.<F>GetRefAtUnchecked</F>(i);</>,
       <>        <K>if</K> (n &gt;= results.<V>Length</V>) <T>Array</T>.<F>Resize</F>(<K>ref</K> results, results.<V>Length</V> * <N>2</N>);</>,
       <>        results[n++] = p;</>,
       <>    {'}'}</>,
-      <>    <K>return</K> n == results.<V>Length</V></>,
-      <>        ? results : <K>new</K> <T>ArrayPrefixReadOnlyList</T>&lt;<T>Player</T>&gt;(results, n);</>,
+      <>    <K>return</K> n == results.<V>Length</V> ? results : results[..n];</>,
       <>{'}'}</>,
     ],
   },
@@ -126,18 +127,22 @@ export const HERO_TABS: CodeTab[] = [
 // How-it-works, "one command, two places": the generated command both sides run.
 export const BUY_TABS: CodeTab[] = [
   {
-    name: 'BuyItem.g.cs',
+    name: 'BuyItemExecutor.g.cs',
     lang: 'generated C#',
     lines: [
-      <C>// generated once — runs on both sides</C>,
-      <><K>public static</K> <T>BuyResult</T> <F>BuyItem</F>(</>,
-      <>    <K>ref</K> <T>PlayerState</T> <V>s</V>, <K>in</K> <T>Item</T> <V>item</V>)</>,
+      <C>// generated once — runs on both sides (abridged)</C>,
+      <><K>public static class</K> <T>BuyItemExecutor</T></>,
       <>{'{'}</>,
-      <>    <K>if</K> (<V>s</V>.<V>Gold</V> &lt; <V>item</V>.<V>Price</V>)</>,
-      <>        <K>return</K> <T>BuyResult</T>.<V>NotEnoughGold</V>;</>,
-      <>    <V>s</V>.<V>Gold</V> -= <V>item</V>.<V>Price</V>;</>,
-      <>    <V>s</V>.<V>Inventory</V>.<F>Upsert</F>(<V>item</V>.<V>Id</V>, <N>1</N>);</>,
-      <>    <K>return</K> <T>BuyResult</T>.<V>Ok</V>;</>,
+      <>    <K>public static</K> <T>BuyItemOutcome</T> <F>ExecuteCore</F>(</>,
+      <>        <T>DbContext</T> context, <T>BuyItemCommand</T> command, <T>CommandExecutionFrame</T> frame)</>,
+      <>    {'{'}</>,
+      <>        <K>ref var</K> wallet = <K>ref</K> context.<V>Wallets</V>.<F>GetRef</F>(command.<V>PlayerId</V>);</>,
+      <>        <K>if</K> (wallet.<V>Balance</V> &lt; command.<V>Cost</V>)</>,
+      <>            <K>return</K> <T>BuyItemOutcome</T>.<F>Failure</F>(<T>BuyItemErrorCode</T>.<V>InsufficientFunds</V>);</>,
+      <>        wallet.<V>Balance</V> -= command.<V>Cost</V>;</>,
+      <>        context.<V>Inventory</V>.<F>Upsert</F>(command.<V>PlayerId</V>, command.<V>ItemId</V>, <N>1</N>);</>,
+      <>        <K>return</K> <T>BuyItemOutcome</T>.<F>Success</F>();</>,
+      <>    {'}'}</>,
       <>{'}'}</>,
     ],
   },

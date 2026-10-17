@@ -5,7 +5,8 @@ import styles from './styles.module.css';
 // Step buttons under the animated visuals (hero, replay). One component so
 // the buttons, the progress timer and the hover/focus states are identical.
 
-export type Step<K extends string> = {key: K; n: string; label: string; alt?: boolean};
+// `live` overrides what the aria-live caption announces for this step.
+export type Step<K extends string> = {key: K; n: string; label: string; alt?: boolean; live?: string};
 
 export default function Steps<K extends string>({
   steps,
@@ -53,7 +54,7 @@ export default function Steps<K extends string>({
         })}
       </div>
       <p className={styles.live} aria-live="polite">
-        {current ? `Step ${current.n}: ${current.label}` : ''}
+        {current ? `Step ${current.n}: ${current.live ?? current.label}` : ''}
       </p>
     </>
   );

@@ -21,19 +21,24 @@ const PHASE_CLASS: Record<Phase, string | undefined> = {
   generated: styles.isGenerated,
 };
 
-const STEPS: {key: Phase; n: string; label: string; alt?: boolean}[] = [
+const STEPS: {key: Phase; n: string; label: string; alt?: boolean; live?: string}[] = [
   {key: 'tangle', n: '01', label: 'two programs today', alt: true},
   {key: 'schema', n: '02', label: 'you write this'},
-  {key: 'generated', n: '03', label: 'builds both sides'},
+  {
+    key: 'generated',
+    n: '03',
+    label: 'builds both sides',
+    live: 'builds both sides — the compiler emits the client and the server-side logic; the backend and liveops runtime host it',
+  },
 ]
 
 const ARIA: Record<Phase, string> = {
   tangle:
     'Two programs today: client scripts (ShopPresenter, InventoryMgr, QuestSystem, an OnChanged bus) and server code (PlayerController API, DTOs and protocol, save migrations, an admin panel, an analytics SDK), wired to each other across the network.',
   schema:
-    'You write this: one game.conjure file with tables, commands, reactive queries and modules.',
+    'You write this: one game.conjure file with a table, a Shop module with its BuyItem command, a reactive query and a BattlePass module.',
   generated:
-    'The compiler builds both sides: the client (screens, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player actions stream from client to server and are verified by replay.',
+    'Builds both sides: the compiler emits the client and the server-side logic; the backend and liveops runtime host it. Shown: the client (screens, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player commands stream from client to server and are verified by replay.',
 };
 
 // Indices 0–3 are client scripts, 4–8 server code.
@@ -89,11 +94,13 @@ const OUTPUTS: {title: string; sub: string; tone: Tone; small?: boolean}[] = [
   {title: 'Modules', sub: 'battle pass · store · inventory', tone: 'gold', small: true},
 ];
 
-const CARD_LINES: ReactNode[] = [
-  <><tspan className={styles.kw}>table</tspan> Item {'{ … }'}</>,
-  <><tspan className={styles.kw}>command</tspan> BuyItem(…)</>,
-  <><tspan className={styles.kw}>reactive query</tspan> ShopOffers</>,
-  <><tspan className={styles.kw}>module</tspan> BattlePass</>,
+// `indent` is in characters (mono), so a module body can sit inside its braces.
+const CARD_LINES: {indent: number; line: ReactNode}[] = [
+  {indent: 0, line: <><tspan className={styles.kw}>table</tspan> Item {'{ … }'}</>},
+  {indent: 0, line: <><tspan className={styles.kw}>module</tspan> Shop {'{'}</>},
+  {indent: 2, line: <><tspan className={styles.kw}>command</tspan> BuyItem(…) {'}'}</>},
+  {indent: 0, line: <><tspan className={styles.kw}>reactive query</tspan> ShopOffers</>},
+  {indent: 0, line: <><tspan className={styles.kw}>module</tspan> BattlePass {'{ … }'}</>},
 ];
 
 const MARKERS = 4; // actions in flight on the client → server stream
@@ -130,7 +137,7 @@ const WIDE: Layout = {
     {at: [522, 384], rot: 3, w: 160},
   ],
   network: {d: 'M380 30 V410', label: [380, 20], client: [16, 20], server: [744, 20], vertical: true},
-  card: {cx: 380, cy: 192, w: 264, h: 188, line: 22},
+  card: {cx: 380, cy: 192, w: 264, h: 210, line: 22},
   // Text in the drawing is ≥ 1em (≈ 11px at 1280 wide), so outputs carry two-line subtitles.
   outputs: [
     {at: [118, 192], w: 200, h: 84, sub: ['screens · frame', 'local state']},
@@ -159,7 +166,7 @@ const NARROW: Layout = {
     {at: [118, 548], rot: 3, w: 134},
   ],
   network: {d: 'M10 287 H350', label: [350, 279], client: [10, 12], server: [10, 302], vertical: false},
-  card: {cx: 190, cy: 214, w: 236, h: 176, line: 20},
+  card: {cx: 190, cy: 214, w: 236, h: 196, line: 20},
   outputs: [
     {at: [190, 52], w: 236, h: 70, sub: ['screens · frame', 'local state']},
     {at: [190, 368], w: 236, h: 70, sub: ['player · config', 'shared state']},
@@ -348,8 +355,12 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           y1={cardTop + 40}
           y2={cardTop + 40}
         />
-        {CARD_LINES.map((line, i) => (
-          <text key={i} className={styles.cardLine} x={cardLeft + 16} y={cardTop + 60 + i * card.line}>
+        {CARD_LINES.map(({indent, line}, i) => (
+          <text
+            key={i}
+            className={styles.cardLine}
+            x={cardLeft + 16 + indent * layout.font * 0.6}
+            y={cardTop + 60 + i * card.line}>
             {line}
           </text>
         ))}

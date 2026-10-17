@@ -53,14 +53,14 @@ const BEATS: Beat[] = [
     n: '03',
     id: 'determinism',
     title: 'Determinism',
-    body: 'Commands are pure transitions over declared state: a fixed floating-point math library, seeded random declared in the schema, a single writer per state owner. Same inputs, same state — on IL2CPP, Mono or .NET.',
+    body: 'Commands are pure transitions over declared state: a fixed-point math library (Fixed64) instead of floats, seeded random declared in the schema, a single writer per state owner. Same inputs, same state — on x86-64, ARM64 and IL2CPP.',
     glyph: EQUALS,
   },
   {
     n: '04',
     id: 'replay',
     title: 'Replay',
-    body: 'So the same generated command can run on the device and in a per-player grain. The device applies it immediately and logs it; the server replays the log and compares the state. That is the whole trust model.',
+    body: 'So the same generated command can run on the device and in the self-hosted authoritative backend. The device applies it immediately and journals it; the server replays the journal and compares the state. That is the whole trust model.',
     glyph: CHECK,
   },
 ];

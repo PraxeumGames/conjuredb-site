@@ -80,13 +80,16 @@ export default function PlatformMap(): ReactNode {
               <b>table</b> Item {'{ … }'}
             </span>
             <span>
-              <b>command</b> BuyItem(…)
+              <b>module</b> Shop {'{'}
+            </span>
+            <span className={styles.indent}>
+              <b>command</b> BuyItem(…) {'}'}
             </span>
             <span>
               <b>reactive query</b> ShopOffers
             </span>
             <span>
-              <b>module</b> BattlePass
+              <b>module</b> BattlePass {'{ … }'}
             </span>
           </span>
           <span className={styles.schemaFoot}>

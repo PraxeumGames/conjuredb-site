@@ -222,10 +222,6 @@
 .isForged .forgedMk .mkBox {
   fill: var(--rv-red);
 }
-.isForged .afterMk .mkBox {
-  opacity: 0.3;
-  transition: opacity var(--dur) var(--ease) 1.1s;
-}
 
 /* ---- Match line -------------------------------------------------------- */
 .matchHalf {
@@ -242,13 +238,13 @@
   stroke-dasharray: none;
   transition: stroke var(--dur) var(--ease) 1.3s, stroke-opacity var(--dur) var(--ease) 1.3s;
 }
-/* Phase 04, two beats: breaks red at 1.3 s, re-joins muted after the
-   device rolls back (2.6 s). Percentages are of the 5.2 s phase. */
+/* Phase 04, two beats: breaks red when the server lands (1.8 s), re-joins
+   muted after the device is rebased (2.9 s). Percentages of the 5.6 s phase. */
 .isForged .matchA {
-  animation: rv-break-a 5.2s linear both;
+  animation: rv-break-a 5.6s linear both;
 }
 .isForged .matchB {
-  animation: rv-break-b 5.2s linear both;
+  animation: rv-break-b 5.6s linear both;
 }
 .matchLabel {
   font-family: var(--cdb-mono);
@@ -335,6 +331,14 @@
   fill: var(--rv-red);
 }
 
+.note {
+  margin: 0.6rem 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-muted);
+  text-align: center;
+}
+
 /* ---- Keyframes --------------------------------------------------------- */
 @keyframes rv-in-1 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes rv-in-2 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -345,14 +349,14 @@
 @keyframes rv-out-3 { from { opacity: 1; } to { opacity: 0; } }
 @keyframes rv-out-4 { from { opacity: 1; } to { opacity: 0; } }
 @keyframes rv-break-a {
-  0%, 25% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
-  29%, 50% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(calc(var(--bx) * -1), calc(var(--by) * -1)); }
-  55%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+  0%, 32% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  36%, 51% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(calc(var(--bx) * -1), calc(var(--by) * -1)); }
+  56%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
 }
 @keyframes rv-break-b {
-  0%, 25% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
-  29%, 50% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(var(--bx), var(--by)); }
-  55%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+  0%, 32% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  36%, 51% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(var(--bx), var(--by)); }
+  56%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
 }
 @keyframes rv-fade {
   from { opacity: 0.15; transform: translateY(6px); }

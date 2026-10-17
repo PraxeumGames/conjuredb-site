@@ -12,7 +12,7 @@ export type Part = {
   status: Status;
   also?: {status: Status; note: string}; // a second badge
   body: string;
-  items: [string, string, string];
+  items?: [string, string, string];
   links?: {label: string; to: string}[];
 };
 
@@ -29,7 +29,7 @@ export const PARTS: Part[] = [
     name: 'Schema & compiler',
     group: 'compiler',
     status: 'shipped',
-    also: {status: 'in-progress', note: 'syntax v3, automatic indexes'},
+    also: {status: 'in-progress', note: 'syntax v3, automatic index creation'},
     body: 'One .conjure schema declares tables, indexes, queries, commands, mutations, modules and frame systems. The compiler binds, type-checks, plans with a cost-based optimizer and emits plain C# — nothing is parsed or planned on the device.',
     items: [
       'Typed diagnostics instead of runtime failures',
@@ -49,7 +49,7 @@ export const PARTS: Part[] = [
     name: 'Client data layer',
     group: 'device',
     status: 'shipped',
-    body: "Compiled queries, commands and mutations over your game's persistent state. Declared indexes, screens that update themselves by applying only what changed, local persistence with snapshots and a write-ahead log.",
+    body: "Compiled queries, commands and mutations over your game's persistent state. Declared indexes, screens that update themselves by applying only what changed, local persistence with snapshots and a write-ahead journal.",
     items: [
       'Index-aware, zero-allocation query paths',
       'Reactive views maintained by delta',
@@ -81,10 +81,10 @@ export const PARTS: Part[] = [
     name: 'Determinism',
     group: 'device',
     status: 'shipped',
-    body: 'Commands are deterministic by construction: a fixed floating-point math library, seeded random declared in the schema, and tests that hold the device and the server to the same answer. This is what makes server replay possible.',
+    body: 'Commands are deterministic by construction: a fixed-point math library (Fixed64) instead of floats, seeded random declared in the schema, and tests that hold the device and the server to the same answer. This is what makes server replay possible.',
     items: [
-      'Own float math, identical on every platform',
-      'Seeded random as a schema feature',
+      'Fixed-point math, bit-identical on every platform',
+      'Seeded random in the schema (ctx.random)',
       'Parity tests between execution lanes',
     ],
   },
@@ -94,20 +94,16 @@ export const PARTS: Part[] = [
     id: 'player-server',
     name: 'Player server',
     group: 'server',
-    status: 'prototype',
-    body: "The same compiled commands run in a per-player grain on Orleans. The player's state lives there as the source of truth; the device keeps a replica and a log of what the player did.",
-    items: [
-      'One grain per player, generated from the schema',
-      'No protocol or DTOs to write by hand',
-      'You host it; the runtime is open',
-    ],
+    status: 'in-progress',
+    body: 'The same compiled logic runs in a self-hosted authoritative backend: sharded ingress, one writer per player aggregate, a command write-ahead journal and snapshots. The device keeps a replica and a journal of what the player did.',
+    items: ['One owner per player aggregate', 'HTTP and gRPC ingress, idempotent', 'You host it; the runtime is open'],
   },
   {
     id: 'replay-verification',
     name: 'Replay verification',
     group: 'server',
     status: 'prototype',
-    body: "The server replays the device's action log with the same compiled logic and compares state hashes. Forged or divergent sessions are rejected and the device is rolled back to the server's state.",
+    body: "The server replays the device's command journal with the same compiled logic and compares state hashes along the journal's hash chain. A journal that does not replay is rejected and the device is rebased onto the server's state.",
     items: [
       'Microseconds per replayed command',
       'No request per tap, no trust in the client',
@@ -118,16 +114,16 @@ export const PARTS: Part[] = [
     id: 'config-server',
     name: 'Config server',
     group: 'server',
-    status: 'planned',
-    body: 'Game configuration served per version from its own grains, so old clients keep the config they shipped with while new ones get the new one.',
-    items: ['Versioned config', 'Same schema types on both sides', 'Rollout without a client release'],
+    status: 'in-progress',
+    body: 'Versioned configuration and liveops artifacts served by the backend with environment promotion, scheduled publishing and delta delivery, so old clients keep a compatible version.',
+    items: ['Versioned config with promotion', 'Scheduled publish', 'Delta delivery'],
   },
   {
     id: 'shared-state',
     name: 'Shared state',
     group: 'server',
     status: 'planned',
-    body: 'Clans, leaderboards and other state that belongs to many players, declared in the same schema and served from shared grains.',
+    body: 'Clans, leaderboards and other state that belongs to many players, declared in the same schema and served by their own owner on the server.',
     items: ['Declared ownership and access', 'Same queries as player state', 'Schema keyword, not a separate service'],
   },
 
@@ -145,18 +141,25 @@ export const PARTS: Part[] = [
     id: 'liveops',
     name: 'Liveops',
     group: 'delivery',
-    status: 'prototype',
-    body: 'Rules, offers and queries delivered after the build and executed identically on the device and on the server. Change the game without a release and without the two sides disagreeing.',
-    items: ['Runs on the interpreter lane', 'Same verification as everything else', 'No second rules engine'],
+    status: 'in-progress',
+    body: 'Rules, offers and experiments compiled into signed, versioned artifacts and evaluated by the same deterministic runtime on the device and on the server; portable query overrides run on the interpreter lane.',
+    items: ['Signed, versioned artifacts', 'Deterministic decision runtime on both sides', 'Studio for authoring and rollout'],
   },
   {
     id: 'schema-modules',
-    name: 'Schema modules & overrides',
+    name: 'Schema modules',
     group: 'delivery',
     status: 'shipped',
-    body: 'A feature is a module of the schema: its tables, commands and queries in one place. Modules can be overridden by the project that uses them, so a shared feature stays yours to change.',
-    items: ['Module declarations in the schema', 'Overrides without forking', 'Vertical slices across client and server'],
+    body: 'A feature is a module of the schema: its tables, commands and queries in one place, with one generated interface per module and commands named Module.Command.',
+    items: ['Module declarations in the schema', 'One interface per module', 'Commands named Module.Command'],
     links: [{label: 'Schema language', to: '/docs/schema/schema-language'}],
+  },
+  {
+    id: 'module-overrides',
+    name: 'Module overrides',
+    group: 'delivery',
+    status: 'planned',
+    body: 'Override a shared module from the project that uses it, so a feature stays yours to change without forking.',
   },
   {
     id: 'ready-made-modules',
@@ -172,25 +175,25 @@ export const PARTS: Part[] = [
     id: 'sign-in',
     name: 'Sign-in',
     group: 'services',
-    status: 'planned',
-    body: 'Google Play Games and Game Center sign-in wired to the player server.',
-    items: ['Platform accounts', 'Guest to account upgrade', 'No credentials on the device'],
+    status: 'in-progress',
+    body: 'Guest accounts, sessions, refresh and account linking are built; Google Play Games and Game Center token verification is next.',
+    items: ['Guest to account upgrade', 'Session refresh and revoke', 'Provider linking'],
   },
   {
     id: 'in-app-purchases',
     name: 'In-app purchases',
     group: 'services',
-    status: 'planned',
-    body: 'Unity IAP with regional prices; receipts verified on the server and granted through the same compiled commands.',
-    items: ['Regional price tables', 'Server-side receipt checks', 'Grants are ordinary commands'],
+    status: 'in-progress',
+    body: 'A provider-agnostic purchase, refund and subscription pipeline with idempotent webhooks and a wallet ledger; store receipt adapters and regional prices are next.',
+    items: ['Idempotent entitlement grants', 'Refunds and subscriptions', 'Regional prices (next)'],
   },
   {
     id: 'ab-groups',
     name: 'A/B groups',
     group: 'services',
-    status: 'planned',
-    body: 'Experiment groups declared in the schema, assigned on the server and read by the same queries the game already runs.',
-    items: ['Declared groups', 'Server assignment', 'No special-case code'],
+    status: 'in-progress',
+    body: 'Experiments with stable bucketing and holdouts, delivered as liveops artifacts and evaluated the same way on both sides.',
+    items: ['Stable bucketing', 'Holdouts', 'Same evaluation on both sides'],
   },
   {
     id: 'analytics',

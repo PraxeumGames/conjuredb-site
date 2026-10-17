@@ -10,8 +10,8 @@ import styles from './styles.module.css';
 // changes the device label. Runs once when scrolled into view.
 
 type Run = 'idle' | 'running' | 'done';
-type Platform = 'IL2CPP' | 'Mono' | '.NET 8';
-const PLATFORMS: Platform[] = ['IL2CPP', 'Mono', '.NET 8'];
+type Platform = 'IL2CPP' | '.NET 8' | 'ARM64';
+const PLATFORMS: Platform[] = ['IL2CPP', '.NET 8', 'ARM64'];
 
 const RUN_MS = 1100;
 const DEVICE_US = 3.1;
@@ -170,9 +170,9 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
         </div>
 
         <div className={clsx(styles.side, styles.serverSide)}>
-          <svg className={styles.frame} viewBox="0 0 220 150" aria-hidden="true" style={{fontSize: 14}}>
-            <ServerFrame x={0.5} y={0.5} width={219} height={149} title="server · player grain">
-              <Progress x={18} y={88} w={184} run={run} />
+          <svg className={styles.frame} viewBox="0 0 250 150" aria-hidden="true" style={{fontSize: 14}}>
+            <ServerFrame x={0.5} y={0.5} width={249} height={149} title="Server · player aggregate">
+              <Progress x={18} y={88} w={214} run={run} />
             </ServerFrame>
           </svg>
           <Rows us={SERVER_US * t} run={run} side="server" />
@@ -184,6 +184,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
           Run on both
         </button>
       </div>
+      <p className={styles.note}>illustrative timings</p>
       <p className={styles.srOnly} aria-live="polite">
         {run === 'done'
           ? `Both sides finished. Device on ${platform}: ${DEVICE_US} µs, output ${OUTPUT}. Server: ${SERVER_US} µs, output ${OUTPUT}. Identical.`

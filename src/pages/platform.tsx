@@ -56,14 +56,16 @@ function PartCard({part, wide}: {part: Part; wide?: boolean}): ReactNode {
         </div>
       </div>
       <p>{part.body}</p>
-      <div className={styles.whatsIn}>
-        <span className={styles.whatsInLabel}>What's in it</span>
-        <ul>
-          {part.items.map((it) => (
-            <li key={it}>{it}</li>
-          ))}
-        </ul>
-      </div>
+      {part.items && (
+        <div className={styles.whatsIn}>
+          <span className={styles.whatsInLabel}>What's in it</span>
+          <ul>
+            {part.items.map((it) => (
+              <li key={it}>{it}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {links && links.length > 0 && (
         <div className={styles.links}>
           {links.map((l) => (
@@ -105,7 +107,7 @@ const SHIPS: {title: string; body: string}[] = [
   },
   {
     title: 'You host',
-    body: 'The server runs wherever Orleans runs. There is no hosted service to depend on.',
+    body: 'The server is an ASP.NET Core service with PostgreSQL that you run yourself. There is no hosted service to depend on.',
   },
   {
     title: 'Subscription or contract',

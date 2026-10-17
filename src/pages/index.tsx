@@ -24,8 +24,8 @@ function Hero(): ReactNode {
           </h1>
           <p className={styles.subtitle}>
             <span className={styles.subLine}>
-              Conjure compiles a declarative description of your game into the client data layer,
-              the server, replay verification and liveops.
+              Conjure runs one declarative description of your game on the device and on the
+              server, and adds replay verification and liveops.
             </span>
             <span className={styles.subLine}>
               Play offline, verify on the server, ship features in days — with a three-person team.
@@ -57,9 +57,9 @@ function Hero(): ReactNode {
 
 type Fact = {text: string; status: Status};
 const REPLAY_FACTS: Fact[] = [
-  {text: 'Deterministic by construction — own float math, seeded random in the schema', status: 'shipped'},
+  {text: 'Deterministic by construction — fixed-point math (Fixed64) instead of floats, seeded random in the schema', status: 'shipped'},
   {text: 'Replay verification on the server', status: 'prototype'},
-  {text: 'Microseconds per command, device and server', status: 'shipped'},
+  {text: 'Microseconds per command on the server (compute only)', status: 'prototype'},
 ];
 
 function ReplaySection(): ReactNode {
@@ -70,7 +70,7 @@ function ReplaySection(): ReactNode {
         <h2 className="cdb-h2">No request per tap. No trust in the client.</h2>
         <p className={`cdb-lead ${styles.replayLead}`}>
           The device runs the compiled logic and writes down what the player did. When the network
-          is back, the server replays that log with the same compiled logic and compares the state.
+          is back, the server replays that journal with the same compiled logic and compares the state.
         </p>
         <ReplayVerify />
         <p className={styles.replayCaption}>
@@ -125,7 +125,7 @@ type Claim = {
 const CLAIMS: Claim[] = [
   {
     title: 'Play offline. The server still checks.',
-    body: 'The device runs the game with no connection and writes down what the player did. The server replays that log with the same compiled logic and either accepts the state or rolls it back. No request per tap, no latency, no trust in the client.',
+    body: 'The device runs the game with no connection and writes down what the player did. The server replays that command journal with the same compiled logic and either accepts the state or rebases the device onto it. No request per tap, no latency, no trust in the client.',
     badges: [
       {label: 'replay verification', status: 'prototype'},
       {label: 'determinism', status: 'shipped'},
@@ -135,7 +135,7 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'Fast by default — on the frame and on the server.',
-    body: 'Everything is compiled and proven before it ships. On the device: index-aware, allocation-free queries and per-frame systems at 0 B per frame. On the server: microsecond commands, so one grain replays a whole session in less time than a frame. The frame budget stops being a fight and verification stops being a cost.',
+    body: 'Everything is compiled and proven before it ships. On the device: index-aware, allocation-free queries and per-frame systems at 0 B per frame. On the server: microsecond commands, so the backend replays a whole session in less time than a frame. The frame budget stops being a fight and verification stops being a cost.',
     badges: [
       {label: 'device', status: 'shipped'},
       {label: 'server replay', status: 'prototype'},
@@ -145,10 +145,11 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'A feature is a schema, not a sprint.',
-    body: 'A battle pass or a store is a module of the schema: its tables, commands and queries in one place, for both sides. Override it instead of forking it. Change rules through liveops without a release. And because the language is small and typed, an assistant can draft a feature and the compiler rejects what is wrong.',
+    body: 'A battle pass or a store is a module of the schema: its tables, commands and queries in one place, for both sides. Overriding instead of forking is next. Change rules through liveops without a release. And because the language is small and typed, an assistant can draft a feature and the compiler rejects what is wrong.',
     badges: [
-      {label: 'modules & overrides', status: 'shipped'},
-      {label: 'liveops', status: 'prototype'},
+      {label: 'modules', status: 'shipped'},
+      {label: 'overrides', status: 'planned'},
+      {label: 'liveops', status: 'in-progress'},
       {label: 'ready-made modules', status: 'planned'},
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
@@ -211,7 +212,7 @@ const SHIPPED: Shipped[] = [
   },
   {
     title: 'Determinism',
-    line: 'Fixed float math and seeded random declared in the schema, held by tests.',
+    line: 'Fixed-point math (Fixed64) and seeded random declared in the schema, held by tests.',
   },
 ];
 
@@ -223,8 +224,8 @@ function ShippedToday(): ReactNode {
         <h2 className="cdb-h2">What you can use today</h2>
         <p className="cdb-lead">
           The data layer, frame state, determinism and the interpreter are in the docs now. The
-          server and liveops are validated prototypes; the services are designed. The platform page
-          keeps the whole list honest.
+          server, liveops and the first services are in progress; replay verification is a
+          validated prototype. The platform page keeps the whole list honest.
         </p>
         <div className={styles.shipped}>
           <div className={styles.shippedCode}>
@@ -248,7 +249,7 @@ function ShippedToday(): ReactNode {
           </ul>
         </div>
         <p className={styles.proofLine}>
-          Arena sample · 100 000 units · 171 µs per frame on IL2CPP · 0 B allocated{' '}
+          Arena sample · 100 000 units · 171 µs per frame on IL2CPP + Burst · 0 B allocated{' '}
           <Link to="/docs/examples/arena-ecs">methodology →</Link>
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center', marginTop: '1.6rem'}}>

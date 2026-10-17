@@ -17,10 +17,10 @@ const Check = ({x, y}: {x: number; y: number}) => (
   <path className={styles.check} d={`M${x - 8} ${y} l5.5 5.5 l11 -12`} />
 );
 
-/** Claim 1: offline device → log → server with a check. */
+/** Claim 1: offline device → command journal → server with a check. */
 export function OfflineCheck(): ReactNode {
   return (
-    <Svg label="A phone with no connection sends a log of three actions to the server, which checks it.">
+    <Svg label="A phone with no connection sends a journal of three commands to the server, which checks it.">
       <DeviceFrame
         x={18}
         y={18}
@@ -75,7 +75,7 @@ export function ModuleSlice(): ReactNode {
       <path className={styles.wire} d="M220 96 Q250 112 275 126" />
       <rect className={styles.card} x={60} y={10} width={200} height={86} rx={9} />
       <text className={styles.cardTitle} x={72} y={30}>
-        battlepass/
+        module BattlePass
       </text>
       <line className={styles.cardRule} x1={60} x2={260} y1={39} y2={39} />
       <text className={styles.code} x={72} y={56}>

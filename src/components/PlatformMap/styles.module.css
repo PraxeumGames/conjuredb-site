@@ -82,6 +82,9 @@
   font-size: var(--fs-sm);
   opacity: 0.85;
 }
+.schemaLines .indent {
+  padding-left: 2ch;
+}
 .schemaLines b {
   font-weight: 400;
   color: var(--ifm-color-primary);
