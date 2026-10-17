@@ -77,17 +77,18 @@ export default function PlatformMap(): ReactNode {
           <span className={styles.schemaName}>game.conjure</span>
           <span className={styles.schemaLines}>
             <span>
-              <b>table</b> Item {'{ … }'}
-            </span>
-            <span>
               <b>module</b> Shop {'{'}
             </span>
             <span className={styles.indent}>
-              <b>command</b> BuyItem(…) {'}'}
+              <b>table</b> Offer {'{ … }'}
             </span>
-            <span>
-              <b>reactive query</b> ShopOffers
+            <span className={styles.indent}>
+              <b>command</b> Buy(…)
             </span>
+            <span className={styles.indent}>
+              <b>reactive query</b> Offers
+            </span>
+            <span>{'}'}</span>
             <span>
               <b>module</b> BattlePass {'{ … }'}
             </span>

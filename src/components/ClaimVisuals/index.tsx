@@ -83,25 +83,28 @@ export function FrameBudget(): ReactNode {
 /** Claim 3: one module of the schema feeding both sides. */
 export function ModuleSlice(): ReactNode {
   return (
-    <Svg label="A battlepass schema module with a table, a command and a reactive query, wired to both the device and the server.">
-      <path className={styles.wire} d="M100 96 Q70 112 46 124" />
-      <path className={styles.wire} d="M220 96 Q250 112 275 126" />
-      <rect className={styles.card} x={60} y={10} width={200} height={86} rx={9} />
-      <text className={styles.cardTitle} x={72} y={30}>
-        module BattlePass
+    <Svg label="A BattlePass schema module with a table, a command and a reactive query, wired to both the device and the server.">
+      <path className={styles.wire} d="M100 126 Q72 136 46 142" />
+      <path className={styles.wire} d="M220 126 Q250 136 275 144" />
+      <rect className={styles.card} x={55} y={8} width={210} height={118} rx={9} />
+      <text className={styles.cardTitle} x={67} y={28}>
+        <tspan className={styles.kw}>module</tspan> BattlePass {'{'}
       </text>
-      <line className={styles.cardRule} x1={60} x2={260} y1={39} y2={39} />
-      <text className={styles.code} x={72} y={56}>
+      <line className={styles.cardRule} x1={55} x2={265} y1={37} y2={37} />
+      <text className={styles.code} x={81} y={54}>
         <tspan className={styles.kw}>table</tspan> Tier
       </text>
-      <text className={styles.code} x={72} y={70}>
+      <text className={styles.code} x={81} y={70}>
         <tspan className={styles.kw}>command</tspan> ClaimTier
       </text>
-      <text className={styles.code} x={72} y={84}>
+      <text className={styles.code} x={81} y={86}>
         <tspan className={styles.kw}>reactive query</tspan> Progress
       </text>
-      <DeviceFrame x={24} y={110} width={44} height={66} />
-      <ServerFrame x={236} y={118} width={78} height={54} title="" />
+      <text className={styles.cardTitle} x={67} y={110}>
+        {'}'}
+      </text>
+      <DeviceFrame x={24} y={132} width={40} height={46} />
+      <ServerFrame x={236} y={134} width={78} height={42} title="" />
     </Svg>
   );
 }

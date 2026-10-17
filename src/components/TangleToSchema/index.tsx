@@ -36,7 +36,7 @@ const ARIA: Record<Phase, string> = {
   tangle:
     'Two programs today: client scripts (ShopPresenter, InventoryMgr, QuestSystem, an OnChanged bus) and server code (PlayerController API, DTOs and protocol, save migrations, an admin panel, an analytics SDK), wired to each other across the network.',
   schema:
-    'You write this: one game.conjure file with a table, a Shop module with its BuyItem command, a reactive query and a BattlePass module.',
+    'You write this: one game.conjure file with a Shop module (an Offer table, a Buy command and an Offers reactive query) and a BattlePass module.',
   generated:
     'Builds both sides: the compiler emits the client and the server-side logic; the backend and liveops runtime host it. Shown: the client (screens, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player commands stream from client to server and are verified by replay.',
 };
@@ -96,10 +96,11 @@ const OUTPUTS: {title: string; sub: string; tone: Tone; small?: boolean}[] = [
 
 // `indent` is in characters (mono), so a module body can sit inside its braces.
 const CARD_LINES: {indent: number; line: ReactNode}[] = [
-  {indent: 0, line: <><tspan className={styles.kw}>table</tspan> Item {'{ … }'}</>},
   {indent: 0, line: <><tspan className={styles.kw}>module</tspan> Shop {'{'}</>},
-  {indent: 2, line: <><tspan className={styles.kw}>command</tspan> BuyItem(…) {'}'}</>},
-  {indent: 0, line: <><tspan className={styles.kw}>reactive query</tspan> ShopOffers</>},
+  {indent: 2, line: <><tspan className={styles.kw}>table</tspan> Offer {'{ … }'}</>},
+  {indent: 2, line: <><tspan className={styles.kw}>command</tspan> Buy(…)</>},
+  {indent: 2, line: <><tspan className={styles.kw}>reactive query</tspan> Offers</>},
+  {indent: 0, line: <>{'}'}</>},
   {indent: 0, line: <><tspan className={styles.kw}>module</tspan> BattlePass {'{ … }'}</>},
 ];
 
@@ -137,7 +138,7 @@ const WIDE: Layout = {
     {at: [522, 384], rot: 3, w: 160},
   ],
   network: {d: 'M380 30 V410', label: [380, 20], client: [16, 20], server: [744, 20], vertical: true},
-  card: {cx: 380, cy: 192, w: 264, h: 210, line: 22},
+  card: {cx: 380, cy: 192, w: 264, h: 222, line: 22},
   // Text in the drawing is ≥ 1em (≈ 11px at 1280 wide), so outputs carry two-line subtitles.
   outputs: [
     {at: [118, 192], w: 200, h: 84, sub: ['screens · frame', 'local state']},
@@ -166,7 +167,7 @@ const NARROW: Layout = {
     {at: [118, 548], rot: 3, w: 134},
   ],
   network: {d: 'M10 287 H350', label: [350, 279], client: [10, 12], server: [10, 302], vertical: false},
-  card: {cx: 190, cy: 214, w: 236, h: 196, line: 20},
+  card: {cx: 190, cy: 214, w: 236, h: 208, line: 20},
   outputs: [
     {at: [190, 52], w: 236, h: 70, sub: ['screens · frame', 'local state']},
     {at: [190, 368], w: 236, h: 70, sub: ['player · config', 'shared state']},
