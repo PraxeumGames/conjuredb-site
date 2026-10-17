@@ -176,8 +176,8 @@ const BENEFITS: Benefit[] = [
     tag: 'Architecture & reuse',
     title: 'Features that travel between games',
     body: "Behind a declarative schema, a feature owns its data on its own terms — not welded into one game's managers and presenters. Build a shop or inventory once and carry it into the next project.",
-    link: '/why',
-    cta: 'Why it matters →',
+    link: '/platform',
+    cta: 'See the platform →',
   },
   {
     tag: 'Performance',
@@ -315,8 +315,8 @@ function FinalCta(): ReactNode {
           ConjureDB, and the honest limits, in one read.
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center'}}>
-          <Link className="button button--primary button--lg" to="/why">
-            Why ConjureDB
+          <Link className="button button--primary button--lg" to="/platform">
+            See the platform
           </Link>
           <Link className="button button--secondary button--lg" to="/docs/getting-started">
             Get started

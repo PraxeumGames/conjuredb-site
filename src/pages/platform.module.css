@@ -140,3 +140,8 @@
     justify-content: flex-start;
   }
 }
+
+/* An odd last card spans the row instead of sitting alone in a column. */
+.grid > .part:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}

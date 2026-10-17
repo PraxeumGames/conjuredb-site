@@ -67,7 +67,6 @@ const config: Config = {
       title: 'Conjure',
       items: [
         {to: '/platform', label: 'Platform', position: 'left'},
-        {to: '/why', label: 'Why ConjureDB', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
         {to: '/performance', label: 'Performance', position: 'left'},
         {
@@ -86,7 +85,6 @@ const config: Config = {
           title: 'Product',
           items: [
             {label: 'Platform', to: '/platform'},
-            {label: 'Why ConjureDB', to: '/why'},
             {label: 'How it works', to: '/how-it-works'},
             {label: 'Performance', to: '/performance'},
           ],

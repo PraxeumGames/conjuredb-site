@@ -116,3 +116,28 @@
   background: var(--cdb-surface);
   padding: 1.3rem 1.4rem;
 }
+
+/* Two-up card grid (How it works: honest limits). */
+.grid2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 996px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.visualCaption {
+  margin: 1.6rem auto 0;
+  max-width: 44rem;
+  font-size: 0.95rem;
+  color: var(--cdb-ink);
+  opacity: 0.85;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Sections that the mechanism chain links to land below the navbar. */
+:global(section[id]) {
+  scroll-margin-top: 4rem;
+}

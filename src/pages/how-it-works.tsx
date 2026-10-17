@@ -3,6 +3,8 @@ import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {CodeWindow, PLAN_TABS} from '@site/src/components/CodeWindow';
 import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
+import MechanismChain from '@site/src/components/MechanismChain';
+import TwoPlaces from '@site/src/components/TwoPlaces';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -10,23 +12,54 @@ function Header(): ReactNode {
     <header className={styles.pageHead}>
       <div className="container">
         <span className="cdb-kicker">How it works</span>
-        <h1 className={styles.pageTitle}>Compile, don't interpret</h1>
+        <h1 className={styles.pageTitle}>A closed world, compiled.</h1>
         <p className={styles.pageLead}>
-          ConjureDB treats your client's data layer as a compiled program. A query is parsed,
-          bound, optimized, planned and emitted as plain C# before the build ever leaves your
-          machine — so there's no query parser, no planner and no reflection in the query code
-          on the device. Here's each step, with nothing hidden.
+          A game knows every state, command and question before it ships. Conjure treats that as a
+          contract: everything a runtime would otherwise do on the device or on the server happens
+          once, at build time — and what comes out is deterministic enough to run in two places and
+          agree.
         </p>
       </div>
     </header>
   );
 }
 
-function Pipeline(): ReactNode {
+function Chain(): ReactNode {
   return (
-    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
+    <section className="cdb-section cdb-section--tight">
       <div className="container">
-        <span className="cdb-kicker">The pipeline</span>
+        <MechanismChain />
+      </div>
+    </section>
+  );
+}
+
+// Anchors from the chain: #determinism lands on this section, #replay on the visual.
+function OneCommand(): ReactNode {
+  return (
+    <section id="determinism" className="cdb-section cdb-surface">
+      <div className="container">
+        <span className="cdb-kicker">Same code, both sides</span>
+        <h2 className="cdb-h2">One command. Two places. One answer.</h2>
+        <p className="cdb-lead">
+          The command you declare is compiled once. The device runs it to move the game forward;
+          the server runs the very same code to check. Here is BuyItem(sword) doing both.
+        </p>
+        <TwoPlaces id="replay" />
+        <p className={styles.visualCaption}>
+          Not a protocol. Not a second implementation. The same compiled command, with a fixed math
+          library and a seeded random, so both sides can only reach the same state.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function InsideCompiler(): ReactNode {
+  return (
+    <section id="compiler" className="cdb-section">
+      <div className="container">
+        <span className="cdb-kicker">Inside the compiler</span>
         <h2 className="cdb-h2">Five stages, all at build time</h2>
         <p className="cdb-lead">
           Nothing on this path runs on the player's device. The output is plain C# (or a
@@ -40,7 +73,7 @@ function Pipeline(): ReactNode {
 
 function Optimizer(): ReactNode {
   return (
-    <section className="cdb-section">
+    <section className="cdb-section cdb-surface">
       <div className="container">
         <span className="cdb-kicker">The optimizer</span>
         <h2 className="cdb-h2">A glass box, not a black box</h2>
@@ -65,7 +98,7 @@ function Optimizer(): ReactNode {
 
 function Ivm(): ReactNode {
   return (
-    <section className="cdb-section" style={{background: 'var(--cdb-surface)'}}>
+    <section className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">Reactive data</span>
         <h2 className="cdb-h2">Keep the result. Apply only the change.</h2>
@@ -87,6 +120,44 @@ function Ivm(): ReactNode {
   );
 }
 
+const LIMITS: {title: string; body: string}[] = [
+  {
+    title: 'Queries nobody declared',
+    body: "Designers cannot type new queries that run on players' devices. Changes after the build ship as compiled artifacts through the liveops lane, verified like everything else.",
+  },
+  {
+    title: 'Many writers on one state',
+    body: 'Each piece of state has one owner and one writer. Shared state such as clans and leaderboards gets its own owner on the server; there is no multi-writer contention to resolve.',
+  },
+  {
+    title: 'Rendering and feel',
+    body: 'Conjure is the logic and the data. Unity still draws the frame, plays the sound and reads the touch.',
+  },
+  {
+    title: 'A schema to maintain',
+    body: 'There is a schema and a build step. For a prototype you will delete in two weeks, a dictionary is still the right answer.',
+  },
+];
+
+function Limits(): ReactNode {
+  return (
+    <section id="closed-world" className="cdb-section cdb-surface">
+      <div className="container">
+        <span className="cdb-kicker">Honest limits</span>
+        <h2 className="cdb-h2">What the closed world rules out</h2>
+        <div className={`cdb-grid ${styles.grid2}`}>
+          {LIMITS.map((l) => (
+            <div className="cdb-card" key={l.title}>
+              <h3>{l.title}</h3>
+              <p>{l.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function NoMagic(): ReactNode {
   return (
     <section className="cdb-section">
@@ -96,15 +167,15 @@ function NoMagic(): ReactNode {
         <p className="cdb-lead">
           The generated code is plain source you can open. There is no reflection, no
           runtime code generation, nothing dynamic on the query path — which is exactly why it
-          survives IL2CPP and a tight mobile frame. ConjureDB earns trust by removing mystery,
+          survives IL2CPP and a tight mobile frame. Conjure earns trust by removing mystery,
           not by asserting quality.
         </p>
-        <div className={styles.ctaRow} style={{marginTop: '1.6rem'}}>
-          <Link className="button button--primary button--lg" to="/docs/getting-started">
-            Start building
+        <div className={styles.ctaRow} style={{marginTop: '1.6rem', justifyContent: 'center'}}>
+          <Link className="button button--primary button--lg" to="/platform">
+            Platform
           </Link>
-          <Link className="button button--secondary button--lg" to="/performance">
-            See the performance
+          <Link className="button button--secondary button--lg" to="/docs/getting-started">
+            Read the docs
           </Link>
         </div>
       </div>
@@ -115,13 +186,16 @@ function NoMagic(): ReactNode {
 export default function HowItWorks(): ReactNode {
   return (
     <Layout
-      title="How ConjureDB works"
-      description="ConjureDB compiles a declarative query DSL to zero-allocation C# through a five-stage pipeline: frontend, analysis, a Cascades cost-based optimizer, physical planning, and emission. Reactive views stay fresh with incremental view maintenance.">
+      title="How Conjure works — a closed world, compiled"
+      description="A game knows every state, command and question before it ships. Conjure compiles that closed world at build time into deterministic C#, so the same command runs on the device and on the server and both reach the same state.">
       <Header />
       <main>
-        <Pipeline />
+        <Chain />
+        <OneCommand />
+        <InsideCompiler />
         <Optimizer />
         <Ivm />
+        <Limits />
         <NoMagic />
       </main>
     </Layout>

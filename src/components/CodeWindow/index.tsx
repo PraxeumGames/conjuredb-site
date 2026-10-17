@@ -121,3 +121,23 @@ export const HERO_TABS: CodeTab[] = [
     ],
   },
 ];
+
+// How-it-works, "one command, two places": the generated command both sides run.
+export const BUY_TABS: CodeTab[] = [
+  {
+    name: 'BuyItem.g.cs',
+    lang: 'generated C#',
+    lines: [
+      <C>// generated once — runs on both sides</C>,
+      <><K>public static</K> <T>BuyResult</T> <F>BuyItem</F>(</>,
+      <>    <K>ref</K> <T>PlayerState</T> <V>s</V>, <K>in</K> <T>Item</T> <V>item</V>)</>,
+      <>{'{'}</>,
+      <>    <K>if</K> (<V>s</V>.<V>Gold</V> &lt; <V>item</V>.<V>Price</V>)</>,
+      <>        <K>return</K> <T>BuyResult</T>.<V>NotEnoughGold</V>;</>,
+      <>    <V>s</V>.<V>Gold</V> -= <V>item</V>.<V>Price</V>;</>,
+      <>    <V>s</V>.<V>Inventory</V>.<F>Upsert</F>(<V>item</V>.<V>Id</V>, <N>1</N>);</>,
+      <>    <K>return</K> <T>BuyResult</T>.<V>Ok</V>;</>,
+      <>{'}'}</>,
+    ],
+  },
+];
