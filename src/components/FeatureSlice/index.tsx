@@ -1,15 +1,17 @@
-import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import type {CSSProperties, ReactNode} from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
-import {CodeWindow, F, K, T, type CodeTab} from '@site/src/components/CodeWindow';
+import {CodeWindow, F, K, T, V, type CodeTab} from '@site/src/components/CodeWindow';
+import DemoStage, {CompilerNotes, type DemoStep} from '@site/src/components/DemoStage';
 import {DEVICE_STATUS_H, DeviceFrame, ServerFrame} from '@site/src/components/Glyphs';
 import StatusBadge from '@site/src/components/StatusBadge';
 import styles from './styles.module.css';
 
-// "A feature is a schema, not a sprint": one module declared, compiled into a
-// UI view, a server command and liveops knobs, then carried to another project.
-// Plays once (~4.5 s) when scrolled into view; every step is a CSS animation
-// delay (--t), restarted by remounting the stage.
+// "A feature is a schema, not a sprint", in the DemoStage shell: one module
+// declared, compiled into a UI view, a server command and liveops knobs,
+// carried to another project, then extended by an assistant's draft. Each
+// step brings its own column to full opacity and plays it; the others stay
+// visible, dimmed. Every delay (--t) is relative to the step's start.
 
 /** Delay helper: the step lands `t` seconds into the run. */
 const at = (t: number) => ({'--t': `${t}s`}) as CSSProperties;
@@ -35,14 +37,62 @@ const MODULE_TABS: CodeTab[] = [
   },
 ];
 
-const T_ARROW1 = 1.4;
-const T_DEVICE = 1.6;
-const T_SERVER = 2.1;
-const T_LIVEOPS = 2.6;
-const T_ARROW2 = 3.0;
-const T_COPY = 3.05;
-const T_OVERRIDE = 3.5;
-const T_STRIP = [3.9, 4.2, 4.5];
+const T_ARROW1 = 0;
+const T_DEVICE = 0.15;
+const T_SERVER = 0.65;
+const T_LIVEOPS = 1.15;
+const T_ARROW2 = 0;
+const T_COPY = 0.05;
+const T_OVERRIDE = 0.6;
+const T_STRIP = [0.15, 0.55, 0.95];
+
+const PLAIN_TABS: CodeTab[] = [{name: 'battlepass.conjure', lang: 'schema', lines: LINES}];
+const VIEW_TABS: CodeTab[] = [
+  {
+    name: 'BattlePassView.cs',
+    lang: 'C#',
+    lines: [
+      <><K>var</K> track = context.<F>Track</F>(playerId: player.Id);</>,
+      <>passView.<F>Bind</F>(track.<V>Current</V>);</>,
+      <>track.<F>SubscribeChanged</F>(changes =&gt; passView.<F>Apply</F>(changes));</>,
+    ],
+  },
+];
+const COMPILER = [
+  'UI view model: Track, maintained by delta',
+  'server command: ClaimTier, replayed and verified',
+  'liveops knobs: season length · tier xp · rewards',
+];
+
+const STEPS: DemoStep[] = [
+  {
+    id: 'declare',
+    label: 'declare',
+    narration: 'One file declares the feature: its tables, the one command that changes them, and the reactive query the UI view binds.',
+  },
+  {
+    id: 'compiled',
+    label: 'compiled',
+    narration:
+      'From that file the compiler produces the view model the UI view binds, the server side of the command, and the knobs liveops can turn after release.',
+  },
+  {
+    id: 'reused',
+    label: 'reused',
+    narration: 'Project B copies the folder: the same module, a re-skinned UI view and overrides for balance — no logic rewritten.',
+  },
+  {
+    id: 'assistant',
+    label: 'an assistant drafts',
+    holdMs: 4200,
+    narration: (
+      <>
+        Small, typed, closed: the compiler rejects what is wrong, so a draft from an assistant is safe to try.{' '}
+        <Link to="/how-it-works#declarative">why declarative →</Link>
+      </>
+    ),
+  },
+];
 
 function Check({t}: {t: number}) {
   return (
@@ -53,9 +103,9 @@ function Check({t}: {t: number}) {
   );
 }
 
-function Arrow({t}: {t: number}) {
+function Arrow({t, on}: {t: number; on: boolean}) {
   return (
-    <div className={clsx(styles.arrow, styles.a)} style={at(t)} aria-hidden="true">
+    <div className={clsx(styles.arrow, styles.a, on ? styles.play : styles.dim)} style={at(t)} aria-hidden="true">
       <svg viewBox="0 0 40 12">
         <path d="M2 6 H36 M31 1.5 L36.5 6 L31 10.5" />
       </svg>
@@ -98,16 +148,17 @@ function PassScreen() {
   );
 }
 
-function Stage(): ReactNode {
+function Stage({index}: {index: number}): ReactNode {
+  const col = (i: number) => clsx(styles.col, index === i ? styles.play : styles.dim);
   return (
     <>
       <div className={styles.cols}>
         {/* The copy travels from the declaration to Project B, over the top. */}
-        <svg className={clsx(styles.copyPath, styles.a)} style={at(T_COPY)} viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+        <svg className={clsx(styles.copyPath, styles.a, index === 2 ? styles.play : styles.dim)} style={at(T_COPY)} viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
           <path d="M14 10 C 30 -6, 70 -6, 86 10" />
         </svg>
 
-        <div className={styles.col}>
+        <div className={col(0)}>
           <span className={styles.colLabel}>declare</span>
           <div className={styles.module}>
             <CodeWindow tabs={MODULE_TABS} dense />
@@ -115,9 +166,9 @@ function Stage(): ReactNode {
           <p className={styles.mono}>one file · one owner · both sides</p>
         </div>
 
-        <Arrow t={T_ARROW1} />
+        <Arrow t={T_ARROW1} on={index === 1} />
 
-        <div className={styles.col}>
+        <div className={col(1)}>
           <span className={styles.colLabel}>compiled</span>
           <div className={styles.outputs}>
             <figure className={clsx(styles.out, styles.outDevice, styles.a)} style={at(T_DEVICE)}>
@@ -165,9 +216,9 @@ function Stage(): ReactNode {
           </div>
         </div>
 
-        <Arrow t={T_ARROW2} />
+        <Arrow t={T_ARROW2} on={index === 2} />
 
-        <div className={styles.col}>
+        <div className={col(2)}>
           <span className={styles.colLabel}>reused</span>
           <div className={styles.projectB}>
             <span className={styles.projectTitle}>Project B</span>
@@ -190,7 +241,7 @@ function Stage(): ReactNode {
         </div>
       </div>
 
-      <div className={styles.strip}>
+      <div className={clsx(styles.strip, index === 3 ? styles.play : styles.dim)}>
         <span className={clsx(styles.chip, styles.prompt, styles.a)} style={at(T_STRIP[0])}>
           assistant: add a weekly reset to the battle pass
         </span>
@@ -207,48 +258,25 @@ function Stage(): ReactNode {
           compiler: ok · 0 diagnostics
         </span>
       </div>
-      <p className={styles.caption}>
-        Small, typed, closed: the compiler rejects what is wrong, so a draft from an assistant is
-        safe to try. <Link to="/how-it-works#declarative">why declarative →</Link>
-      </p>
     </>
   );
 }
 
 export default function FeatureSlice(): ReactNode {
-  // idle: final state (SSR, reduced motion) · armed: hidden until in view · play: running
-  const [state, setState] = useState<'idle' | 'armed' | 'play'>('idle');
-  const [run, setRun] = useState(0);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    setState('armed');
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        io.disconnect();
-        setState('play');
-      },
-      {threshold: 0.3},
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  const replay = () => {
-    setState('play');
-    setRun((r) => r + 1);
-  };
-
   return (
-    <div ref={rootRef} className={clsx(styles.root, state === 'armed' && styles.armed, state === 'play' && styles.play)}>
-      <button type="button" className={styles.replay} onClick={replay} disabled={state === 'armed'}>
-        replay ↺
-      </button>
-      <Stage key={run} />
-    </div>
+    <DemoStage
+      title="a feature from declaration to reuse"
+      steps={STEPS}
+      codeTabs={[
+        {id: 'schema', label: 'schema', content: <CodeWindow tabs={PLAIN_TABS} dense />},
+        {id: 'write', label: 'what you write', content: <CodeWindow tabs={VIEW_TABS} dense />},
+        {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
+      ]}>
+      {({index, run}) => (
+        <div key={`${run}-${index}`} className={styles.root}>
+          <Stage index={index} />
+        </div>
+      )}
+    </DemoStage>
   );
 }

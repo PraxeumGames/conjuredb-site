@@ -7,12 +7,10 @@
   text-align: left;
 }
 
-/* Animation: hidden while armed, each step fades in at its --t once playing. */
-.armed .a,
-.armed .typed {
-  opacity: 0;
-}
+/* The active step's column is at full opacity and plays its entrances
+   (each at its --t into the step); the others stay visible, dimmed. */
 .play .a,
+.a.play,
 .play .typed {
   animation: fs-in var(--dur) var(--ease) var(--t, 0s) both;
 }
@@ -20,29 +18,19 @@
   animation-name: fs-slide;
   animation-duration: var(--dur-slow);
 }
+.col,
+.strip,
+.arrow,
+.copyPath {
+  transition: opacity var(--dur) var(--ease);
+}
+.dim {
+  opacity: 0.32;
+}
 .typed {
   display: inline-block;
 }
 
-.replay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  padding: 0.2rem 0.6rem;
-  border: 1px solid var(--cdb-line);
-  border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--cdb-muted);
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
-}
-.replay:hover:not(:disabled) {
-  color: var(--ifm-color-primary);
-  border-color: rgba(236, 194, 92, 0.45);
-}
 
 /* Three columns joined by arrows; stacked with downward arrows on phones. */
 .cols {
@@ -328,14 +316,6 @@
 }
 .stripArrow {
   color: var(--ifm-color-primary);
-}
-.root .caption {
-  margin: var(--gap-sm) auto 0;
-  max-width: 44rem;
-  font-size: var(--fs-sm);
-  color: var(--cdb-muted);
-  text-align: center;
-  text-wrap: balance;
 }
 
 @media (max-width: 996px) {
