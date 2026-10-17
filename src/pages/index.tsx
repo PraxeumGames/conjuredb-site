@@ -42,7 +42,7 @@ function Hero(): ReactNode {
           <div className={styles.chips}>
             <span className={styles.chip}>Offline-first</span>
             <span className={styles.chip}>Replay-verified</span>
-            <span className={styles.chip}>0 B/frame</span>
+            <span className={styles.chip}>Zero-alloc</span>
             <span className={styles.chip}>Features are schema</span>
             <span className={styles.chip}>Self-hosted</span>
           </div>
@@ -92,7 +92,7 @@ function ReplaySection(): ReactNode {
 type Stat = {n: string; l: string};
 const STATS: Stat[] = [
   {n: '1 schema', l: 'client, server, liveops'},
-  {n: '0 B', l: 'per frame on the device'},
+  {n: '0 B', l: 'on the query hot path'},
   {n: 'µs', l: 'per command, device and server'},
   {n: '0', l: 'trust required in the client'},
 ];
@@ -135,12 +135,12 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'Fast by default — on the frame and on the server.',
-    body: 'Everything is compiled and proven before it ships. On the device: index-aware, allocation-free queries and per-frame systems at 0 B per frame. On the server: microsecond commands, so the backend replays a whole session in less time than a frame. The frame budget stops being a fight and verification stops being a cost.',
+    body: 'Everything is compiled and proven before it ships. On the device: index-aware, allocation-free queries and reactive views that update by delta, with nothing allocated on the query hot path. On the server: microsecond commands, so the backend replays a whole session in less time than a frame. The frame budget stops being a fight and verification stops being a cost.',
     badges: [
       {label: 'device', status: 'shipped'},
       {label: 'server replay', status: 'prototype'},
     ],
-    link: {label: 'Arena: 100 000 units →', to: '/docs/examples/arena-ecs'},
+    link: {label: 'See the benchmarks →', to: '/data-layer#benchmarks'},
     visual: <FrameBudget />,
   },
   {

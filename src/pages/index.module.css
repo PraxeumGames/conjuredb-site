@@ -202,7 +202,7 @@
   .chip {
     font-size: var(--fs-2xs);
     letter-spacing: -0.02em;
-    padding: 0.34rem 0.34rem;
+    padding: 0.34rem 0.3rem;
     white-space: nowrap;
   }
   .heroVisual {
