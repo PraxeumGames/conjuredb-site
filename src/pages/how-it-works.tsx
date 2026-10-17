@@ -119,8 +119,8 @@ function Ivm(): ReactNode {
           IVM is not a subscription trick. The compiler lowers the query into maintainers — filter,
           join arrangements, grouped accumulators, bounded Top-K state — and each commit pushes only
           the delta through them. The result is a table: consistent once per commit, proportional in
-          cost to the change, and indexable like any other table. A reactive query is how a screen
-          subscribes to it. Shapes the maintainers cannot keep are rejected at compile time.
+          cost to the change, and indexable like any other table. A reactive query is how a UI view
+          subscribes to that view model. Shapes the maintainers cannot keep are rejected at compile time.
         </p>
         <p className="cdb-lead" style={{marginTop: '1rem'}}>
           And it is honest about its limits: a query shape it cannot maintain incrementally

@@ -64,7 +64,7 @@ function Scene({layout, className}: {layout: Layout; className: string}) {
       role="img"
       style={{fontSize: 12.5}}
       aria-label="One game.conjure schema: persistent tables Inventory and Progression for the meta, and per-frame tables Unit and HitEvent with a Collision system for the core. Equipped weapon stats flow down into Collision through an indexed join; HitEvent flows up into Progression.AddXp as a command. On the left a phone shows the inventory; on the right a battlefield of units.">
-      {/* The meta screen */}
+      {/* The meta UI view */}
       <DeviceFrame x={device.x} y={device.y} width={device.w} height={device.h}>
         <text className={styles.screenTitle} x={12} y={DEVICE_STATUS_H + 14}>
           inventory

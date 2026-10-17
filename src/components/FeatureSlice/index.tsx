@@ -6,7 +6,7 @@ import StatusBadge from '@site/src/components/StatusBadge';
 import styles from './styles.module.css';
 
 // "A feature is a schema, not a sprint": one module declared, compiled into a
-// screen, a server command and liveops knobs, then carried to another project.
+// UI view, a server command and liveops knobs, then carried to another project.
 // Plays once (~4.5 s) when scrolled into view; every step is a CSS animation
 // delay (--t), restarted by remounting the stage.
 
@@ -62,7 +62,7 @@ function Arrow({t}: {t: number}) {
   );
 }
 
-/** The battle-pass screen: five tier chips, a progress bar, a claim button. */
+/** The battle-pass UI view: five tier chips, a progress bar, a claim button. */
 function PassScreen() {
   const w = 120;
   const h = 200;
@@ -70,7 +70,7 @@ function PassScreen() {
   const gap = 4;
   const x0 = (w - 5 * chip - 4 * gap) / 2;
   return (
-    <svg className={styles.device} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Battle pass screen: tiers 1 to 3 of 5 reached, progress 62 percent, a Claim button." style={{fontSize: 12}}>
+    <svg className={styles.device} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Battle pass UI view: tiers 1 to 3 of 5 reached, progress 62 percent, a Claim button." style={{fontSize: 12}}>
       <DeviceFrame x={0} y={0} width={w} height={h}>
         <text className={styles.screenTitle} x={x0} y={DEVICE_STATUS_H + 18}>
           Battle pass
@@ -122,7 +122,7 @@ function Stage(): ReactNode {
             <figure className={clsx(styles.out, styles.outDevice, styles.a)} style={at(T_DEVICE)}>
               <PassScreen />
               <figcaption className={styles.mono}>
-                screen binds Track <Check t={T_DEVICE + 0.3} />
+                UI view binds the Track view model <Check t={T_DEVICE + 0.3} />
               </figcaption>
             </figure>
             <div className={styles.outStack}>
@@ -185,7 +185,7 @@ function Stage(): ReactNode {
               <span>rewards: Project B table</span>
             </div>
           </div>
-          <p className={styles.mono}>same module · screen re-skinned · 0 lines of logic rewritten</p>
+          <p className={styles.mono}>same module · UI view re-skinned · 0 lines of logic rewritten</p>
         </div>
       </div>
 

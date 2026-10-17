@@ -4,7 +4,7 @@ import styles from './styles.module.css';
 
 // "Vertical slices": the same four features drawn as a layered monolith
 // (each feature smeared across UI · Managers · Services · Data, wired to the
-// others at every layer) and as slices (screen → module → optional systems,
+// others at every layer) and as slices (UI view → module → optional systems,
 // over a generated floor, with only declared references between them).
 
 type View = 'monolith' | 'slices';
@@ -12,10 +12,10 @@ type Action = 'remove' | 'copy' | null;
 type FeatureId = 'shop' | 'inv' | 'quests' | 'bp';
 
 const FEATURES: {id: FeatureId; name: string; module: string; screen: string; systems: boolean}[] = [
-  {id: 'shop', name: 'Shop', module: 'Shop', screen: 'ShopScreen', systems: false},
-  {id: 'inv', name: 'Inventory', module: 'Inventory', screen: 'InventoryScreen', systems: false},
-  {id: 'quests', name: 'Quests', module: 'Quests', screen: 'QuestScreen', systems: true},
-  {id: 'bp', name: 'Battle pass', module: 'BattlePass', screen: 'BattlePassScreen', systems: true},
+  {id: 'shop', name: 'Shop', module: 'Shop', screen: 'ShopView', systems: false},
+  {id: 'inv', name: 'Inventory', module: 'Inventory', screen: 'InventoryView', systems: false},
+  {id: 'quests', name: 'Quests', module: 'Quests', screen: 'QuestView', systems: true},
+  {id: 'bp', name: 'Battle pass', module: 'BattlePass', screen: 'BattlePassView', systems: true},
 ];
 
 // The monolith: each layer holds a fragment of every feature, in no shared order.
@@ -45,7 +45,7 @@ const REFS: [FeatureId, FeatureId, string][] = [
 
 const MESSAGES: Record<Exclude<Action, null>, string> = {
   remove: '0 files touched elsewhere · 2 declared references resolved at compile time',
-  copy: 'same module · new screen art · overrides for balance',
+  copy: 'same module · new UI art · overrides for balance',
 };
 
 type Box = {x: number; y: number; w: number; h: number};
@@ -204,7 +204,7 @@ function Column({L, i, at, art}: {L: Layout; i: number; at?: {x: number; y: numb
         {f.screen}
       </text>
       <text className={styles.small} x={lx} y={c.y + s.screen[0] + (L.narrow ? 31 : 39)}>
-        {art ? 'new screen art' : 'binds to the view'}
+        {art ? 'new UI art' : 'binds the view model'}
       </text>
       <rect className={styles.module} x={c.x} y={mod} width={c.w} height={s.module[1]} rx={8} />
       <text className={styles.code} x={lx} y={mod + (L.narrow ? 20 : 24)}>
@@ -249,7 +249,7 @@ function Slices({L, action}: {L: Layout; action: Action}) {
         {L.rowLabels && (
           <>
             <text className={styles.rowLabel} x={0} y={L.slice.screen[0] + 30}>
-              screen
+              UI view
             </text>
             <text className={styles.rowLabel} x={0} y={L.slice.module[0] + 62}>
               module
@@ -280,9 +280,21 @@ function Slices({L, action}: {L: Layout; action: Action}) {
           </g>
         ))}
         <rect className={styles.floor} x={L.floor.x} y={L.floor.y} width={L.floor.w} height={L.floor.h} rx={8} />
-        <text className={styles.floorText} x={L.floor.x + L.floor.w / 2} y={L.floor.y + L.floor.h / 2} textAnchor="middle" dominantBaseline="central">
-          {L.narrow ? 'generated: storage · indexes · views · server' : 'generated: storage · indexes · views · server side'}
-        </text>
+        {/* Narrow: the floor label takes two lines to stay ≥ 11px. */}
+        {(L.narrow
+          ? ['generated: storage · indexes', 'view models · server side']
+          : ['generated: storage · indexes · view models · server side']
+        ).map((line, i, all) => (
+          <text
+            key={line}
+            className={styles.floorText}
+            x={L.floor.x + L.floor.w / 2}
+            y={L.floor.y + L.floor.h / 2 + (i - (all.length - 1) / 2) * 14}
+            textAnchor="middle"
+            dominantBaseline="central">
+            {line}
+          </text>
+        ))}
       </g>
       <g className={clsx(styles.projectB, copying && styles.shown)} aria-hidden={!copying}>
           <rect className={styles.frameB} x={L.copy.frame.x} y={L.copy.frame.y} width={L.copy.frame.w} height={L.copy.frame.h} rx={10} />
@@ -317,7 +329,7 @@ function Scene({L, view, action, className}: {L: Layout; view: View; action: Act
       aria-label={
         view === 'monolith'
           ? 'Today: a game client in four layers — UI, Managers, Services, Data. Shop, Quests, Battle pass and Inventory each have a piece in every layer, and red calls cross between features at every layer.'
-          : 'With Conjure: Shop, Inventory, Quests and Battle pass as vertical columns — a screen bound to the view, a schema module with tables, commands and a reactive query, and optional systems — over a generated floor of storage, indexes, views and server side. Only dotted references by id or by command connect them.'
+          : 'With Conjure: Shop, Inventory, Quests and Battle pass as vertical columns — a UI view bound to a view model, a schema module with tables, commands and a reactive query, and optional systems — over a generated floor of storage, indexes, view models and server side. Only dotted references by id or by command connect them.'
       }>
       <Monolith L={L} />
       <Slices L={L} action={action} />

@@ -100,7 +100,7 @@ export const HERO_TABS: CodeTab[] = [
       <>        @@<F>index</F>(fields: [Score], name: <S>"Player_ByScore"</S>, kind: <K>sorted_set</K>)</>,
       <>    {'}'}</>,
       <>{' '}</>,
-      <>    <C>// every screen can reuse this — written once</C></>,
+      <>    <C>// every UI view can reuse this — written once</C></>,
       <>    <K>query</K> <F>GetTopScorers</F>(count: <K>int</K>) -&gt; <T>Player</T>[] {'{'}</>,
       <>        <K>from</K> <T>Player</T> <V>p</V></>,
       <>        | <K>sort</K> {'{'} -<V>p.Score</V>, <V>p.Id</V> {'}'}</>,

@@ -4,8 +4,8 @@ import {DEVICE_STATUS_H, DeviceFrame} from '@site/src/components/Glyphs';
 import {C, CodeWindow, F, K, T, V, type CodeTab} from '@site/src/components/CodeWindow';
 import styles from './styles.module.css';
 
-// "Screens update themselves": a shop screen backed by a reactive query.
-// Each event changes the data; in "reactive view" mode only the rows whose
+// "UI views update themselves": a shop UI view bound to a view model (a
+// reactive query). Each event changes the data; in "view model" mode only the rows whose
 // output changed are touched, in "hand-wired" mode an OnChanged presenter
 // refreshes every row — and on the third event its handlers run in the wrong
 // order and leave a stale row. Below, what each mode asks you to write.
@@ -100,7 +100,7 @@ const PRESENTER: CodeTab[] = [
 ];
 const SCREEN: CodeTab[] = [
   {
-    name: 'ShopScreen.cs',
+    name: 'ShopView.cs',
     lang: 'C#',
     lines: [
       <><K>var</K> offers = ctx.<F>Offers</F>();</>,
@@ -214,7 +214,7 @@ export default function ReactiveScreen(): ReactNode {
       </div>
       <div className={styles.deviceCol}>
         <svg className={styles.svg} viewBox="0 0 270 380" role="img" style={{fontSize: 15}}
-          aria-label={`Shop screen: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
+          aria-label={`Shop UI view: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
           {/* OnChanged web from the presenter to every row (hand-wired mode):
               up when the presenter sits above the device, left when beside it. */}
           <g className={clsx(styles.web, styles.webUp)}>
@@ -279,10 +279,10 @@ export default function ReactiveScreen(): ReactNode {
       </div>
 
       <div className={styles.colC}>
-        <div className={styles.toggle} role="group" aria-label="How the screen is kept up to date">
+        <div className={styles.toggle} role="group" aria-label="How the UI view is kept up to date">
           {(['reactive', 'wired'] as Mode[]).map((m) => (
             <button key={m} type="button" aria-pressed={mode === m} className={clsx(mode === m && styles.on)} onClick={() => pickMode(m)}>
-              {m === 'reactive' ? 'reactive view' : 'hand-wired'}
+              {m === 'reactive' ? 'view model' : 'hand-wired'}
             </button>
           ))}
         </div>
@@ -317,10 +317,10 @@ export default function ReactiveScreen(): ReactNode {
             {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
           </p>
           <p className={styles.caption}>
-            The screen is a view. Bind it once. A materialized view keeps the result and the compiler
-            maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive query is the
-            screen&apos;s subscription to it: the current rows and per-row changes. Ordinary queries
-            reuse the same state.
+            The UI view binds a view model. Once. A materialized view keeps the result and the
+            compiler maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive
+            query is the UI view&apos;s subscription to that view model: the current rows and per-row
+            changes. Ordinary queries reuse the same state.
           </p>
         </div>
       </div>

@@ -38,7 +38,7 @@ const ARIA: Record<Phase, string> = {
   schema:
     'You write this: one game.conjure file with a Shop module (an Offer table, a Buy command and an Offers reactive query) and a BattlePass module.',
   generated:
-    'Builds both sides: the compiler emits the client and the server-side logic; the backend and liveops runtime host it. Shown: the client (screens, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player commands stream from client to server and are verified by replay.',
+    'Builds both sides: the compiler emits the client and the server-side logic; the backend and liveops runtime host it. Shown: the client (UI views, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player commands stream from client to server and are verified by replay.',
 };
 
 // Indices 0–3 are client scripts, 4–8 server code.
@@ -87,7 +87,7 @@ const WIRES: {a: number; b: number; bend: number; w: number; signal?: boolean}[]
 
 type Tone = 'client' | 'server' | 'gold';
 const OUTPUTS: {title: string; sub: string; tone: Tone; small?: boolean}[] = [
-  {title: 'Client', sub: 'screens · frame · local state', tone: 'client'},
+  {title: 'Client', sub: 'UI views · frame · local state', tone: 'client'},
   {title: 'Server', sub: 'player · config · shared state', tone: 'server'},
   {title: 'Replay verifier', sub: 'actions in, verdict out', tone: 'gold'},
   {title: 'Liveops', sub: 'rules without a release', tone: 'gold', small: true},
@@ -141,7 +141,7 @@ const WIDE: Layout = {
   card: {cx: 380, cy: 192, w: 264, h: 222, line: 22},
   // Text in the drawing is ≥ 1em (≈ 11px at 1280 wide), so outputs carry two-line subtitles.
   outputs: [
-    {at: [118, 192], w: 200, h: 84, sub: ['screens · frame', 'local state']},
+    {at: [118, 192], w: 200, h: 84, sub: ['UI views · frame', 'local state']},
     {at: [642, 192], w: 200, h: 84, sub: ['player · config', 'shared state']},
     {at: [380, 358], w: 240, h: 62},
     {at: [118, 366], w: 200, h: 72, sub: ['rules without', 'a release']},
@@ -169,7 +169,7 @@ const NARROW: Layout = {
   network: {d: 'M10 287 H350', label: [350, 279], client: [10, 12], server: [10, 302], vertical: false},
   card: {cx: 190, cy: 214, w: 236, h: 208, line: 20},
   outputs: [
-    {at: [190, 52], w: 236, h: 70, sub: ['screens · frame', 'local state']},
+    {at: [190, 52], w: 236, h: 70, sub: ['UI views · frame', 'local state']},
     {at: [190, 368], w: 236, h: 70, sub: ['player · config', 'shared state']},
     {at: [190, 446], w: 236, h: 52},
     {at: [100, 530], w: 168, h: 70, sub: ['rules without', 'a release']},
@@ -373,7 +373,7 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           y2={cardTop + card.h - 32}
         />
         <text className={styles.cardCaption} x={card.cx} y={cardTop + card.h - 12} textAnchor="middle">
-          state · screens · rules
+          state · UI views · rules
         </text>
       </g>
     </svg>

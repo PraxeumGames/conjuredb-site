@@ -3,7 +3,7 @@ import type {Status} from '@site/src/components/StatusBadge';
 // Every part of the platform and its real status. Single source for the map
 // on /platform and the part cards below it — copy is final, do not add claims.
 
-export type GroupId = 'compiler' | 'device' | 'server' | 'delivery' | 'services';
+export type GroupId = 'compiler' | 'client' | 'server' | 'delivery' | 'services';
 
 /** A "what's in it" line; a few link to the page that explains them. */
 export type PartItem = string | {label: string; to: string};
@@ -20,7 +20,7 @@ export type Part = {
 };
 
 export const GROUPS: {id: Exclude<GroupId, 'compiler'>; title: string}[] = [
-  {id: 'device', title: 'Device'},
+  {id: 'client', title: 'Client'},
   {id: 'server', title: 'Server'},
   {id: 'delivery', title: 'Delivery'},
   {id: 'services', title: 'Services'},
@@ -49,12 +49,12 @@ export const PARTS: Part[] = [
   {
     id: 'client-data-layer',
     name: 'Client data layer',
-    group: 'device',
+    group: 'client',
     status: 'shipped',
-    body: "Compiled queries, commands and mutations over your game's persistent state. Declared indexes, screens that update themselves by applying only what changed, local persistence with snapshots and a write-ahead journal.",
+    body: "Compiled queries, commands and mutations over your game's persistent state. Declared indexes, UI views that update themselves by applying only what changed, local persistence with snapshots and a write-ahead journal.",
     items: [
       'Index-aware, zero-allocation query paths',
-      'Materialized views maintained by delta; reactive queries subscribe to them',
+      'View models maintained by delta (materialized views); reactive queries subscribe to them',
       'Transactions, snapshots, backup and restore',
     ],
     links: [
@@ -65,7 +65,7 @@ export const PARTS: Part[] = [
   {
     id: 'frame-state',
     name: 'Frame state',
-    group: 'device',
+    group: 'client',
     status: 'shipped',
     body: 'Per-frame state for positions, projectiles and hit events: chunked struct-of-arrays storage, generational handles and declared systems scheduled per phase, at 0 B per frame. It joins live frame state to persistent tables and their indexes.',
     items: [
@@ -81,7 +81,7 @@ export const PARTS: Part[] = [
   {
     id: 'determinism',
     name: 'Determinism',
-    group: 'device',
+    group: 'client',
     status: 'shipped',
     body: 'Commands are deterministic by construction: a fixed-point math library (Fixed64) instead of floats, seeded random declared in the schema, and tests that hold the device and the server to the same answer. This is what makes server replay possible.',
     items: [

@@ -6,7 +6,7 @@ import {GROUPS, PARTS, partsIn, type GroupId} from './parts';
 import styles from './styles.module.css';
 
 // The platform as a diagram: the schema in the centre, four groups around it,
-// each part a pill that jumps to its card. A static CSS grid; the device and
+// each part a pill that jumps to its card. A static CSS grid; the client and
 // server groups sit on the shared DeviceFrame / ServerFrame silhouettes.
 
 /** Pixel size of an element, so a backdrop SVG can match it without distortion. */
@@ -57,10 +57,10 @@ function Backdrop({kind}: {kind: 'device' | 'server'}) {
 }
 
 function Group({id, title}: {id: Exclude<GroupId, 'compiler'>; title: string}) {
-  const framed = id === 'device' || id === 'server';
+  const framed = id === 'client' || id === 'server';
   return (
     <div className={clsx(styles.group, styles[id], framed && styles.framed)}>
-      {framed && <Backdrop kind={id} />}
+      {framed && <Backdrop kind={id === 'client' ? 'device' : 'server'} />}
       {/* The server frame draws its own title. */}
       <span className={clsx(styles.groupTitle, id === 'server' && styles.srOnly)}>{title}</span>
       <Pills group={id} />

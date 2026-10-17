@@ -12,7 +12,7 @@
   grid-template-columns: 1fr minmax(15rem, 17.5rem) 1fr;
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
-    'device center server'
+    'client center server'
     'delivery center services';
   column-gap: var(--pm-gap);
   row-gap: var(--pm-row-gap);
@@ -111,8 +111,8 @@
   border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }
-.device {
-  grid-area: device;
+.client {
+  grid-area: client;
 }
 .server {
   grid-area: server;
@@ -132,7 +132,7 @@
   width: var(--pm-gap);
   border-top: 1px dashed var(--pm-line);
 }
-.device::after,
+.client::after,
 .delivery::after {
   right: calc(var(--pm-gap) * -1);
 }
@@ -141,7 +141,7 @@
   left: calc(var(--pm-gap) * -1);
 }
 
-/* Device and server sit on the shared silhouettes instead of a box. */
+/* Client and server sit on the shared silhouettes instead of a box. */
 .framed {
   border: none;
   background: none;
@@ -213,7 +213,7 @@
   .map {
     grid-template-columns: 1fr;
     grid-template-rows: none;
-    grid-template-areas: 'center' 'device' 'server' 'delivery' 'services';
+    grid-template-areas: 'center' 'client' 'server' 'delivery' 'services';
     row-gap: 1rem;
     max-width: 26rem;
   }

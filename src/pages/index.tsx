@@ -133,8 +133,8 @@ const CLAIMS: Claim[] = [
     wide: true,
   },
   {
-    title: 'Screens update themselves.',
-    body: "Declare a materialized view and the compiler keeps it current by applying only the change — through filters, joins, grouped aggregates and bounded Top-K, with unsupported shapes rejected at compile time. A reactive query is the screen's subscription to that view: the current rows plus per-row changes. No OnChanged wiring, no refresh-order bugs, no stale UI.",
+    title: 'UI views update themselves.',
+    body: "Declare a materialized view and the compiler keeps it current by applying only the change — through filters, joins, grouped aggregates and bounded Top-K, with unsupported shapes rejected at compile time. A reactive query is the UI view's subscription to that view model: the current rows plus per-row changes. No OnChanged wiring, no refresh-order bugs, no stale UI.",
     badges: [
       {label: 'materialized views · IVM', status: 'shipped'},
       {label: 'reactive queries', status: 'shipped'},
@@ -212,8 +212,8 @@ const SHIPPED: Shipped[] = [
     to: '/docs/getting-started',
   },
   {
-    title: 'Screens that update themselves',
-    line: 'Reactive views maintained by applying only what changed.',
+    title: 'UI views that update themselves',
+    line: 'View models maintained by applying only what changed.',
     to: '/docs/advanced/reactive-queries',
   },
   {
@@ -290,7 +290,7 @@ const ROLES: Role[] = [
   },
   {
     who: 'Gameplay programmers',
-    gets: 'Declare state and commands. Screens update themselves, the frame stays flat, and the same feature runs on the server without a second implementation.',
+    gets: 'Declare state and commands. UI views update themselves, the frame stays flat, and the same feature runs on the server without a second implementation.',
   },
 ];
 

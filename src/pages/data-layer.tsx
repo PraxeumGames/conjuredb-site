@@ -132,7 +132,7 @@ function Reframe(): ReactNode {
         <span className="cdb-kicker">The reframe</span>
         <h2 className="cdb-h2">You already know every query before you ship.</h2>
         <p className="cdb-lead">
-          Your game ships with a fixed set of screens. The shop runs the same offer query it
+          Your game ships with a fixed set of UI views. The shop runs the same offer query it
           ran yesterday; the inventory the same lookup. You know the whole catalogue of
           questions your game will ever ask before the build leaves your machine — so there's
           no reason to work them out again on the player's device, every frame.
@@ -158,8 +158,8 @@ const OUTCOMES: Item[] = [
     body: "A cost-based optimizer turns the lists you'd loop over into index lookups, and picks the plan for you. You stop hand-tuning data code and the frame budget stops being the thing you fight.",
   },
   {
-    title: 'Screens that refresh themselves',
-    body: "Incremental view maintenance keeps a view current by applying only what changed — no manual OnChanged wiring, no refresh-order bugs, no stale UI. Shapes it can't maintain are rejected at compile time, not silently degraded.",
+    title: 'UI views that refresh themselves',
+    body: "Incremental view maintenance keeps a view model current by applying only what changed — no manual OnChanged wiring, no refresh-order bugs, no stale UI. Shapes it can't maintain are rejected at compile time, not silently degraded.",
   },
   {
     title: 'It stays manageable as it grows',
@@ -594,7 +594,7 @@ export default function DataLayer(): ReactNode {
   return (
     <Layout
       title="Data layer — ConjureDB, the compiled data layer for game clients"
-      description="ConjureDB is the in-memory data layer inside Conjure: declared once, compiled to plain C#, with indexed lookups, allocation-free query paths and self-updating views. Benchmarks against hand-written C#, Unity Entities and an embedded SQL engine, with methodology.">
+      description="ConjureDB is the in-memory data layer inside Conjure: declared once, compiled to plain C#, with indexed lookups, allocation-free query paths and self-updating view models. Benchmarks against hand-written C#, Unity Entities and an embedded SQL engine, with methodology.">
       <Header />
       <main>
         <Stats />

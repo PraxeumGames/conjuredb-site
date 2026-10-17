@@ -19,7 +19,7 @@ function Header(): ReactNode {
         <p className={styles.pageLead}>
           Game clients grow into one fat monolith: every feature reaches into every manager, so
           nothing can be removed, replaced or reused. When a feature&apos;s state and rules are
-          declared in one schema module, the feature becomes a vertical slice — data, logic, screen
+          declared in one schema module, the feature becomes a vertical slice — data, logic, UI view
           and server behaviour in one folder — that you can add, delete or carry to the next game.
         </p>
       </div>
@@ -78,7 +78,7 @@ const MODULE_TABS: CodeTab[] = [
 
 const SCREEN_TABS: CodeTab[] = [
   {
-    name: 'BattlePassScreen.cs',
+    name: 'BattlePassView.cs',
     lang: 'C#',
     lines: [
       <><K>var</K> track = context.<F>Track</F>(playerId: player.Id);</>,
@@ -91,7 +91,7 @@ const SCREEN_TABS: CodeTab[] = [
 const TREE: [string, string][] = [
   ['features/battlepass/', ''],
   ['  battlepass.conjure', 'module BattlePass { … }'],
-  ['  BattlePassScreen.cs', 'binds the reactive view'],
+  ['  BattlePassView.cs', 'binds the view model'],
   ['  BattlePassSystems.cs', 'optional per-frame logic'],
   ['  art/', 'prefabs, sprites'],
 ];
@@ -113,7 +113,7 @@ function Contents(): ReactNode {
               ))}
             </pre>
             <p className={styles.treeCaption}>
-              The feature&apos;s state, rules, screen and frame logic sit together. Delete the folder
+              The feature&apos;s state, rules, UI view and frame logic sit together. Delete the folder
               and the feature is gone; copy it and the feature moves.
             </p>
           </div>
@@ -123,8 +123,8 @@ function Contents(): ReactNode {
             <p className={styles.codeCaption}>
               A module groups the feature&apos;s table, command and reactive query. The CLI generates a
               separate interface for each module — <code>ICore</code> for <code>module Core</code>,{' '}
-              <code>ISocial</code> for <code>module Social</code> — and the screen binds the reactive
-              query through the generated context.
+              <code>ISocial</code> for <code>module Social</code> — and the UI view binds the reactive
+              query, its view model, through the generated context.
             </p>
           </div>
         </div>
@@ -145,8 +145,8 @@ const RULES: Card[] = [
     body: "State changes go through the module's commands. There is no cross-feature method call to break when a slice changes.",
   },
   {
-    title: 'Screens bind to views',
-    body: "A screen subscribes to the module's reactive query. No presenter knows about other features' events.",
+    title: 'UI views bind to view models',
+    body: "A UI view subscribes to the module's view model. No presenter knows about other features' events.",
   },
   {
     title: 'The same slice runs on the server',
@@ -186,7 +186,7 @@ function Rules(): ReactNode {
 const STEPS: string[] = [
   'Copy the folder.',
   'Compile: unresolved references come back as diagnostics, not runtime surprises.',
-  'Bind the screen to your art; override what the new game does differently.',
+  'Bind the UI view to your art; override what the new game does differently.',
 ];
 
 function Carry(): ReactNode {
@@ -204,7 +204,7 @@ function Carry(): ReactNode {
           ))}
         </ol>
         <p className={styles.honest}>
-          What travels: the schema module, its generated code and the screen logic. What you still
+          What travels: the schema module, its generated code and the UI view logic. What you still
           adapt: art, layout and balance.
         </p>
       </div>
@@ -245,7 +245,7 @@ function Closing(): ReactNode {
       <div className="container">
         <h2 className="cdb-h2">Start with one slice</h2>
         <p className="cdb-lead">
-          Pick a feature you have rewritten twice. Declare it as a module, bind one screen, and see
+          Pick a feature you have rewritten twice. Declare it as a module, bind one UI view, and see
           what the compiler says about the rest.
         </p>
         <div className={styles.ctaRow} style={{marginTop: '1.6rem', justifyContent: 'center'}}>
@@ -265,7 +265,7 @@ export default function Architecture(): ReactNode {
   return (
     <Layout
       title="Architecture — vertical slices in a game client"
-      description="When a feature's state, rules and screen are declared in one schema module, it becomes a vertical slice you can add, delete or carry to the next game — data, logic, screen and server behaviour in one folder.">
+      description="When a feature's state, rules and UI view are declared in one schema module, it becomes a vertical slice you can add, delete or carry to the next game — data, logic, UI view and server behaviour in one folder.">
       <Header />
       <main>
         <Shapes />

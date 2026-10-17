@@ -283,7 +283,7 @@ export default function IvmExplainer(): ReactNode {
             <span className={styles.budgetText}>allocations: {frame.alloc}</span>
           </div>
           <div className={styles.subs}>
-            {['Leaderboard screen', 'Guild header'].map((name, i) => (
+            {['Leaderboard UI view', 'Guild header'].map((name, i) => (
               <div key={name} className={clsx(styles.sub, (done || rebuild) && styles.subOn)}>
                 <span className={styles.subName}>{name}</span>
                 <span className={styles.subLine}>{(done || rebuild) && story ? story.subs[i] : 'waiting'}</span>

@@ -39,7 +39,7 @@ const BEATS: Beat[] = [
     n: '01',
     id: 'closed-world',
     title: 'Closed world',
-    body: 'You declare the whole game: state, commands, the questions screens ask, modules, frame rules. There is no query the compiler has not seen and no command it has not typed.',
+    body: 'You declare the whole game: state, commands, the questions your UI views ask, modules, frame rules. There is no query the compiler has not seen and no command it has not typed.',
     glyph: BRACKETS,
   },
   {
