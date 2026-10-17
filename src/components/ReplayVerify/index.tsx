@@ -12,7 +12,7 @@ import styles from './styles.module.css';
 type Phase = 'offline' | 'reconnect' | 'replay' | 'forged';
 const PHASES: Phase[] = ['offline', 'reconnect', 'replay', 'forged'];
 
-const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4000, forged: 4600};
+const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4000, forged: 5200};
 
 const PHASE_CLASS: Record<Phase, string> = {
   offline: styles.isOffline,
@@ -30,13 +30,13 @@ const STEPS: {phase: Phase; n: string; label: string}[] = [
 
 const ARIA: Record<Phase, string> = {
   offline:
-    'Play offline: the phone has no connection. The player buys a sword, equips it, opens a chest, claims a 200 gold reward and buys a potion. Each action is applied on the device at once and written to a local log: 5 actions, 0 requests. Gold goes from 1,200 to 1,050; device state hash a3f9.',
+    'Play offline: the phone has no connection; the server still holds the last verified state, a hash of 91c0, and waits for the log. The player buys a sword, equips it, opens a chest, claims a 200 gold reward and buys a potion. Each action is applied on the device at once and written to a local log: 5 actions, 0 requests. Gold goes from 1,200 to 1,050; device state hash a3f9.',
   reconnect:
-    'Reconnect: the connection is back and the five logged actions travel to the server as one packet. The server notes: log received.',
+    'Reconnect: the connection is back and the five logged actions travel to the server as one packet, starting from the last verified state 91c0. The server notes: log received.',
   replay:
     'Server replays: the server runs the same five actions with the same compiled logic, checking each one — 5 actions in 11 microseconds. Its state hash is a3f9, the same as the device. Verdict: accepted.',
   forged:
-    'Forged action rejected: the third action in the log is forged — BuyItem(sword, price: 0). The server accepts the first two actions, rejects the forged one and stops. Verdict: rejected, state rolled back. The device snaps back to the server state: gold 950, hash 5e02.',
+    'Forged action rejected: the device holds a forged state — gold 1,250, hash f00d — because the third action in its log is forged: BuyItem(sword, price: 0). The server accepts the first two actions, rejects the forged one and stops at state 5e02; the states differ. Verdict: rejected, state rolled back. Then the device rolls back to the server state: gold 950, hash 5e02 — server state restored.',
 };
 
 // Phase 01 story.
@@ -51,7 +51,9 @@ const TICK = (i: number) => 0.5 + 0.12 * i;
 const MICROS = [2, 4, 6, 9, 11];
 // Phase 04: slower so the ✗ is readable.
 const TICK_FORGED = [0.6, 0.85, 1.1];
-const SNAP = 1.9; // device rolls back to the server state
+// Phase 04 has two beats: the server rejects the forged log, then (SNAP)
+// the device rolls back to the server's state.
+const SNAP = 2.6;
 
 // --- per-phase visibility -------------------------------------------------
 // true = visible for the whole phase, 'off' = fade out at phase start,
@@ -106,6 +108,7 @@ type Layout = {
   forgedLabel: Pt;
   counter: Pt;
   note: Pt;
+  rollNote: Pt;
   match: {a: Pt; b: Pt; label: {at: Pt; anchor: Anchor}};
   verdict: Pt;
 };
@@ -128,6 +131,7 @@ const WIDE: Layout = {
   forgedLabel: [725, 238],
   counter: [725, 264],
   note: [725, 140],
+  rollNote: [140, 354],
   match: {a: [392, 318], b: [610, 318], label: {at: [501, 308], anchor: 'middle'}},
   verdict: [725, 372],
 };
@@ -150,6 +154,7 @@ const NARROW: Layout = {
   forgedLabel: [180, 610],
   counter: [180, 636],
   note: [180, 636],
+  rollNote: [180, 258],
   match: {a: [20, 464], b: [20, 690], label: {at: [316, 684], anchor: 'end'}},
   verdict: [180, 728],
 };
@@ -211,12 +216,15 @@ function Shop({layout}: {layout: Layout}) {
       {sequence([0, ...TAP.map((t) => t + 0.08)], 1).map((spec, k) => (
         <text
           key={k}
-          {...vis({...spec, ...(k === 5 ? {2: true, 3: true, 4: {out: SNAP}} : {})}, styles.goldValue)}
+          {...vis({...spec, ...(k === 5 ? {2: true, 3: true} : {})}, styles.goldValue)}
           x={g.p + 34}
           y={g.goldY}>
           {GOLD[k]}
         </text>
       ))}
+      <text {...vis({4: {out: SNAP}}, clsx(styles.goldValue, styles.red))} x={g.p + 34} y={g.goldY}>
+        1,250
+      </text>
       <text {...vis({4: {in: SNAP}}, styles.goldValue)} x={g.p + 34} y={g.goldY}>
         950
       </text>
@@ -328,12 +336,23 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
             device state {HASH[k]}
           </text>
         ))}
-        <text {...vis({4: {out: SNAP}}, styles.hash)} x={layout.deviceHash[0]} y={layout.deviceHash[1]}>
-          device state #e81c
+        <text {...vis({4: {out: SNAP}}, clsx(styles.hash, styles.red))} x={layout.deviceHash[0]} y={layout.deviceHash[1]}>
+          device state #f00d
         </text>
         <text {...vis({4: {in: SNAP}}, styles.hash)} x={layout.deviceHash[0]} y={layout.deviceHash[1]}>
           device state #5e02
         </text>
+        <g {...vis({4: {in: SNAP + 0.1}}, styles.rollNote)}>
+          <rect
+            x={layout.rollNote[0] - textWidth(27, smallPx) / 2 - 6}
+            y={layout.rollNote[1] - smallPx}
+            width={textWidth(27, smallPx) + 12}
+            height={smallPx * 1.5}
+          />
+          <text x={layout.rollNote[0]} y={layout.rollNote[1]} textAnchor="middle">
+            rolled back to server state
+          </text>
+        </g>
 
         {/* Match line between the two hashes */}
         <g style={breakStyle}>
@@ -357,14 +376,21 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           state matches
         </text>
         <text
-          {...vis({4: {in: 1.35}}, clsx(styles.matchLabel, styles.red))}
+          {...vis({4: {in: 1.35, out: SNAP}}, clsx(styles.matchLabel, styles.red))}
           x={match.label.at[0]}
           y={match.label.at[1]}
           textAnchor={match.label.anchor}>
           state differs
         </text>
-        <text {...vis({1: true, 2: true, 3: {out: 1.15}, 4: {out: 1.3}}, styles.serverHash)} x={hx} y={hy}>
-          state —
+        <text
+          {...vis({4: {in: SNAP + 0.2}}, clsx(styles.matchLabel, styles.muted))}
+          x={match.label.at[0]}
+          y={match.label.at[1]}
+          textAnchor={match.label.anchor}>
+          server state restored
+        </text>
+        <text {...vis({2: true, 3: {out: 1.15}, 4: {out: 1.3}}, styles.serverHash)} x={hx} y={hy}>
+          state #91c0
         </text>
         <text {...vis({3: {in: 1.15}}, styles.serverHash)} x={hx} y={hy}>
           state #a3f9
@@ -372,9 +398,15 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
         <text {...vis({4: {in: 1.3}}, styles.serverHash)} x={hx} y={hy}>
           state #5e02
         </text>
-        <text {...vis({1: true}, styles.note)} x={layout.note[0]} y={layout.note[1]} textAnchor="middle">
-          no connection
-        </text>
+        {/* Offline, the server is still the source of truth: its last verified state. */}
+        <g {...vis({1: true}, styles.waiting)}>
+          <text className={styles.serverHash} x={layout.note[0]} y={layout.note[1]} textAnchor="middle">
+            last verified state #91c0
+          </text>
+          <text className={styles.note} x={layout.note[0]} y={layout.note[1] + layout.font * 1.4} textAnchor="middle">
+            waiting for the log
+          </text>
+        </g>
         <text {...vis({2: {in: 1.2}}, styles.note)} x={layout.note[0]} y={layout.note[1]} textAnchor="middle">
           log received
         </text>

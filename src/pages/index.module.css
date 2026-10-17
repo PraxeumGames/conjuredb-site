@@ -252,6 +252,11 @@
 }
 
 /* Replay section: one-line caption + three facts with status badges. */
+@media (max-width: 996px) {
+  .replayLead {
+    font-size: 0.95rem;
+  }
+}
 .replayCaption {
   margin: 1.6rem auto 0;
   max-width: 44rem;

@@ -67,7 +67,7 @@ function ReplaySection(): ReactNode {
       <div className="container">
         <span className="cdb-kicker">Play offline. The server still checks.</span>
         <h2 className="cdb-h2">No request per tap. No trust in the client.</h2>
-        <p className="cdb-lead">
+        <p className={`cdb-lead ${styles.replayLead}`}>
           The device runs the compiled logic and writes down what the player did. When the network
           is back, the server replays that log with the same compiled logic and compares the state.
         </p>

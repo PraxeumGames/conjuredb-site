@@ -243,16 +243,13 @@
   stroke-dasharray: none;
   transition: stroke 0.3s ease 1.3s, stroke-opacity 0.3s ease 1.3s;
 }
-.isForged .matchHalf {
-  stroke: var(--rv-red);
-  stroke-opacity: 1;
-  transition: stroke 0.25s ease 1.3s, stroke-opacity 0.25s ease 1.3s, transform 0.3s var(--rv-ease) 1.3s;
-}
+/* Phase 04, two beats: breaks red at 1.3 s, re-joins muted after the
+   device rolls back (2.6 s). Percentages are of the 5.2 s phase. */
 .isForged .matchA {
-  transform: translate(calc(var(--bx) * -1), calc(var(--by) * -1));
+  animation: rv-break-a 5.2s linear both;
 }
 .isForged .matchB {
-  transform: translate(var(--bx), var(--by));
+  animation: rv-break-b 5.2s linear both;
 }
 .matchLabel {
   font-family: var(--cdb-mono);
@@ -303,6 +300,21 @@
 }
 .red {
   fill: var(--rv-red);
+}
+.muted {
+  fill: var(--cdb-muted);
+}
+.rollNote rect {
+  fill: var(--cdb-surface);
+}
+.rollNote text {
+  font-family: var(--cdb-mono);
+  font-size: 0.74em;
+  fill: var(--cdb-muted);
+}
+/* Low contrast so the device stays the focus while offline. */
+.isOffline .waiting {
+  opacity: 0.6;
 }
 
 .verdict rect {
@@ -414,6 +426,16 @@
 @keyframes rv-out-2 { from { opacity: 1; } to { opacity: 0; } }
 @keyframes rv-out-3 { from { opacity: 1; } to { opacity: 0; } }
 @keyframes rv-out-4 { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rv-break-a {
+  0%, 25% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  29%, 50% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(calc(var(--bx) * -1), calc(var(--by) * -1)); }
+  55%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+}
+@keyframes rv-break-b {
+  0%, 25% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  29%, 50% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(var(--bx), var(--by)); }
+  55%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+}
 @keyframes rv-fade {
   from { opacity: 0.15; }
   to { opacity: 1; }
