@@ -64,7 +64,7 @@ const REPLAY_FACTS: Fact[] = [
 
 function ReplaySection(): ReactNode {
   return (
-    <section className="cdb-section cdb-surface">
+    <section className={`cdb-section cdb-surface ${styles.joinNext}`}>
       <div className="container">
         <span className="cdb-kicker">Play offline. The server still checks.</span>
         <h2 className="cdb-h2">No request per tap. No trust in the client.</h2>
@@ -99,7 +99,7 @@ const STATS: Stat[] = [
 
 function StatBand(): ReactNode {
   return (
-    <section className="cdb-section cdb-section--tight">
+    <section className={`cdb-section cdb-section--tight cdb-surface ${styles.statBand}`}>
       <div className="container">
         <div className="cdb-stats">
           {STATS.map((s) => (

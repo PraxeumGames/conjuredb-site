@@ -37,14 +37,14 @@
 }
 
 .pageTitle {
-  font-size: clamp(2.1rem, 4.6vw, 3.1rem);
+  font-size: var(--fs-h1);
   line-height: 1.06;
   letter-spacing: -0.02em;
   font-weight: 850;
   margin: 0.4rem 0 1rem;
 }
 .pageLead {
-  font-size: clamp(1.05rem, 2vw, 1.2rem);
+  font-size: var(--fs-lg);
   line-height: 1.65;
   color: var(--cdb-muted);
   max-width: 48rem;
@@ -58,7 +58,7 @@
 
 .codeCaption {
   margin: 0.9rem 0 0;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
 }
 
@@ -67,14 +67,14 @@
   margin-top: 1.6rem;
   overflow-x: auto;
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }
 .benchTable {
   display: table; /* Infima makes tables display: block, which stops them filling the wrap */
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
 }
 .benchTable th,
 .benchTable td {
@@ -85,9 +85,8 @@
 .benchTable th {
   font-family: var(--cdb-mono);
   color: var(--cdb-muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .benchTable tbody tr:last-child td {
@@ -106,14 +105,14 @@
 .caveat {
   margin-top: 1rem;
   color: var(--cdb-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .dictCard {
   margin-top: 1.4rem;
   border: 1px solid var(--cdb-line);
   border-left: 3px solid var(--cdb-accent);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface);
   padding: 1.3rem 1.4rem;
 }
@@ -129,9 +128,9 @@
 }
 
 .visualCaption {
-  margin: 1.6rem auto 0;
+  margin: var(--gap-md) auto 0;
   max-width: 44rem;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   color: var(--cdb-ink);
   opacity: 0.85;
   text-align: center;
@@ -152,14 +151,14 @@
 }
 .footnote {
   margin: 0.9rem auto 0;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
   text-align: center;
 }
 .sideNote {
   max-width: 44rem;
   margin: 0.6rem auto 0;
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   font-style: italic;
   color: var(--cdb-muted);
 }
@@ -173,15 +172,14 @@
 .compareCell {
   padding: 1.1rem 1.2rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }
 .compareLabel {
   display: block;
   font-family: var(--cdb-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--cdb-muted);
   margin-bottom: 0.7rem;
 }
@@ -197,7 +195,7 @@
 .compareCell dt {
   font-weight: 400;
   color: var(--cdb-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 .compareCell dd {
   margin: 0;

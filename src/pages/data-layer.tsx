@@ -243,7 +243,7 @@ function Table({
   return (
     <div style={{marginTop: '2rem'}}>
       <h3 style={{marginBottom: '0.3rem'}}>{title}</h3>
-      <p className="cdb-lead" style={{fontSize: '0.95rem'}}>{head}</p>
+      <p className="cdb-lead" style={{fontSize: 'var(--fs-md)'}}>{head}</p>
       <div className={styles.tableWrap}>
         <table className={styles.benchTable}>
           <thead>
@@ -466,7 +466,7 @@ function NoJitRuntime(): ReactNode {
 
         <div style={{marginTop: '2rem'}}>
           <h3 style={{marginBottom: '0.3rem'}}>Every operator, measured against SQLite</h3>
-          <p className="cdb-lead" style={{fontSize: '0.95rem'}}>
+          <p className="cdb-lead" style={{fontSize: 'var(--fs-md)'}}>
             The fair fight: SQLite is itself a bytecode interpreter, so this is interpreter vs
             interpreter. Each of the {INTERP_SUMMARY.scenarios} shapes runs the same query over the
             same {INTERP_SUMMARY.corpusShape} data, with matching indexes for each
@@ -502,7 +502,7 @@ function NoJitRuntime(): ReactNode {
           </div>
         </div>
 
-        <p className="cdb-lead" style={{marginTop: '1.6rem', fontSize: '0.95rem'}}>
+        <p className="cdb-lead" style={{marginTop: '1.6rem', fontSize: 'var(--fs-md)'}}>
           Some of the win is structural: an in-process engine on your own heap skips the
           managed↔native marshaling SQLite pays per query — which is exactly why you'd embed one on a
           client. And the compiled C# lane above is still the throughput ceiling; keep your hottest,

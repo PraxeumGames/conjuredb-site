@@ -3,7 +3,7 @@
 .explorer {
   margin-top: 1.8rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   background: var(--cdb-surface-2);
 }
@@ -26,17 +26,17 @@
   cursor: pointer;
   font: inherit;
   font-family: var(--cdb-mono);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 0.85rem;
   margin: 0 0.15rem;
-  border-radius: 9px 9px 0 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
   color: var(--cdb-muted);
   background: transparent;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: color var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast);
 }
 .tab:hover {
   color: var(--cdb-ink);
@@ -48,9 +48,9 @@
   border-bottom: 2px solid var(--ifm-color-primary);
 }
 .count {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--cdb-line);
   color: var(--cdb-muted);
 }
@@ -72,12 +72,12 @@
 }
 .panelTitle {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   letter-spacing: -0.01em;
 }
 .range {
   font-family: var(--cdb-mono);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 
@@ -85,7 +85,7 @@
   width: 100%;
   overflow-x: auto;
   border: 1px solid var(--cdb-line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
 }
 .table {
   /* override Infima's base `table { display: block }`, which otherwise lets the
@@ -94,7 +94,7 @@
   table-layout: auto;
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
+  font-size: var(--fs-md);
 }
 .table th,
 .table td {
@@ -104,9 +104,8 @@
 }
 .table th {
   font-family: var(--cdb-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--cdb-muted);
 }
@@ -151,19 +150,18 @@
 .badge {
   margin-left: 0.5rem;
   font-family: var(--cdb-mono);
-  font-size: 0.66rem;
-  text-transform: uppercase;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
   color: var(--cdb-accent);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.05rem 0.45rem;
   vertical-align: middle;
 }
 
 .hint {
   margin: 0 0 0.6rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
 }
 
@@ -180,7 +178,7 @@
   width: 0.9rem;
   margin-right: 0.3rem;
   color: var(--cdb-muted);
-  transition: transform 0.15s, color 0.15s;
+  transition: transform var(--dur-fast), color var(--dur-fast);
 }
 .rowClickable:hover .caret {
   color: var(--ifm-color-primary);
@@ -200,7 +198,7 @@
 }
 .summary {
   margin: 0 0 0.85rem;
-  font-size: 0.92rem;
+  font-size: var(--fs-md);
   color: var(--cdb-ink);
   max-width: 68ch;
 }
@@ -214,20 +212,20 @@
   padding: 0.7rem 0.9rem;
   border: 1px solid var(--cdb-line);
   border-left: 3px solid var(--ifm-color-primary);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: rgba(236, 194, 92, 0.05);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   line-height: 1.5;
   color: var(--cdb-ink);
   max-width: 78ch;
 }
 .calloutBolt {
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   line-height: 1.4;
 }
 .cnum {
   font-family: var(--cdb-mono);
-  font-size: 0.84rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--cdb-ink);
 }
@@ -237,7 +235,7 @@
   gap: 0.25rem;
   padding: 0.2rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--cdb-surface-2);
   margin-bottom: 0.7rem;
 }
@@ -247,12 +245,12 @@
   border: none;
   cursor: pointer;
   font-family: var(--cdb-mono);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   padding: 0.32rem 0.7rem;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   color: var(--cdb-muted);
   background: transparent;
-  transition: color 0.12s, background 0.12s;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 .formTab:hover {
   color: var(--cdb-ink);
@@ -267,11 +265,11 @@
   margin: 0;
   padding: 0.85rem 1rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--ifm-background-color);
   overflow-x: auto;
   font-family: var(--cdb-mono);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   position: relative;
 }
@@ -280,9 +278,8 @@
   position: absolute;
   top: 0.5rem;
   right: 0.7rem;
-  font-size: 0.62rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--cdb-muted);
   opacity: 0.7;
 }
@@ -296,18 +293,18 @@
 }
 .note {
   margin: 0.65rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-accent);
   max-width: 72ch;
 }
 .disclaimer {
   margin: 0.4rem 0 0;
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
   max-width: 72ch;
 }
 .disclaimer code {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 /* ConjureDB execution-variant breakdown (default / NoAlloc / ForEach) */
@@ -316,8 +313,7 @@
 }
 .variantsHead {
   font-family: var(--cdb-mono);
-  font-size: 0.7rem;
-  text-transform: uppercase;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.05em;
   color: var(--cdb-muted);
 }
@@ -334,7 +330,7 @@
   gap: 0.5rem;
   padding: 0.32rem 0.6rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--cdb-surface);
 }
 .variantBest {
@@ -343,33 +339,32 @@
 }
 .variantKind {
   font-family: var(--cdb-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-ink);
 }
 .variantTime {
   font-family: var(--cdb-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--cdb-ink);
 }
 .variantAlloc {
   font-family: var(--cdb-mono);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 .variantFlag {
   font-family: var(--cdb-mono);
-  font-size: 0.62rem;
-  text-transform: uppercase;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
   color: var(--ifm-color-primary);
 }
 .variantNote {
   margin: 0.55rem 0 0;
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
   max-width: 72ch;
 }
 .variantNote code {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }

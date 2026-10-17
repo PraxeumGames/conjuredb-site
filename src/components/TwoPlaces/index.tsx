@@ -138,7 +138,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
     <div id={id} ref={rootRef} className={clsx(styles.root, styles[run])}>
       <div className={styles.stage}>
         <div className={clsx(styles.side, styles.deviceSide)}>
-          <svg className={styles.frame} viewBox="0 0 160 220" aria-hidden="true" style={{fontSize: 13}}>
+          <svg className={styles.frame} viewBox="0 0 160 220" aria-hidden="true" style={{fontSize: 14}}>
             <DeviceFrame x={0.5} y={0.5} width={159} height={219}>
               <text className={styles.where} x={14} y={DEVICE_STATUS_H + 22}>
                 device · {platform}
@@ -170,7 +170,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
         </div>
 
         <div className={clsx(styles.side, styles.serverSide)}>
-          <svg className={styles.frame} viewBox="0 0 220 150" aria-hidden="true" style={{fontSize: 13}}>
+          <svg className={styles.frame} viewBox="0 0 220 150" aria-hidden="true" style={{fontSize: 14}}>
             <ServerFrame x={0.5} y={0.5} width={219} height={149} title="server · player grain">
               <Progress x={18} y={88} w={184} run={run} />
             </ServerFrame>

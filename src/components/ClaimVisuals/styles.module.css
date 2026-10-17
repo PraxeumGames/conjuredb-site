@@ -86,7 +86,7 @@
 }
 .code {
   font-family: var(--cdb-mono);
-  font-size: 0.82em;
+  font-size: 0.9em;
   fill: var(--cdb-ink);
   fill-opacity: 0.85;
 }

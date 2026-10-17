@@ -3,12 +3,12 @@
   align-items: center;
   gap: 0.4rem;
   font-family: var(--cdb-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--cdb-muted);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.3rem 0.6rem 0.3rem 0.5rem;
   white-space: nowrap;
 }

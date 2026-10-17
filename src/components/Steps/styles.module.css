@@ -1,0 +1,117 @@
+.steps {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: var(--gap-md) auto 0;
+  max-width: 52rem;
+}
+@media (max-width: 996px) {
+  .steps {
+    grid-template-columns: repeat(var(--cols-narrow), minmax(0, 1fr));
+  }
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.7rem 0.5rem 0.8rem;
+  background: transparent;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+  color: var(--cdb-muted);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+.step:hover {
+  color: var(--cdb-ink);
+  border-color: rgba(236, 194, 92, 0.45);
+}
+.step:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+.n {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+}
+.label {
+  font-size: var(--fs-sm);
+  line-height: 1.25;
+}
+
+.active {
+  color: var(--cdb-ink);
+  border-color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.active .n {
+  color: var(--ifm-color-primary);
+  opacity: 1;
+}
+/* Muted-red variant: hand wiring (hero 01), forged action (replay 04). */
+.alt.active {
+  border-color: var(--cdb-wire);
+  background: rgba(224, 132, 116, 0.08);
+}
+.alt.active .n {
+  color: var(--cdb-wire);
+}
+
+.timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--ifm-color-primary);
+  opacity: 0.6;
+  transform-origin: left;
+  animation: steps-timer linear forwards;
+}
+.alt .timer {
+  background: var(--cdb-wire);
+}
+
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .label {
+    font-size: var(--fs-xs);
+  }
+}
+
+@keyframes steps-timer {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step {
+    transition: none;
+  }
+  .timer {
+    display: none;
+  }
+}

@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
 import {DEVICE_STATUS_H, DeviceFrame, ServerFrame, WifiGlyph, serverHashAt} from '@site/src/components/Glyphs';
+import Steps from '@site/src/components/Steps';
 import styles from './styles.module.css';
 
 // Visual B — "offline tap → server replay". The device runs the compiled
@@ -21,12 +22,12 @@ const PHASE_CLASS: Record<Phase, string> = {
   forged: styles.isForged,
 };
 
-const STEPS: {phase: Phase; n: string; label: string}[] = [
-  {phase: 'offline', n: '01', label: 'play offline'},
-  {phase: 'reconnect', n: '02', label: 'reconnect'},
-  {phase: 'replay', n: '03', label: 'server replays'},
-  {phase: 'forged', n: '04', label: 'forged action rejected'},
-];
+const STEPS: {key: Phase; n: string; label: string; alt?: boolean}[] = [
+  {key: 'offline', n: '01', label: 'play offline'},
+  {key: 'reconnect', n: '02', label: 'reconnect'},
+  {key: 'replay', n: '03', label: 'server replays'},
+  {key: 'forged', n: '04', label: 'forged action', alt: true},
+]
 
 const ARIA: Record<Phase, string> = {
   offline:
@@ -119,7 +120,7 @@ const WIDE: Layout = {
   w: 880,
   h: 345,
   font: 14,
-  shopFont: 12,
+  shopFont: 13.5,
   device: {x: 40, y: 70, w: 200, h: 260},
   stream: 'M240 200 H600',
   marks: WIDE_MARKS,
@@ -141,9 +142,9 @@ const NARROW: Layout = {
   top: 0,
   w: 360,
   h: 750,
-  font: 12.5,
-  shopFont: 10.5,
-  device: {x: 100, y: 8, w: 160, h: 230},
+  font: 15.5,
+  shopFont: 15,
+  device: {x: 80, y: 8, w: 200, h: 230},
   stream: 'M180 238 V500',
   marks: NARROW_MARKS,
   labels: NARROW_MARKS.map(([x, y]) => ({at: [x + 14, y + 4], anchor: 'start'})),
@@ -538,30 +539,15 @@ export default function ReplayVerify(): ReactNode {
         <Scene layout={WIDE} phase={phase} className={styles.wide} />
         <Scene layout={NARROW} phase={phase} className={styles.narrow} />
       </div>
-      <div className={styles.steps} role="group" aria-label="Show step">
-        {STEPS.map((s) => {
-          const active = s.phase === phase;
-          return (
-            <button
-              key={s.phase}
-              type="button"
-              aria-pressed={active}
-              className={clsx(styles.step, active && styles.stepActive, s.phase === 'forged' && styles.stepRed)}
-              onClick={() => pick(s.phase)}>
-              <span className={styles.stepN}>{s.n}</span>
-              <span className={styles.stepLabel}>{s.label}</span>
-              {active && auto && visible && (
-                <span
-                  key={phase}
-                  className={styles.stepTimer}
-                  style={{animationDuration: `${HOLD_MS[phase]}ms`}}
-                  aria-hidden="true"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <Steps
+        steps={STEPS}
+        active={phase}
+        onPick={pick}
+        timerMs={auto && visible ? HOLD_MS[phase] : undefined}
+        label="Show step"
+        columns={4}
+        narrowColumns={2}
+      />
     </div>
   );
 }

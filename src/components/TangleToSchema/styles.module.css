@@ -39,7 +39,7 @@
   background: radial-gradient(closest-side, rgba(236, 194, 92, 0.12), transparent);
   filter: blur(30px);
   opacity: 0;
-  transition: opacity 1s ease;
+  transition: opacity var(--dur-slow) var(--ease);
   pointer-events: none;
 }
 .isSchema .stage::before,
@@ -70,7 +70,7 @@
 /* Base rules are phase 01. Coming back to it is a quick cross-fade in place,
    never the collapse played backwards. */
 .tangleGroup {
-  transition: opacity 0.4s ease;
+  transition: opacity var(--dur) var(--ease);
 }
 .drift {
   animation: tts-drift 8s ease-in-out infinite;
@@ -80,8 +80,8 @@
   transform: rotate(24deg) scale(0.05);
   opacity: 0;
   transition:
-    transform 1.05s var(--tts-ease),
-    opacity 0.55s ease 0.45s;
+    transform var(--dur-slow) var(--tts-ease),
+    opacity var(--dur-slow) var(--ease) 0.45s;
 }
 
 .wire {
@@ -128,9 +128,8 @@
 .networkLabel,
 .halfLabel {
   font-family: var(--cdb-mono);
-  font-size: 0.66em;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 1em;
+  letter-spacing: 0.04em;
   fill: var(--cdb-muted);
 }
 .networkLabel {
@@ -145,7 +144,7 @@
   opacity: 0;
   transform: scale(0.6);
   transition:
-    opacity 0.35s ease,
+    opacity var(--dur) var(--ease),
     transform 0s linear 0.35s;
 }
 .isSchema .card,
@@ -153,8 +152,8 @@
   opacity: 1;
   transform: none;
   transition:
-    transform 0.75s cubic-bezier(0.2, 0.9, 0.3, 1.15) 0.55s,
-    opacity 0.45s ease 0.55s;
+    transform var(--dur-slow) var(--ease) 0.55s,
+    opacity var(--dur) var(--ease) 0.55s;
 }
 
 .cardBox {
@@ -173,7 +172,7 @@
 }
 .cardLine {
   font-family: var(--cdb-mono);
-  font-size: 0.8em;
+  font-size: 1em;
   fill: var(--cdb-ink);
   fill-opacity: 0.82;
 }
@@ -182,9 +181,8 @@
 }
 .cardCaption {
   font-family: var(--cdb-mono);
-  font-size: 0.78em;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 1em;
+  letter-spacing: 0.04em;
   fill: var(--tts-gold);
   fill-opacity: 0.85;
 }
@@ -202,7 +200,7 @@
   stroke-dashoffset: 1;
   opacity: 0;
   transition:
-    opacity 0.35s ease,
+    opacity var(--dur) var(--ease),
     stroke-dashoffset 0s linear 0.35s;
 }
 .isGenerated .ray {
@@ -210,7 +208,7 @@
   stroke-dashoffset: 0;
   transition:
     opacity 0s,
-    stroke-dashoffset 0.6s var(--tts-ease) calc(0.15s + var(--d, 0s));
+    stroke-dashoffset var(--dur-slow) var(--tts-ease) calc(0.15s + var(--d, 0s));
 }
 .flow {
   fill: none;
@@ -219,28 +217,28 @@
   stroke-linecap: round;
   stroke-dasharray: 0.1 11.9;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity var(--dur) var(--ease);
   animation: tts-flow 1.4s linear infinite paused;
 }
 .isGenerated .flow {
   opacity: 0.9;
   animation-play-state: running;
-  transition: opacity 0.4s ease calc(0.9s + var(--d, 0s));
+  transition: opacity var(--dur) var(--ease) calc(0.9s + var(--d, 0s));
 }
 
 .module {
   opacity: 0;
   transform: translate(var(--dx), var(--dy)) scale(0.3);
   transition:
-    opacity 0.35s ease,
+    opacity var(--dur) var(--ease),
     transform 0s linear 0.35s;
 }
 .isGenerated .module {
   opacity: 1;
   transform: none;
   transition:
-    transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) var(--d, 0s),
-    opacity 0.4s ease var(--d, 0s);
+    transform var(--dur-slow) var(--ease) var(--d, 0s),
+    opacity var(--dur) var(--ease) var(--d, 0s);
 }
 .moduleBase {
   fill: var(--tts-card-fill);
@@ -258,7 +256,7 @@
 }
 .moduleSub {
   font-family: var(--cdb-mono);
-  font-size: 0.8em;
+  font-size: 1em;
   fill: var(--tts-gold);
 }
 
@@ -279,19 +277,12 @@
 .tServer .moduleSub {
   fill: var(--tts-server);
 }
-.tClient .moduleSub,
-.tServer .moduleSub {
-  font-size: 0.74em;
-}
-.small .moduleSub {
-  font-size: 0.72em;
-}
 .tServer .ray,
 .tServer .flow {
   stroke: var(--tts-server);
 }
 .small .moduleTitle {
-  font-size: 0.92em;
+  font-size: 1em;
 }
 .small .moduleTint {
   stroke-opacity: 0.5;
@@ -301,11 +292,11 @@
    when the server has replayed it. */
 .stream {
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity var(--dur) var(--ease);
 }
 .isGenerated .stream {
   opacity: 1;
-  transition: opacity 0.5s ease 1s;
+  transition: opacity var(--dur) var(--ease) 1s;
 }
 .streamLine {
   fill: none;
@@ -316,7 +307,7 @@
 }
 .streamLabel {
   font-family: var(--cdb-mono);
-  font-size: 0.66em;
+  font-size: 1em;
   letter-spacing: 0.06em;
   fill: var(--cdb-muted);
 }
@@ -341,85 +332,6 @@
 .isGenerated .check,
 .isGenerated .markerBox {
   animation-play-state: running;
-}
-
-/* ---- Step labels under the visual -------------------------------------- */
-.steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  margin-top: 1.4rem;
-}
-.step {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.7rem 0.5rem 0.8rem;
-  background: transparent;
-  border: 1px solid var(--cdb-line);
-  border-radius: 10px;
-  color: var(--cdb-muted);
-  font: inherit;
-  cursor: pointer;
-  overflow: hidden;
-  transition:
-    border-color 0.25s ease,
-    color 0.25s ease,
-    background 0.25s ease;
-}
-.step:hover {
-  color: var(--cdb-ink);
-}
-.step:focus-visible {
-  outline: 2px solid var(--tts-gold);
-  outline-offset: 2px;
-}
-.stepN {
-  font-family: var(--cdb-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  opacity: 0.7;
-}
-.stepLabel {
-  font-size: 0.86rem;
-  line-height: 1.25;
-}
-.stepActive {
-  color: var(--cdb-ink);
-  border-color: var(--tts-gold);
-  background: var(--tts-gold-soft);
-}
-.stepActive .stepN {
-  color: var(--tts-gold);
-  opacity: 1;
-}
-.stepWire.stepActive {
-  border-color: var(--tts-script-line);
-  background: rgba(205, 118, 104, 0.07);
-}
-.stepWire.stepActive .stepN {
-  color: var(--tts-wire-hot);
-}
-.stepTimer {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  width: 100%;
-  background: var(--tts-gold);
-  opacity: 0.6;
-  transform-origin: left;
-  animation: tts-timer linear forwards;
-}
-.stepWire .stepTimer {
-  background: var(--tts-wire-hot);
-}
-@media (max-width: 640px) {
-  .stepLabel {
-    font-size: 0.76rem;
-  }
 }
 
 @keyframes tts-flow {
@@ -490,14 +402,6 @@
   84%,
   100% {
     fill: var(--tts-server);
-  }
-}
-@keyframes tts-timer {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
   }
 }
 

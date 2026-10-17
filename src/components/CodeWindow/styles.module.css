@@ -23,7 +23,7 @@
 
   background: var(--cw-bg);
   border: 1px solid var(--cw-bar-border);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, var(--cw-shadow);
   font-family: var(--cdb-mono, 'Geist Mono', ui-monospace, Menlo, Consolas, monospace);
@@ -87,14 +87,14 @@
   border: none;
   cursor: pointer;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   padding: 0 0.95rem;
   display: flex;
   align-items: center;
   color: var(--cw-tab);
   background: transparent;
   border-top: 2px solid transparent;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 .tab:hover {
   color: var(--cw-tab-active);
@@ -107,9 +107,8 @@
 
 .lang {
   margin-left: auto;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--cw-lang);
   flex-shrink: 0;
 }
@@ -120,7 +119,7 @@
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--cw-gutter) transparent;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   line-height: 1.7;
 }
 .gutter {
@@ -183,7 +182,7 @@
 }
 .body::-webkit-scrollbar-thumb {
   background: var(--cw-gutter);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
 }
 .body::-webkit-scrollbar-track {
   background: transparent;

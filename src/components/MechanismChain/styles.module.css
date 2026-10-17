@@ -13,7 +13,7 @@
 
 .beat {
   display: flex;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--dur-fast) var(--ease);
 }
 .rail:hover .beat,
 .rail:focus-within .beat {
@@ -31,11 +31,11 @@
   width: 100%;
   padding: 1.2rem 1.15rem 1.3rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
   color: var(--cdb-ink);
   text-decoration: none;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .card:hover,
 .card:focus-visible {
@@ -57,7 +57,7 @@
 }
 .n {
   font-family: var(--cdb-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   letter-spacing: 0.12em;
   color: var(--ifm-color-primary);
 }
@@ -77,12 +77,12 @@
 }
 .title {
   font-family: var(--ifm-heading-font-family);
-  font-size: 1.15rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 .body {
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   line-height: 1.55;
   color: var(--cdb-muted);
 }
@@ -110,7 +110,7 @@
   padding: 0.4rem 0;
   background: var(--ifm-background-color);
   font-family: var(--cdb-mono);
-  font-size: 0.66rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.12em;
   color: var(--cdb-muted);
 }

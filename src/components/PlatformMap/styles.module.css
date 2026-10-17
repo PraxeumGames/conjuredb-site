@@ -56,12 +56,12 @@
   width: 100%;
   background: var(--pm-card);
   border: 1.5px solid var(--ifm-color-primary);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   box-shadow: 0 0 60px -14px rgba(236, 194, 92, 0.4);
   color: var(--cdb-ink);
   font-family: var(--cdb-mono);
   text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .schema:hover {
   color: var(--cdb-ink);
@@ -80,7 +80,7 @@
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.8rem 1rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   opacity: 0.85;
 }
 .schemaLines b {
@@ -94,7 +94,7 @@
   padding: 0.65rem 1rem 0.75rem;
   border-top: 1px solid rgba(236, 194, 92, 0.28);
   font-family: var(--ifm-font-family-base);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 
@@ -107,7 +107,7 @@
   gap: 0.7rem;
   padding: 1.2rem 1.3rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }
 .device {
@@ -165,9 +165,8 @@
 }
 .groupTitle {
   font-family: var(--cdb-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--cdb-muted);
 }
 .srOnly {
@@ -194,13 +193,13 @@
   gap: 0.5rem;
   padding: 0.34rem 0.75rem 0.34rem 0.6rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--cdb-surface);
   color: var(--cdb-ink);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   line-height: 1.2;
   text-decoration: none;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .pill:hover {
   color: var(--cdb-ink);

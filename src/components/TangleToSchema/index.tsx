@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
+import Steps from '@site/src/components/Steps';
 import styles from './styles.module.css';
 
 // Hero visual: today's two hand-wired programs (client + server, muted
@@ -20,11 +21,11 @@ const PHASE_CLASS: Record<Phase, string | undefined> = {
   generated: styles.isGenerated,
 };
 
-const STEPS: {phase: Phase; n: string; label: string}[] = [
-  {phase: 'tangle', n: '01', label: 'two programs today'},
-  {phase: 'schema', n: '02', label: 'you write this'},
-  {phase: 'generated', n: '03', label: 'compiler builds both sides'},
-];
+const STEPS: {key: Phase; n: string; label: string; alt?: boolean}[] = [
+  {key: 'tangle', n: '01', label: 'two programs today', alt: true},
+  {key: 'schema', n: '02', label: 'you write this'},
+  {key: 'generated', n: '03', label: 'builds both sides'},
+]
 
 const ARIA: Record<Phase, string> = {
   tangle:
@@ -129,21 +130,22 @@ const WIDE: Layout = {
     {at: [522, 384], rot: 3, w: 160},
   ],
   network: {d: 'M380 30 V410', label: [380, 20], client: [16, 20], server: [744, 20], vertical: true},
-  card: {cx: 380, cy: 192, w: 236, h: 176, line: 21},
+  card: {cx: 380, cy: 192, w: 264, h: 188, line: 22},
+  // Text in the drawing is ≥ 1em (≈ 11px at 1280 wide), so outputs carry two-line subtitles.
   outputs: [
-    {at: [116, 192], w: 220, h: 66},
-    {at: [644, 192], w: 220, h: 66},
-    {at: [380, 352], w: 230, h: 58},
-    {at: [116, 362], w: 222, h: 54},
-    {at: [644, 362], w: 222, h: 54},
+    {at: [118, 192], w: 200, h: 84, sub: ['screens · frame', 'local state']},
+    {at: [642, 192], w: 200, h: 84, sub: ['player · config', 'shared state']},
+    {at: [380, 358], w: 240, h: 62},
+    {at: [118, 366], w: 200, h: 72, sub: ['rules without', 'a release']},
+    {at: [642, 366], w: 200, h: 72, sub: ['battle pass ·', 'store · inventory']},
   ],
-  stream: {d: 'M116 159 V60 H644 V159', start: [126, 60], travel: [508, 0], check: [0, -13], label: [380, 48]},
+  stream: {d: 'M118 150 V58 H642 V150', start: [128, 58], travel: [504, 0], check: [0, -13], label: [380, 44]},
 };
 
 const NARROW: Layout = {
   w: 360,
   h: 580,
-  font: 12.5,
+  font: 13,
   scriptH: 32,
   scripts: [
     {at: [92, 44], rot: -4, w: 140},
@@ -157,15 +159,15 @@ const NARROW: Layout = {
     {at: [118, 548], rot: 3, w: 134},
   ],
   network: {d: 'M10 287 H350', label: [350, 279], client: [10, 12], server: [10, 302], vertical: false},
-  card: {cx: 190, cy: 208, w: 204, h: 160, line: 19},
+  card: {cx: 190, cy: 214, w: 236, h: 176, line: 20},
   outputs: [
-    {at: [190, 52], w: 236, h: 58},
-    {at: [190, 362], w: 236, h: 58},
-    {at: [190, 440], w: 236, h: 52},
-    {at: [100, 520], w: 168, h: 62, sub: ['rules without', 'a release']},
-    {at: [280, 520], w: 168, h: 62, sub: ['battle pass ·', 'store · inventory']},
+    {at: [190, 52], w: 236, h: 70, sub: ['screens · frame', 'local state']},
+    {at: [190, 368], w: 236, h: 70, sub: ['player · config', 'shared state']},
+    {at: [190, 446], w: 236, h: 52},
+    {at: [100, 530], w: 168, h: 70, sub: ['rules without', 'a release']},
+    {at: [280, 530], w: 168, h: 70, sub: ['battle pass ·', 'store · inventory']},
   ],
-  stream: {d: 'M72 52 H26 V362 H72', start: [26, 62], travel: [0, 290], check: [13, 4]},
+  stream: {d: 'M72 52 H26 V368 H72', start: [26, 62], travel: [0, 296], check: [13, 4]},
 };
 
 function wirePath(p: Pt, q: Pt, bend: number): string {
@@ -414,30 +416,14 @@ export default function TangleToSchema(): ReactNode {
         <Scene layout={WIDE} phase={phase} className={styles.wide} />
         <Scene layout={NARROW} phase={phase} className={styles.narrow} />
       </div>
-      <div className={styles.steps} role="group" aria-label="Show stage">
-        {STEPS.map((s) => {
-          const active = s.phase === phase;
-          return (
-            <button
-              key={s.phase}
-              type="button"
-              aria-pressed={active}
-              className={clsx(styles.step, active && styles.stepActive, s.phase === 'tangle' && styles.stepWire)}
-              onClick={() => pick(s.phase)}>
-              <span className={styles.stepN}>{s.n}</span>
-              <span className={styles.stepLabel}>{s.label}</span>
-              {active && auto && visible && (
-                <span
-                  key={phase}
-                  className={styles.stepTimer}
-                  style={{animationDuration: `${HOLD_MS[phase]}ms`}}
-                  aria-hidden="true"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <Steps
+        steps={STEPS}
+        active={phase}
+        onPick={pick}
+        timerMs={auto && visible ? HOLD_MS[phase] : undefined}
+        label="Show stage"
+        columns={3}
+      />
     </div>
   );
 }

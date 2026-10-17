@@ -7,7 +7,7 @@ import styles from './styles.module.css';
 
 function Svg({children, label}: {children: ReactNode; label: string}) {
   return (
-    <svg className={styles.svg} viewBox="0 0 320 180" role="img" aria-label={label} style={{fontSize: 12}}>
+    <svg className={styles.svg} viewBox="0 0 320 180" role="img" aria-label={label} style={{fontSize: 14}}>
       {children}
     </svg>
   );
@@ -71,24 +71,24 @@ export function FrameBudget(): ReactNode {
 export function ModuleSlice(): ReactNode {
   return (
     <Svg label="A battlepass schema module with a table, a command and a reactive query, wired to both the device and the server.">
-      <path className={styles.wire} d="M122 96 Q96 112 72 124" />
-      <path className={styles.wire} d="M198 96 Q226 112 252 126" />
-      <rect className={styles.card} x={82} y={10} width={156} height={86} rx={9} />
-      <text className={styles.cardTitle} x={94} y={30}>
+      <path className={styles.wire} d="M100 96 Q70 112 46 124" />
+      <path className={styles.wire} d="M220 96 Q250 112 275 126" />
+      <rect className={styles.card} x={60} y={10} width={200} height={86} rx={9} />
+      <text className={styles.cardTitle} x={72} y={30}>
         battlepass/
       </text>
-      <line className={styles.cardRule} x1={82} x2={238} y1={39} y2={39} />
-      <text className={styles.code} x={94} y={56}>
+      <line className={styles.cardRule} x1={60} x2={260} y1={39} y2={39} />
+      <text className={styles.code} x={72} y={56}>
         <tspan className={styles.kw}>table</tspan> Tier
       </text>
-      <text className={styles.code} x={94} y={70}>
+      <text className={styles.code} x={72} y={70}>
         <tspan className={styles.kw}>command</tspan> ClaimTier
       </text>
-      <text className={styles.code} x={94} y={84}>
+      <text className={styles.code} x={72} y={84}>
         <tspan className={styles.kw}>reactive query</tspan> Progress
       </text>
-      <DeviceFrame x={48} y={110} width={44} height={66} />
-      <ServerFrame x={226} y={118} width={78} height={54} title="" />
+      <DeviceFrame x={24} y={110} width={44} height={66} />
+      <ServerFrame x={236} y={118} width={78} height={54} title="" />
     </Svg>
   );
 }

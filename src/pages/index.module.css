@@ -52,12 +52,12 @@
   align-items: center;
   gap: 0.55rem;
   font-family: var(--cdb-mono);
-  font-size: 0.76rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--cdb-muted);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.42rem 0.95rem;
   margin-bottom: 1.7rem;
   background: rgba(255, 255, 255, 0.015);
@@ -73,7 +73,7 @@
 
 .title {
   font-family: var(--ifm-heading-font-family);
-  font-size: clamp(2.8rem, 7vw, 5.4rem);
+  font-size: var(--fs-h1);
   line-height: 1.02;
   letter-spacing: -0.045em;
   font-weight: 600;
@@ -88,7 +88,7 @@
 }
 
 .subtitle {
-  font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+  font-size: var(--fs-lg);
   line-height: 1.62;
   color: var(--cdb-muted);
   margin: 0 auto 2.2rem;
@@ -112,11 +112,11 @@
 }
 .chip {
   font-family: var(--cdb-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
   background: var(--cdb-surface-2);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.4rem 0.85rem;
 }
 
@@ -143,12 +143,12 @@
     padding: 2.5rem 0 3.5rem;
   }
   .eyebrow {
-    font-size: 0.66rem;
+    font-size: var(--fs-2xs);
     letter-spacing: 0.08em;
     padding: 0.4rem 0.8rem;
   }
   .subtitle {
-    font-size: 1.02rem;
+    font-size: var(--fs-md);
   }
   .heroGrid {
     gap: 2.4rem;
@@ -178,11 +178,10 @@
     margin-bottom: 1.3rem;
   }
   .title {
-    font-size: clamp(2.9rem, 4.6vw, 4.5rem);
     margin-bottom: 1.1rem;
   }
   .subtitle {
-    font-size: 1.08rem;
+    font-size: var(--fs-lg);
     max-width: 36ch;
     margin: 0 0 1.8rem;
   }
@@ -195,7 +194,7 @@
     gap: 0.25rem;
   }
   .chip {
-    font-size: 0.66rem;
+    font-size: var(--fs-2xs);
     letter-spacing: -0.02em;
     padding: 0.34rem 0.42rem;
     white-space: nowrap;
@@ -208,20 +207,20 @@
 /* Replay section: one-line caption + three facts with status badges. */
 @media (max-width: 996px) {
   .replayLead {
-    font-size: 0.95rem;
+    font-size: var(--fs-md);
   }
 }
 .replayCaption {
-  margin: 1.6rem auto 0;
+  margin: var(--gap-md) auto 0;
   max-width: 44rem;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   color: var(--cdb-ink);
   opacity: 0.85;
   text-wrap: balance;
 }
 .facts {
   list-style: none;
-  margin: 2rem auto 0;
+  margin: var(--gap-md) auto 0;
   padding: 0;
   max-width: 62rem;
   display: grid;
@@ -237,8 +236,8 @@
   gap: 0.8rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--cdb-line);
-  border-radius: 12px;
-  font-size: 0.9rem;
+  border-radius: var(--r-lg);
+  font-size: var(--fs-md);
   line-height: 1.45;
   color: var(--cdb-ink);
 }
@@ -273,7 +272,7 @@
   gap: 0.9rem;
 }
 .claim h3 {
-  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
+  font-size: var(--fs-xl);
   line-height: 1.15;
   margin: 0;
 }
@@ -290,14 +289,14 @@
   align-items: center;
   gap: 0.45rem;
   font-family: var(--cdb-mono);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-ink);
 }
 .claimVisual {
   max-width: 22rem;
   width: 100%;
   justify-self: center;
-  transition: transform 0.25s ease;
+  transition: transform var(--dur) var(--ease);
 }
 .claim:hover .claimVisual {
   transform: translateY(-3px);
@@ -324,7 +323,7 @@
 }
 .shippedCaption {
   margin: 0.9rem 0 0;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
   text-align: center;
 }
@@ -349,7 +348,7 @@
 }
 .shippedLine {
   grid-column: 1;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   line-height: 1.5;
   color: var(--cdb-muted);
 }
@@ -357,13 +356,13 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: center;
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   white-space: nowrap;
 }
 .proofLine {
   margin: 2.2rem auto 0;
   font-family: var(--cdb-mono);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-ink);
   text-align: center;
 }
@@ -374,4 +373,15 @@
   .shipped {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Sections that belong together sit tight: the stat band right under the replay visual. */
+.joinNext {
+  padding-bottom: 0;
+}
+.statBand {
+  padding-top: var(--section-y-tight);
+}
+.statBand::before {
+  display: none; /* no hairline between the replay visual and its numbers */
 }
