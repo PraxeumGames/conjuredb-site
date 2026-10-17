@@ -248,8 +248,8 @@ function ShippedToday(): ReactNode {
           </ul>
         </div>
         <p className={styles.proofLine}>
-          Arena sample · 100 000 units · 171 µs per frame on IL2CPP + Burst · 0 B allocated{' '}
-          <Link to="/docs/examples/arena-ecs">methodology →</Link>
+          57-query game workload · 50 000 players · 519× vs hand-written LINQ · 0 B allocated on 26
+          of 57 cases <Link to="/data-layer#benchmarks">benchmarks →</Link>
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center', marginTop: '1.6rem'}}>
           <Link className="button button--secondary button--lg" to="/platform">
