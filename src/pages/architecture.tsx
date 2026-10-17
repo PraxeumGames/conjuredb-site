@@ -1,7 +1,7 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import {A, CodeWindow, F, K, N, T, V, type CodeTab} from '@site/src/components/CodeWindow';
+import {A, CodeCap, CodeWindow, F, K, N, T, V, type CodeTab} from '@site/src/components/CodeWindow';
 import MonolithVsSlices from '@site/src/components/MonolithVsSlices';
 import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
 import styles from './marketing.module.css';
@@ -125,31 +125,33 @@ function Contents(): ReactNode {
       <div className="container">
         <span className="cdb-kicker">One folder</span>
         <h2 className="cdb-h2">What a slice contains</h2>
+        {/* Top: the folder, then what it means and the three lines that bind it. */}
         <div className={styles.sliceGrid}>
-          <div>
-            <pre className={styles.tree} aria-label="Folder tree of the battle pass slice">
-              {TREE.map(([path, note]) => (
-                <span key={path} className={styles.treeRow}>
-                  <span className={path.endsWith('/') && !note ? styles.treeRoot : undefined}>{path}</span>
-                  <span className={styles.treeNote}>{note}</span>
-                </span>
-              ))}
-            </pre>
+          <pre className={styles.tree} aria-label="Folder tree of the battle pass slice">
+            {TREE.map(([path, note]) => (
+              <span key={path} className={styles.treeRow}>
+                <span className={path.endsWith('/') && !note ? styles.treeRoot : undefined}>{path}</span>
+                <span className={styles.treeNote}>{note}</span>
+              </span>
+            ))}
+          </pre>
+          <div className={styles.sliceCode}>
             <p className={styles.treeCaption}>
               The feature&apos;s state, rules, UI view and frame logic sit together. Delete the folder
-              and the feature is gone; copy it and the feature moves.
+              and the feature is gone; copy it and the feature moves. A module groups the
+              feature&apos;s tables, command and reactive query. The CLI generates an interface per
+              module — <code>IBattlePass</code> for <code>module BattlePass</code>, as the docs show{' '}
+              <code>ICore</code> for <code>module Core</code> — and the UI view binds the reactive
+              query, its view model, through the generated context:
             </p>
-          </div>
-          <div className={styles.sliceCode}>
-            <CodeWindow tabs={MODULE_TABS} dense />
             <CodeWindow tabs={SCREEN_TABS} dense />
-            <p className={styles.codeCaption}>
-              A module groups the feature&apos;s tables, command and reactive query. The CLI generates
-              an interface per module — <code>IBattlePass</code> for <code>module BattlePass</code>, as
-              the docs show <code>ICore</code> for <code>module Core</code> — and the UI view binds the
-              reactive query, its view model, through the generated context.
-            </p>
           </div>
+        </div>
+        {/* Below: the module itself, full width, 16 lines until expanded. */}
+        <div className={styles.sliceModule}>
+          <CodeCap.Provider value={16}>
+            <CodeWindow tabs={MODULE_TABS} dense />
+          </CodeCap.Provider>
         </div>
       </div>
     </section>

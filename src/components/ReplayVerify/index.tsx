@@ -15,7 +15,8 @@ import styles from './styles.module.css';
 
 type Phase = 'offline' | 'reconnect' | 'replay' | 'forged';
 
-const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4600, forged: 5600};
+// Long enough to read the narration: 7 s when a step moves more than three things.
+const HOLD_MS: Record<Phase, number> = {offline: 7000, reconnect: 5000, replay: 7000, forged: 7000};
 
 const PHASE_CLASS: Record<Phase, string> = {
   offline: styles.isOffline,

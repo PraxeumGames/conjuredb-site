@@ -133,7 +133,6 @@ const STEPS: DemoStep[] = [
   {
     id: 'requirement',
     label: 'the requirement',
-    holdMs: 4200,
     narration:
       'The same requirement, written as steps on the left and as a result on the right. The four marked places on the left are decisions you own — and one is already a bug.',
   },
@@ -150,7 +149,6 @@ const STEPS: DemoStep[] = [
   {
     id: 'assistant',
     label: "an assistant tries 'sort by rarity'",
-    holdMs: 4200,
     narration:
       'The draft names a column that does not exist; the compiler says so in a second, and the corrected draft compiles. That is what makes a first version from an assistant safe to try.',
   },
@@ -312,6 +310,7 @@ export default function DeclarativeVsImperative(): ReactNode {
     <div className={styles.root}>
       <DemoStage
         title="same requirement, two ways"
+        manual
         steps={STEPS}
         costLine={({step}) => {
           const [left, right] = COST[step];

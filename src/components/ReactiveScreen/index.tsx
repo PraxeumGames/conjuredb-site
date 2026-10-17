@@ -181,6 +181,7 @@ export default function ReactiveScreen(): ReactNode {
     label,
     narration: NARRATION[mode][i],
     alt: wired && i === 2,
+    holdMs: i === 2 ? 7000 : 5000, // step 03 changes four lines
   }));
 
   return (

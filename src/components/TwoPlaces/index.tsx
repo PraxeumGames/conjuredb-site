@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from 'react';
+import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import {BUY_TABS, CodeWindow} from '@site/src/components/CodeWindow';
@@ -7,12 +7,9 @@ import DemoStage, {type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
 // Visual C — one generated command, run on the device and on the server, in
-// the DemoStage shell. Same input state, same seed, same output hash; the
-// platform mode only changes the device label.
+// the DemoStage shell. Same input state, same seed, same output hash.
 
 type Run = 'idle' | 'running' | 'done';
-type Platform = 'IL2CPP' | '.NET 8' | 'ARM64';
-const PLATFORMS: Platform[] = ['IL2CPP', '.NET 8', 'ARM64'];
 
 const DEVICE_US = 3.1;
 const SERVER_US = 2.4;
@@ -66,7 +63,6 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
   // Register the anchor so links like /how-it-works#replay pass the broken-anchor check.
   const brokenLinks = useBrokenLinks();
   if (id) brokenLinks.collectAnchor(id);
-  const [platform, setPlatform] = useState<Platform>('IL2CPP');
   const steps: DemoStep[] = [
     {
       id: 'input',
@@ -76,7 +72,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
     {
       id: 'run',
       label: 'run on both',
-      narration: `The same generated command runs on the device under ${platform} and on the server under .NET — nothing shared between them but the inputs.`,
+      narration: 'The same generated command runs on the device under IL2CPP and on the server under .NET 8 — nothing shared between them but the inputs.',
     },
     {
       id: 'same',
@@ -88,17 +84,8 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
     <div id={id} className={styles.root}>
       <DemoStage
         title="one command, two places"
-        modes={PLATFORMS.map((p) => ({id: p, label: p}))}
-        mode={platform}
-        onMode={(p) => setPlatform(p as Platform)}
         steps={steps}
-        costLine={({index}) =>
-          index === 0
-            ? `input ${INPUT} · seed ${SEED} on both sides`
-            : index === 1
-              ? 'BuyItem(sword) · same generated code · illustrative timings'
-              : `device ${DEVICE_US} µs · server ${SERVER_US} µs · output ${OUTPUT} = ${OUTPUT}`
-        }
+        costLine="same result verified on x86-64, ARM64 and IL2CPP"
         codeTabs={[{id: 'compiler', label: 'what the compiler does', content: <CodeWindow tabs={BUY_TABS} dense />}]}>
         {({index, run: k}) => {
           const run = STEP_RUN[index];
@@ -108,7 +95,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
                 <svg className={styles.frame} viewBox="0 0 160 220" aria-hidden="true" style={{fontSize: 14}}>
                   <DeviceFrame x={0.5} y={0.5} width={159} height={219}>
                     <text className={styles.where} x={14} y={DEVICE_STATUS_H + 22}>
-                      device · {platform}
+                      device · IL2CPP
                     </text>
                     <Progress x={14} y={DEVICE_STATUS_H + 92} w={131} run={run} />
                   </DeviceFrame>
@@ -123,7 +110,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
 
               <div className={clsx(styles.side, styles.serverSide)}>
                 <svg className={styles.frame} viewBox="0 0 250 150" aria-hidden="true" style={{fontSize: 14}}>
-                  <ServerFrame x={0.5} y={0.5} width={249} height={149} title="Server · player state">
+                  <ServerFrame x={0.5} y={0.5} width={249} height={149} title="server · .NET 8">
                     <Progress x={18} y={88} w={214} run={run} />
                   </ServerFrame>
                 </svg>

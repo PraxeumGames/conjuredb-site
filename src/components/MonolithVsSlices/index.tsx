@@ -69,7 +69,7 @@ type Layout = {
 
 const WIDE: Layout = {
   w: 760,
-  h: 360,
+  h: 372,
   font: 13,
   narrow: false,
   band: (i) => ({x: 84, y: 4 + i * 80, w: 676, h: 70}),
@@ -89,7 +89,8 @@ const WIDE: Layout = {
     const long = Math.abs(from - to) > 1;
     return {d: `M${a} 56 Q${mid} ${long ? -36 : 20} ${b} 56`, lx: mid, ly: long ? 10 : 38};
   },
-  copy: {frame: {x: 584, y: 24, w: 176, h: 322}, col: {x: 597, y: 0, w: 150}},
+  // Project B's frame wraps its column and its floor with ~card padding inside.
+  copy: {frame: {x: 582, y: 24, w: 178, h: 340}, col: {x: 596, y: 0, w: 150}},
 };
 
 const NARROW: Layout = {
@@ -333,6 +334,7 @@ function Scene({L, view, action, className}: {L: Layout; view: View; action: Act
 const STEPS: DemoStep[] = [
   {
     id: 'monolith',
+    holdMs: 7000,
     label: 'today: a monolith',
     alt: true,
     narration:
@@ -340,6 +342,7 @@ const STEPS: DemoStep[] = [
   },
   {
     id: 'slices',
+    holdMs: 7000,
     label: 'with slices',
     narration:
       'With slices, each feature is one column — UI view, module, optional systems — over a generated floor. Only declared references cross between them.',
@@ -351,6 +354,7 @@ const STEPS: DemoStep[] = [
   },
   {
     id: 'copy',
+    holdMs: 7000,
     label: 'copy Shop to another game',
     narration: 'Copy Shop to another game and point it at that game’s model: rewards now reference Card, prices are in Gems, and the compiler re-checks the joins.',
   },

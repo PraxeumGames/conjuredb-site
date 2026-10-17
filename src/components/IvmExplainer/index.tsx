@@ -237,6 +237,7 @@ export default function IvmExplainer(): ReactNode {
     <div className={styles.wrap}>
     <DemoStage
       title="one event, three mechanisms"
+      manual
       modes={[
         {id: 'rebuild', label: 'rebuild every frame'},
         {id: 'rx', label: 'Rx · re-query'},

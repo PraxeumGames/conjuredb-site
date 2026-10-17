@@ -11,14 +11,16 @@ import styles from './styles.module.css';
 // most in view runs: the first time a shell is that demo it autoplays once
 // (the step timer and the entrance effects, ctx.live), then waits on the last
 // step; while another demo is most in view, its timer pauses. Clicking a step
-// pins it; ↺ replay runs the steps again. Reduced motion shows the last step,
-// static. Nothing blinks: a continuous process is a <Sweep>.
+// pins it and stops the timer; ↺ replay runs the steps again. A `manual`
+// demo never autoplays: it starts on step 01 with ← prev / next → beside the
+// rail. Reduced motion shows the last step, static. Nothing blinks: a
+// continuous process is a <Sweep>.
 
 export type DemoStep = {
   id: string;
   label: string;
   narration: ReactNode;
-  holdMs?: number; // how long autoplay stays on this step (default 3200)
+  holdMs?: number; // how long autoplay stays on this step (default 5000; use 7000 when it changes code or more than three elements)
   alt?: boolean; // the wire-red variant (a failure step)
 };
 export type DemoMode = {id: string; label: string};
@@ -41,7 +43,7 @@ export type DemoContext = {
   live: boolean;
 };
 
-const DEFAULT_HOLD = 3200;
+const DEFAULT_HOLD = 5000;
 
 /**
  * Page-level defaults for the shells inside a subtree. The homepage caps the
@@ -85,6 +87,11 @@ type Props = {
   stageClassName?: string;
   /** Columns of the step rail on phones (default 2). */
   narrowColumns?: number;
+  /**
+   * No autoplay: the demo starts pinned on step 01 and the reader steps through
+   * it with the rail or ← prev / next →. For code-heavy demos.
+   */
+  manual?: boolean;
   children: ReactNode | ((ctx: DemoContext) => ReactNode);
 };
 
@@ -100,6 +107,7 @@ export default function DemoStage({
   stageMinHeight,
   stageClassName,
   narrowColumns = 2,
+  manual = false,
   children,
 }: Props): ReactNode {
   const {hoodLines} = useContext(DemoDefaults);
@@ -160,9 +168,9 @@ export default function DemoStage({
   useEffect(() => {
     if (active && !seen && !reduced) {
       setSeen(true);
-      setPlaying(true);
+      if (!manual) setPlaying(true);
     }
-  }, [active, seen, reduced]);
+  }, [active, seen, reduced, manual]);
 
   // Autoplay: hold each step, stop on the last one; paused while another demo is most in view.
   useEffect(() => {
@@ -177,7 +185,13 @@ export default function DemoStage({
     if (reduced) return;
     setSeen(true);
     go(0);
-    setPlaying(true);
+    if (!manual) setPlaying(true);
+  };
+  const stepBy = (d: number) => {
+    setSeen(true);
+    setPlaying(false);
+    setRun((r) => r + 1);
+    go(Math.min(last, Math.max(0, index + d)));
   };
   const pick = (id: string) => {
     setSeen(true);
@@ -191,7 +205,7 @@ export default function DemoStage({
     setRun((r) => r + 1);
     if (!reduced && seen) {
       go(0);
-      setPlaying(true);
+      if (!manual) setPlaying(true);
     }
   };
 
@@ -211,35 +225,53 @@ export default function DemoStage({
       {/* The cost, in mono under the stage, when it carries a number. */}
       {cost && (typeof cost !== 'string' || /\d/.test(cost)) && <p className={styles.cost}>{cost}</p>}
 
-      <Steps
-        steps={steps.map((s, i) => ({key: s.id, n: String(i + 1).padStart(2, '0'), label: s.label, alt: s.alt}))}
-        active={steps[index].id}
-        onPick={pick}
-        timerMs={playing && active ? (steps[index].holdMs ?? DEFAULT_HOLD) : undefined}
-        label={`${title}: step`}
-        columns={steps.length}
-        narrowColumns={Math.min(narrowColumns, steps.length)}
-        silent
-      />
+      <div className={clsx(styles.rail, manual && styles.railManual)}>
+        {manual && (
+          <button type="button" className={styles.stepBtn} onClick={() => stepBy(-1)} disabled={index === 0}>
+            ← prev
+          </button>
+        )}
+        <div className={styles.railSteps}>
+          <Steps
+            steps={steps.map((s, i) => ({key: s.id, n: String(i + 1).padStart(2, '0'), label: s.label, alt: s.alt}))}
+            active={steps[index].id}
+            onPick={pick}
+            timerMs={playing && active ? (steps[index].holdMs ?? DEFAULT_HOLD) : undefined}
+            label={`${title}: step`}
+            columns={steps.length}
+            narrowColumns={Math.min(narrowColumns, steps.length)}
+            silent
+          />
+        </div>
+        {manual && (
+          <button type="button" className={styles.stepBtn} onClick={() => stepBy(1)} disabled={index === last}>
+            next →
+          </button>
+        )}
+      </div>
       <DemoNarration>{steps[index].narration}</DemoNarration>
 
       {codeTabs && codeTabs.length > 0 && activeTab && (
         <div className={styles.hood}>
           <div className={styles.hoodHead}>
-            <span className={styles.hoodLabel}>under the hood</span>
-            <div className={clsx(styles.modes, styles.hoodTabs)} role="tablist" aria-label={`${title}: under the hood`}>
-              {codeTabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={t.id === activeTab.id}
-                  className={clsx(styles.mode, t.id === activeTab.id && styles.modeOn)}
-                  onClick={() => setTab(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <span className={styles.hoodLabel}>
+              under the hood{codeTabs.length === 1 && ` · ${codeTabs[0].label}`}
+            </span>
+            {codeTabs.length > 1 && (
+              <div className={clsx(styles.modes, styles.hoodTabs)} role="tablist" aria-label={`${title}: under the hood`}>
+                {codeTabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={t.id === activeTab.id}
+                    className={clsx(styles.mode, t.id === activeTab.id && styles.modeOn)}
+                    onClick={() => setTab(t.id)}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className={styles.hoodBody} role="tabpanel">
             <CodeCap.Provider value={hoodLines}>{activeTab.content}</CodeCap.Provider>

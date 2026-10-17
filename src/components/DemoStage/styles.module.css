@@ -125,6 +125,52 @@
   }
 }
 
+/* d. The rail; manual demos get ← prev / next → at its ends. */
+.rail {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+.railSteps {
+  flex: 1;
+  min-width: 0;
+}
+.stepBtn {
+  flex: none;
+  margin-bottom: 0.55rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--cdb-ink);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.stepBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
+}
+.stepBtn:disabled {
+  color: var(--cdb-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+.stepBtn:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .railManual {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .railManual .railSteps {
+    order: -1;
+    flex-basis: 100%;
+  }
+}
+
 /* c. The cost line, in mono directly under the stage. */
 .root .cost {
   display: flex;

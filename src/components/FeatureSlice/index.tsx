@@ -69,24 +69,27 @@ const STEPS: DemoStep[] = [
   {
     id: 'declare',
     label: 'declare',
+    holdMs: 7000,
     narration: 'One file declares the feature: its tables, the one command that changes them, and the reactive query the UI view binds.',
   },
   {
     id: 'compiled',
     label: 'compiled',
+    holdMs: 7000,
     narration:
       'From that file the compiler produces the view model the UI view binds, the server side of the command, and the knobs liveops can turn after release.',
   },
   {
     id: 'adapted',
     label: 'adapted',
+    holdMs: 7000,
     narration:
       'Project B stores rewards as cards and prices in gems. Two declarations change; the compiler re-checks every join and regenerates the view model and the server command. The logic is untouched.',
   },
   {
     id: 'assistant',
     label: 'an assistant drafts',
-    holdMs: 4200,
+    holdMs: 7000,
     narration: (
       <>
         Small, typed, closed: the compiler rejects what is wrong, so a draft from an assistant is safe to try.{' '}

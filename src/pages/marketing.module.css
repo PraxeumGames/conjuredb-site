@@ -220,23 +220,20 @@
 }
 .sliceGrid {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: var(--gap-md);
   align-items: start;
   margin-top: 3rem;
   text-align: left;
 }
-/* The tree stays in view beside the longer code column. */
-.sliceGrid > :first-child {
-  position: sticky;
-  top: 5rem;
+.sliceModule {
+  margin-top: var(--gap-md);
+  text-align: left;
+  contain: inline-size;
 }
 @media (max-width: 996px) {
   .sliceGrid {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .sliceGrid > :first-child {
-    position: static;
   }
 }
 .tree {
@@ -277,7 +274,7 @@
   }
 }
 .treeCaption {
-  margin: var(--gap-sm) 0 0;
+  margin: 0;
   font-size: var(--fs-sm);
   color: var(--cdb-muted);
   line-height: 1.55;

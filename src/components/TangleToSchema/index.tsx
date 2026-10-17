@@ -14,7 +14,7 @@ const PHASES: Phase[] = ['tangle', 'schema', 'generated'];
 
 // Time on each phase in auto-play: its transition plus a ~2.5 s hold.
 // Phase 03 holds longer so the action stream gets a few full passes.
-const HOLD_MS: Record<Phase, number> = {tangle: 3300, schema: 3600, generated: 5600};
+const HOLD_MS: Record<Phase, number> = {tangle: 5000, schema: 7000, generated: 7000};
 
 const PHASE_CLASS: Record<Phase, string | undefined> = {
   tangle: undefined,
