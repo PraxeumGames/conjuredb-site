@@ -302,8 +302,8 @@ function FinalCta(): ReactNode {
       <div className="container">
         <h2 className="cdb-h2">See every part and its real status</h2>
         <p className="cdb-lead" style={{margin: '0 auto 2rem'}}>
-          The platform page lists what is shipped, what is landing, what has been proven in a
-          prototype and what is only designed.
+          The platform page lists what is shipped, what has been proven in a prototype and what is
+          only designed.
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center'}}>
           <Link className="button button--primary button--lg" to="/platform">

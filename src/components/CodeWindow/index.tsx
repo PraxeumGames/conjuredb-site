@@ -83,7 +83,7 @@ export const PLAN_TABS: CodeTab[] = [
 export const HERO_TABS: CodeTab[] = [
   {
     name: 'game.conjure',
-    lang: 'ConjureDB schema · v3',
+    lang: 'ConjureDB schema',
     lines: [
       <><K>table</K> <T>Player</T>(</>,
       <>    persistence: <K>local</K>, capacity: <N>16384</N>, type_id: <N>1001</N>) {'{'}</>,

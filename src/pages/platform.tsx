@@ -10,7 +10,6 @@ import styles from './platform.module.css';
 
 const LEGEND: {status: Status; text: string}[] = [
   {status: 'shipped', text: 'in the docs and usable today'},
-  {status: 'in-progress', text: 'landing in the coming weeks'},
   {status: 'prototype', text: 'built and tested end to end in a prototype, not yet in the product'},
   {status: 'planned', text: 'designed, not built'},
 ];
@@ -23,8 +22,8 @@ function Header(): ReactNode {
         <h1 className={mk.pageTitle}>One schema. Every part it compiles.</h1>
         <p className={mk.pageLead}>
           Conjure compiles a declarative description of your game into the parts below. Each one
-          carries its real status — what is in the docs today, what is landing, what has been proven
-          in a prototype, and what is only designed.
+          carries its real status — what is in the docs today, what has been proven in a prototype,
+          and what is only designed.
         </p>
         <ul className={styles.legend}>
           {LEGEND.map((l) => (
@@ -154,7 +153,7 @@ export default function Platform(): ReactNode {
   return (
     <Layout
       title="Platform — what Conjure compiles from one schema"
-      description="Every part Conjure compiles from one schema — client data layer, frame state, player server, replay verification, liveops, modules and services — each with its real status: shipped, in progress, prototype validated or planned.">
+      description="Every part Conjure compiles from one schema — client data layer, frame state, player server, replay verification, liveops, modules and services — each with its real status: shipped, prototype validated or planned.">
       <Header />
       <main>
         <section className="cdb-section cdb-section--tight">

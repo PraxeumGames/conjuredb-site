@@ -29,7 +29,6 @@ export const PARTS: Part[] = [
     name: 'Schema & compiler',
     group: 'compiler',
     status: 'shipped',
-    also: {status: 'in-progress', note: 'syntax v3, automatic index creation'},
     body: 'One .conjure schema declares tables, indexes, queries, commands, mutations, modules and frame systems. The compiler binds, type-checks, plans with a cost-based optimizer and emits plain C# — nothing is parsed or planned on the device.',
     items: [
       'Typed diagnostics instead of runtime failures',
