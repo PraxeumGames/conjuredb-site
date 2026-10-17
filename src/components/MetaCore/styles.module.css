@@ -5,6 +5,7 @@
   width: 100%;
   text-align: left;
 }
+.row,
 .wide,
 .narrow {
   display: block;
@@ -12,8 +13,22 @@
   height: auto;
   overflow: visible;
 }
+.wide,
 .narrow {
   display: none;
+}
+/* Wide claim cards (≥997px): three columns across the card. */
+.row {
+  max-width: 56rem;
+  margin: 0 auto;
+}
+@media (max-width: 996px) {
+  .row {
+    display: none;
+  }
+  .wide {
+    display: block;
+  }
 }
 @media (max-width: 640px) {
   .wide {
@@ -195,5 +210,19 @@
   .pulseUp {
     stroke-dasharray: none;
     stroke-opacity: 0.6;
+  }
+}
+
+/* Wide cards: the facts, caption and proof read as one centred block. */
+@media (min-width: 997px) {
+  .root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .caption,
+  .proof {
+    max-width: 44rem;
+    text-align: center;
   }
 }

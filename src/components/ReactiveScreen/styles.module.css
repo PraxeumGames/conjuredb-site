@@ -3,11 +3,111 @@
 .root {
   width: 100%;
   text-align: left;
+  /* Phones: one column. Tablets: the presenter above, device | stream.
+     Wide cards: schema | device | stream, then the code pane | summary. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'toggle' 'schema' 'device' 'side' 'write' 'after';
+  gap: var(--gap-sm) var(--gap-md);
+  align-items: start;
+}
+.toggle {
+  grid-area: toggle;
+}
+.root > pre {
+  grid-area: schema;
+}
+.deviceCol {
+  grid-area: device;
+  width: 100%;
+  max-width: 15rem;
+  justify-self: center;
+}
+.side {
+  grid-area: side;
+}
+.write {
+  grid-area: write;
+}
+.after {
+  grid-area: after;
+}
+@media (min-width: 561px) {
+  .root {
+    grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+    grid-template-areas: 'toggle toggle' 'schema schema' 'device side' 'write write' 'after after';
+  }
+  .side {
+    align-self: center;
+  }
+}
+@media (min-width: 997px) {
+  .root {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'toggle toggle' 'schema device' 'side write' 'after after';
+  }
+  .root .toggle {
+    justify-self: end;
+  }
+  .deviceCol {
+    justify-self: start;
+  }
+  .side {
+    align-self: start;
+  }
+}
+/* Wide cards: three columns — schema over the code pane | device | toggle,
+   stream and summary — so the code sits right under the schema. */
+.colA,
+.colC {
+  display: contents;
+}
+@media (min-width: 1180px) {
+  .root {
+    grid-template-columns: minmax(0, 1.15fr) 15rem minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+  .deviceCol {
+    grid-area: auto;
+  }
+  .colA,
+  .colC {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+    min-width: 0;
+  }
+  .colC {
+    gap: var(--gap-sm);
+  }
+  .colC .toggle {
+    align-self: flex-end;
+  }
+  .colC .after {
+    margin-top: auto;
+  }
+  .pane {
+    --cw-locked-h: 12.5rem;
+  }
+}
+
+/* The OnChanged web points at the presenter: up when it sits above the
+   device, left when it sits beside it. */
+.webLeft {
+  display: none;
+}
+@media (min-width: 997px) {
+  .webUp {
+    display: none;
+  }
+  .webLeft {
+    display: inline;
+  }
 }
 
 .toggle {
   display: inline-flex;
-  margin-bottom: var(--gap-sm);
+  justify-self: start;
   border: 1px solid var(--cdb-line);
   border-radius: var(--r-md);
 }
@@ -37,23 +137,6 @@
   background: rgba(224, 132, 116, 0.08);
 }
 
-.stage {
-  display: grid;
-  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
-  gap: var(--gap-md);
-  align-items: center;
-  margin-top: var(--gap-sm);
-}
-@media (max-width: 560px) {
-  .stage {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .deviceCol {
-    max-width: 15rem;
-    margin: 0 auto;
-    width: 100%;
-  }
-}
 
 .svg {
   display: block;
@@ -231,7 +314,7 @@
 
 /* What you write: only the active mode's pane, swapped with a short slide. */
 .write {
-  margin: var(--gap-md) 0 0.9rem;
+  min-width: 0;
 }
 .writeTitle {
   display: block;
@@ -261,8 +344,12 @@
   color: var(--cdb-wire);
 }
 
+.after {
+  display: grid;
+  gap: 0.6rem;
+}
 .caption {
-  margin: var(--gap-md) 0 0;
+  margin: 0;
   font-size: var(--fs-sm);
   color: var(--cdb-muted);
   line-height: 1.5;

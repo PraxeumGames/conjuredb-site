@@ -180,97 +180,111 @@ export default function ReactiveScreen(): ReactNode {
 
   return (
     <div ref={rootRef} className={clsx(styles.root, wired && styles.isWired)}>
-      <div className={styles.toggle} role="group" aria-label="How the screen is kept up to date">
-        {(['reactive', 'wired'] as Mode[]).map((m) => (
-          <button key={m} type="button" aria-pressed={mode === m} className={clsx(mode === m && styles.on)} onClick={() => pickMode(m)}>
-            {m === 'reactive' ? 'reactive view' : 'hand-wired'}
-          </button>
-        ))}
+      <div className={styles.colA}>
+        {/* The query (or the presenter it replaces); the OnChanged web runs to it. */}
+        {wired ? (
+          <pre className={clsx(styles.code, styles.presenter)}>
+            <span className={styles.cls}>ShopPresenter</span>
+            {'\n'}  OnGoldChanged      += Refresh;
+            {'\n'}  OnInventoryChanged += Refresh;
+            {'\n'}  OnOfferAdded       += Refresh;
+            {'\n'}  OnPriceChanged     += OnPriceChanged;
+            {'\n'}<span className={styles.missed}>  // arrival order decides the row</span>
+          </pre>
+        ) : (
+          <pre className={styles.code}>
+            <span className={styles.kw}>materialized view</span> ShopOffers {'{'}
+            {'\n'}    …
+            {'\n'}{'}'} = <span className={styles.kw}>from</span> Offer o
+            {'\n'}    | <span className={styles.kw}>join</span> Price p (o.Id == p.OfferId)
+            {'\n'}    | <span className={styles.kw}>select</span> {'{ … }'}
+            {'\n'}
+            {'\n'}<span className={styles.kw}>reactive query</span> Offers() -&gt; OfferRow[] {'{'}
+            {'\n'}    <span className={styles.kw}>from</span> ShopOffers
+            {'\n'}    | <span className={styles.kw}>sort</span> Price
+            {'\n'}{'}'}
+          </pre>
+        )}
+        <div className={styles.write}>
+          <span className={styles.writeTitle}>what you write</span>
+          <div key={mode} className={clsx(styles.pane, wired && styles.paneDim)}>
+            <CodeWindow tabs={wired ? PRESENTER : SCREEN} dense locked={wired} />
+          </div>
+        </div>
+      </div>
+      <div className={styles.deviceCol}>
+        <svg className={styles.svg} viewBox="0 0 270 380" role="img" style={{fontSize: 15}}
+          aria-label={`Shop screen: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
+          {/* OnChanged web from the presenter to every row (hand-wired mode):
+              up when the presenter sits above the device, left when beside it. */}
+          <g className={clsx(styles.web, styles.webUp)}>
+            {BASE.map((_, i) => (
+              <path key={i} d={`M222 ${ROWS_TOP + i * ROW_H + 10} C252 ${ROWS_TOP + i * ROW_H + 10} 258 60 258 -6`} />
+            ))}
+          </g>
+          <g className={clsx(styles.web, styles.webLeft)}>
+            {BASE.map((_, i) => (
+              <path key={i} d={`M2 ${ROWS_TOP + i * ROW_H + 10} C-16 ${ROWS_TOP + i * ROW_H + 10} -16 150 -30 150`} />
+            ))}
+          </g>
+          <DeviceFrame x={1} y={1} width={220} height={378}>
+            <text className={styles.goldLabel} x={16} y={DEVICE_STATUS_H + 22}>
+              gold
+            </text>
+            <text className={styles.gold} x={58} y={DEVICE_STATUS_H + 22}>
+              {now.gold.toLocaleString('en-US')}
+            </text>
+            {now.rows.map((r, i) => {
+              const y = ROWS_TOP + i * ROW_H;
+              const showStale = stale && i === STALE_ROW;
+              const price = showStale ? before.rows[i].price : r.price;
+              const affordable = !r.owned && price !== null && price <= now.gold;
+              return (
+                <g key={r.name} transform={`translate(10 ${y - 12})`}>
+                  {flashed.includes(i) && (
+                    <rect key={`${mode}-${applied}`} className={clsx(styles.flash, wired && styles.flashRed)} width={200} height={ROW_H - 6} rx={6} />
+                  )}
+                  <text className={clsx(styles.name, !r.owned && !affordable && styles.dim)} x={8} y={22}>
+                    {r.name}
+                  </text>
+                  {r.owned && (
+                    <g transform="translate(116 8)">
+                      <rect className={styles.tag} width={56} height={20} rx={10} />
+                      <text className={styles.tagText} x={28} y={14.5} textAnchor="middle">owned</text>
+                    </g>
+                  )}
+                  {showStale && (
+                    <g transform="translate(110 8)">
+                      <rect className={styles.staleTag} width={52} height={20} rx={10} />
+                      <text className={styles.staleText} x={26} y={14.5} textAnchor="middle">stale</text>
+                    </g>
+                  )}
+                  {!r.owned && (
+                    <text className={clsx(styles.price, !affordable && styles.dim)} x={192} y={22} textAnchor="end">
+                      {price === null ? '—' : price}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </DeviceFrame>
+        </svg>
+        <p className={styles.counter} aria-live="polite">
+          {applied === 0
+            ? 'waiting for an event'
+            : wired
+              ? 'rows refreshed 6 / 6'
+              : `rows touched ${touched.length} / 6 · delta, not rescan`}
+        </p>
       </div>
 
-      {/* The query (or the presenter it replaces); the web below runs up to it. */}
-      {wired ? (
-        <pre className={clsx(styles.code, styles.presenter)}>
-          <span className={styles.cls}>ShopPresenter</span>
-          {'\n'}  OnGoldChanged      += Refresh;
-          {'\n'}  OnInventoryChanged += Refresh;
-          {'\n'}  OnOfferAdded       += Refresh;
-          {'\n'}  OnPriceChanged     += OnPriceChanged;
-          {'\n'}<span className={styles.missed}>  // arrival order decides the row</span>
-        </pre>
-      ) : (
-        <pre className={styles.code}>
-          <span className={styles.kw}>materialized view</span> ShopOffers {'{'}
-          {'\n'}    …
-          {'\n'}{'}'} = <span className={styles.kw}>from</span> Offer o
-          {'\n'}    | <span className={styles.kw}>join</span> Price p (o.Id == p.OfferId)
-          {'\n'}    | <span className={styles.kw}>select</span> {'{ … }'}
-          {'\n'}
-          {'\n'}<span className={styles.kw}>reactive query</span> Offers() -&gt; OfferRow[] {'{'}
-          {'\n'}    <span className={styles.kw}>from</span> ShopOffers
-          {'\n'}    | <span className={styles.kw}>sort</span> Price
-          {'\n'}{'}'}
-        </pre>
-      )}
-      <div className={styles.stage}>
-        <div className={styles.deviceCol}>
-          <svg className={styles.svg} viewBox="0 0 270 380" role="img" style={{fontSize: 15}}
-            aria-label={`Shop screen: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
-            {/* OnChanged web from the presenter to every row (hand-wired mode) */}
-            <g className={styles.web}>
-              {BASE.map((_, i) => (
-                <path key={i} d={`M222 ${ROWS_TOP + i * ROW_H + 10} C252 ${ROWS_TOP + i * ROW_H + 10} 258 60 258 -6`} />
-              ))}
-            </g>
-            <DeviceFrame x={1} y={1} width={220} height={378}>
-              <text className={styles.goldLabel} x={16} y={DEVICE_STATUS_H + 22}>
-                gold
-              </text>
-              <text className={styles.gold} x={58} y={DEVICE_STATUS_H + 22}>
-                {now.gold.toLocaleString('en-US')}
-              </text>
-              {now.rows.map((r, i) => {
-                const y = ROWS_TOP + i * ROW_H;
-                const showStale = stale && i === STALE_ROW;
-                const price = showStale ? before.rows[i].price : r.price;
-                const affordable = !r.owned && price !== null && price <= now.gold;
-                return (
-                  <g key={r.name} transform={`translate(10 ${y - 12})`}>
-                    {flashed.includes(i) && (
-                      <rect key={`${mode}-${applied}`} className={clsx(styles.flash, wired && styles.flashRed)} width={200} height={ROW_H - 6} rx={6} />
-                    )}
-                    <text className={clsx(styles.name, !r.owned && !affordable && styles.dim)} x={8} y={22}>
-                      {r.name}
-                    </text>
-                    {r.owned && (
-                      <g transform="translate(116 8)">
-                        <rect className={styles.tag} width={56} height={20} rx={10} />
-                        <text className={styles.tagText} x={28} y={14.5} textAnchor="middle">owned</text>
-                      </g>
-                    )}
-                    {showStale && (
-                      <g transform="translate(110 8)">
-                        <rect className={styles.staleTag} width={52} height={20} rx={10} />
-                        <text className={styles.staleText} x={26} y={14.5} textAnchor="middle">stale</text>
-                      </g>
-                    )}
-                    {!r.owned && (
-                      <text className={clsx(styles.price, !affordable && styles.dim)} x={192} y={22} textAnchor="end">
-                        {price === null ? '—' : price}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </DeviceFrame>
-          </svg>
-          <p className={styles.counter} aria-live="polite">
-            {applied === 0
-              ? 'waiting for an event'
-              : wired
-                ? 'rows refreshed 6 / 6'
-                : `rows touched ${touched.length} / 6 · delta, not rescan`}
-          </p>
+      <div className={styles.colC}>
+        <div className={styles.toggle} role="group" aria-label="How the screen is kept up to date">
+          {(['reactive', 'wired'] as Mode[]).map((m) => (
+            <button key={m} type="button" aria-pressed={mode === m} className={clsx(mode === m && styles.on)} onClick={() => pickMode(m)}>
+              {m === 'reactive' ? 'reactive view' : 'hand-wired'}
+            </button>
+          ))}
         </div>
 
         <div className={styles.side}>
@@ -298,21 +312,18 @@ export default function ReactiveScreen(): ReactNode {
             </ol>
           </div>
         </div>
-      </div>
-      <div className={styles.write}>
-        <span className={styles.writeTitle}>what you write</span>
-        <div key={mode} className={clsx(styles.pane, wired && styles.paneDim)}>
-          <CodeWindow tabs={wired ? PRESENTER : SCREEN} dense locked={wired} />
+        <div className={styles.after}>
+          <p className={styles.writeSummary}>
+            {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
+          </p>
+          <p className={styles.caption}>
+            The screen is a view. Bind it once. A materialized view keeps the result and the compiler
+            maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive query is the
+            screen&apos;s subscription to it: the current rows and per-row changes. Ordinary queries
+            reuse the same state.
+          </p>
         </div>
-        <p className={styles.writeSummary}>
-          {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
-        </p>
       </div>
-      <p className={styles.caption}>
-        The screen is a view. Bind it once. A materialized view keeps the result and the compiler maintains it by delta — filters,
-        joins, aggregates, bounded Top-K. A reactive query is the screen&apos;s subscription to it:
-        the current rows and per-row changes. Ordinary queries reuse the same state.
-      </p>
     </div>
   );
 }

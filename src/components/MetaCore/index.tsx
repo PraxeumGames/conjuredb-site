@@ -17,6 +17,14 @@ const WIDE: Layout = {
   device: {x: 0, y: 62, w: 100, h: 206},
   field: {x: 440, y: 62, w: 100, h: 206},
 };
+// Wide claim cards: device | schema | battlefield as three columns (0.8 / 1.4 / 0.8).
+const ROW: Layout = {
+  w: 760,
+  h: 330,
+  card: {x: 222, y: 5, w: 316, h: 320},
+  device: {x: 46, y: 62, w: 120, h: 206},
+  field: {x: 594, y: 62, w: 120, h: 206},
+};
 const NARROW: Layout = {
   w: 320,
   h: 500,
@@ -158,6 +166,7 @@ function Scene({layout, className}: {layout: Layout; className: string}) {
 export default function MetaCore(): ReactNode {
   return (
     <div className={styles.root}>
+      <Scene layout={ROW} className={styles.row} />
       <Scene layout={WIDE} className={styles.wide} />
       <Scene layout={NARROW} className={styles.narrow} />
       <p className={styles.facts}>one file · one planner · two storage kinds</p>

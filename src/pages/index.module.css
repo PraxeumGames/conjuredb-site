@@ -271,13 +271,45 @@
 .claimFlip .claimText {
   order: 2;
 }
-/* Claims with a larger, interactive visual split 50/50. */
+/* Claims with a larger, interactive visual: a header row (title, badges and
+   links | the paragraph), then the visual across the whole card. */
 .claimWide {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
+  gap: var(--gap-md);
 }
 .claimWide .claimVisual {
   max-width: none;
+}
+.claimWide:hover .claimVisual {
+  transform: none;
+}
+@media (min-width: 1180px) {
+  .claimWide .claimText {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      'title body'
+      'badges body'
+      'links body';
+    column-gap: var(--gap-lg);
+    row-gap: 0.9rem;
+    align-items: start;
+  }
+  .claimWide .claimText h3 {
+    grid-area: title;
+  }
+  .claimWide .claimText > p {
+    grid-area: body;
+    margin: 0;
+  }
+  .claimWide .claimBadges {
+    grid-area: badges;
+  }
+  .claimWide .claimLinks {
+    grid-area: links;
+  }
 }
 .claimText {
   display: flex;
@@ -314,15 +346,6 @@
 }
 .claim:hover .claimVisual {
   transform: translateY(-3px);
-}
-/* The interactive visuals need the full card width below ~1180px. */
-@media (max-width: 1180px) {
-  .claimWide {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .claimWide.claimFlip .claimText {
-    order: 0;
-  }
 }
 @media (max-width: 996px) {
   .claim {
