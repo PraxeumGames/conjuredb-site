@@ -94,10 +94,7 @@
   animation: rv-out-4 var(--dur) both;
 }
 
-/* Back to 01 is a quick fade, not the story played backwards. */
-.isOffline .scene {
-  animation: rv-fade var(--dur) var(--ease) both;
-}
+/* Step 01 is the first frame (and the poster): drawn at full opacity, no fade-in. */
 
 /* ---- The phone --------------------------------------------------------- */
 .goldLabel {
@@ -306,7 +303,7 @@
   transition: opacity var(--dur) var(--ease);
 }
 .isOffline .server {
-  opacity: 0.4;
+  opacity: 0.7;
 }
 .serverHash {
   font-family: var(--cdb-mono);
@@ -401,10 +398,6 @@
   0%, 32% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
   36%, 51% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(var(--bx), var(--by)); }
   56%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
-}
-@keyframes rv-fade {
-  from { opacity: 0.15; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
 }
 @keyframes rv-ripple {
   0% { opacity: 0.9; transform: scale(0.25); }

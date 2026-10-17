@@ -51,8 +51,8 @@ type Props = {
   onStep?: (id: string) => void;
   costLine?: ReactNode | ((ctx: DemoContext) => ReactNode);
   codeTabs?: DemoCodeTab[];
-  /** Fixed stage height per breakpoint, so steps never resize the block. */
-  stageMinHeight?: {wide: string; narrow: string};
+  /** Fixed stage height on wide screens, so steps never resize the block. Below 997px the stage is its content. */
+  stageMinHeight?: {wide: string};
   stageClassName?: string;
   /** Columns of the step rail on phones (default 2). */
   narrowColumns?: number;
@@ -174,7 +174,7 @@ export default function DemoStage({
 
   const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced && !posterOn};
   const stageStyle = stageMinHeight
-    ? ({'--stage-h': stageMinHeight.wide, '--stage-h-narrow': stageMinHeight.narrow} as CSSProperties)
+    ? ({'--stage-h': stageMinHeight.wide} as CSSProperties)
     : undefined;
   const cost = typeof costLine === 'function' ? costLine(ctx) : costLine;
   const activeTab = codeTabs?.find((t) => t.id === tab);

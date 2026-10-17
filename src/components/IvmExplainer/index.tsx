@@ -246,7 +246,7 @@ export default function IvmExplainer(): ReactNode {
       onMode={(m) => setMode(m as Mode)}
       steps={steps}
       narrowColumns={1}
-      stageMinHeight={{wide: '27rem', narrow: '0px'}}
+      stageMinHeight={{wide: '27rem'}}
       costLine={<Budget mode={mode} />}
       codeTabs={[
         {id: 'schema', label: 'schema', content: <CodeWindow tabs={SCHEMA} dense />},

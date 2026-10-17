@@ -573,7 +573,7 @@ export default function ReplayVerify(): ReactNode {
     <DemoStage
       title="offline play, server replay"
       steps={STEPS}
-      stageMinHeight={{wide: '0px', narrow: '0px'}}
+      stageMinHeight={{wide: '0px'}}
       costLine={({step}) => (
         <>
           {COST[step as Phase]} <span className={styles.illustrative}>· illustrative timings</span>

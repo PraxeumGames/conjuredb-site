@@ -194,7 +194,7 @@ export default function ReactiveScreen({poster = false}: {poster?: boolean}): Re
       mode={mode}
       onMode={(m) => setMode(m as Mode)}
       steps={steps}
-      stageMinHeight={{wide: '28rem', narrow: '33rem'}}
+      stageMinHeight={{wide: '28rem'}}
       costLine={({index}) => {
         const applied = index + 1;
         if (wired) return applied >= 3 ? 'rows refreshed 6 / 6 · 1 stale' : 'rows refreshed 6 / 6';

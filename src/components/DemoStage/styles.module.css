@@ -2,7 +2,6 @@
 
 .root {
   --stage-h: auto;
-  --stage-h-narrow: auto;
   display: flex;
   flex-direction: column;
   padding: var(--card-pad);
@@ -103,9 +102,29 @@
   min-height: var(--stage-h);
   min-width: 0;
 }
+/* Phones and tablets: the stage is its content plus 16px; no reserved height. */
 @media (max-width: 996px) {
   .stage {
-    min-height: var(--stage-h-narrow);
+    min-height: 0;
+    padding-bottom: 16px;
+  }
+  /* Header on two lines: the label, then the modes with replay beside them. */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .controls {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .modes {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .replay {
+    flex: none;
   }
 }
 
@@ -263,10 +282,6 @@
 @media (max-width: 640px) {
   .root {
     padding: 1rem;
-  }
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 
