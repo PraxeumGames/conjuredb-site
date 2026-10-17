@@ -70,7 +70,7 @@ function Stats(): ReactNode {
   );
 }
 
-type Item = {title: string; body: string};
+type Item = {title: string; body: string; link?: {label: string; to: string}};
 
 function Cards({items}: {items: Item[]}): ReactNode {
   return (
@@ -79,6 +79,11 @@ function Cards({items}: {items: Item[]}): ReactNode {
         <div className="cdb-card" key={it.title}>
           <h3>{it.title}</h3>
           <p>{it.body}</p>
+          {it.link && (
+            <p style={{marginTop: '0.8rem'}}>
+              <Link to={it.link.to}>{it.link.label}</Link>
+            </p>
+          )}
         </div>
       ))}
     </div>
@@ -178,7 +183,7 @@ const WHY: Item[] = [
   {title: 'Nothing is interpreted', body: 'Queries are compiled to C# at build time. There is no parser or planner on the hot path at runtime.'},
   {title: 'Indexes you declare', body: 'A matching index turns a full scan into a direct lookup or a bounded range walk — chosen by the optimizer.'},
   {title: 'Allocation-lean paths', body: 'Struct storage, ref returns and pooled buffers keep query evaluation off the heap; only the result collection is materialized, so per-query GC stays low.'},
-  {title: 'Deltas, not recomputes', body: 'Incremental view maintenance updates reactive results by the size of the change, not the size of the table.'},
+  {title: 'Deltas, not recomputes', body: 'Incremental view maintenance updates reactive results by the size of the change, not the size of the table.', link: {label: 'How IVM works →', to: '/how-it-works#ivm'}},
 ];
 
 function Speed(): ReactNode {

@@ -121,6 +121,7 @@ type Claim = {
   body: string;
   badges: {label: string; status: Status}[];
   link: {label: string; to: string};
+  link2?: {label: string; to: string};
   visual: ReactNode;
   wide?: boolean; // larger visual: a 50/50 split
 };
@@ -134,6 +135,7 @@ const CLAIMS: Claim[] = [
       {label: 'reactive queries', status: 'shipped'},
     ],
     link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
+    link2: {label: 'How IVM works →', to: '/how-it-works#ivm'},
     visual: <ReactiveScreen />,
     wide: true,
   },
@@ -193,7 +195,10 @@ function Claims(): ReactNode {
                     </li>
                   ))}
                 </ul>
-                <Link to={c.link.to}>{c.link.label}</Link>
+                <div className={styles.claimLinks}>
+                  <Link to={c.link.to}>{c.link.label}</Link>
+                  {c.link2 && <Link to={c.link2.to}>{c.link2.label}</Link>}
+                </div>
               </div>
               <div className={styles.claimVisual}>{c.visual}</div>
             </article>

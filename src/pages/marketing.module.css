@@ -212,3 +212,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+.ivmSummary {
+  margin: var(--gap-md) auto 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+  text-align: center;
+}

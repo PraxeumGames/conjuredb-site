@@ -1,0 +1,480 @@
+/* IVM explainer: delta through operators (gold) vs re-query (wire red). */
+
+.root {
+  --ivm-accent: var(--ifm-color-primary);
+  --ivm-soft: rgba(236, 194, 92, 0.1);
+  margin: var(--gap-lg) auto 0;
+  max-width: 64rem;
+  text-align: left;
+}
+.requery {
+  --ivm-accent: var(--cdb-wire);
+  --ivm-soft: rgba(224, 132, 116, 0.09);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--gap-md);
+  align-items: start;
+}
+.query {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ifm-color-primary);
+  border-radius: var(--r-md);
+  background: var(--cdb-surface-2);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--cdb-ink);
+  overflow-x: auto;
+}
+.kw {
+  color: var(--ifm-color-primary);
+}
+.switches {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+}
+.seg button {
+  padding: 0.35rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--cdb-muted);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.seg button:first-child {
+  border-radius: var(--r-md) 0 0 var(--r-md);
+}
+.seg button:last-child {
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+}
+.seg button + button {
+  border-left: 1px solid var(--cdb-line);
+}
+.seg .on {
+  color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.seg .onRed {
+  color: var(--cdb-wire);
+  background: rgba(224, 132, 116, 0.09);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+  cursor: pointer;
+}
+.check input {
+  accent-color: var(--ifm-color-primary);
+}
+
+.mid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: var(--gap-md);
+  margin-top: var(--gap-md);
+  align-items: start;
+}
+
+/* Operator chain */
+.chain {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 1.2rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.chain::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: calc(1.2rem + 1.25rem);
+  border-top: 1px dashed var(--cdb-line);
+}
+.op {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.opName,
+.opSub {
+  font-family: var(--cdb-mono);
+}
+.opName {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 0.6rem 0.45rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+  background: var(--cdb-surface-2);
+  font-size: var(--fs-xs);
+  color: var(--cdb-ink);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.opSub {
+  font-size: var(--fs-2xs);
+  color: var(--cdb-muted);
+  text-align: center;
+}
+.opStatus {
+  min-height: 3.4em;
+  padding-top: 0.25rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--ivm-accent);
+}
+.lit .opName {
+  border-color: var(--ivm-accent);
+  background: var(--ivm-soft);
+}
+.lit .opStatus {
+  animation: ivm-in var(--dur) var(--ease) both;
+}
+
+/* The delta token travels box to box (wide: across, narrow: down). */
+.token {
+  position: absolute;
+  z-index: 2;
+  top: calc(1.2rem - 0.15rem);
+  left: calc(var(--hop) * 20% + 10%);
+  transform: translateX(-50%);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--ifm-color-primary);
+  color: var(--cdb-on-accent);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  transition: left 250ms linear, top 250ms linear;
+  box-shadow: 0 0 12px rgba(236, 194, 92, 0.6);
+}
+
+/* Rebuild every frame: the whole chain runs at ~1 Hz, event or not. */
+.pulse .opName {
+  animation: ivm-pulse 1s var(--ease) infinite;
+}
+.pulseAll td {
+  animation: ivm-redraw 1s var(--ease) infinite;
+}
+
+/* Frame budget: one frame, linear in rows evaluated. */
+.budget {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: var(--gap-sm);
+}
+.budgetHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-muted);
+}
+.overTag {
+  flex: none;
+  align-self: start;
+  white-space: nowrap;
+  padding: 0 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--cdb-wire);
+  color: var(--cdb-on-accent);
+  font-weight: 600;
+}
+.track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--cdb-line);
+}
+.track span {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--ivm-accent);
+  transition: width var(--dur-slow) var(--ease);
+}
+/* Over budget: the bar runs past the frame and is torn off at the edge. */
+.trackOver span {
+  width: calc(100% + 0.6rem);
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 25%, 100% 50%, calc(100% - 4px) 75%, 100% 100%, 0 100%);
+}
+.allocTrack {
+  height: 3px;
+}
+.allocTrack span {
+  background: var(--cdb-wire);
+}
+.budgetText {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-ink);
+}
+
+/* Subscribers */
+.subs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: var(--gap-sm);
+}
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--r-md);
+  background: var(--cdb-surface-2);
+}
+.subName {
+  font-size: var(--fs-sm);
+  color: var(--cdb-ink);
+}
+.subLine {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+}
+.subOn .subLine {
+  color: var(--ivm-accent);
+}
+
+/* Result table */
+.tableWrap {
+  position: relative;
+}
+.table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+}
+.table th,
+.table td {
+  padding: 0.28rem 0.5rem;
+  border: none;
+  border-bottom: 1px solid var(--cdb-line);
+  text-align: left;
+  white-space: nowrap;
+}
+.table th {
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  color: var(--cdb-muted);
+}
+.table tr {
+  background: transparent;
+}
+.table td {
+  color: var(--cdb-ink);
+}
+.rowNew td {
+  animation: ivm-gold 1.6s var(--ease) both;
+}
+.rowMoved td:first-child {
+  color: var(--ifm-color-primary);
+}
+.cellNew {
+  animation: ivm-gold 1.6s var(--ease) both;
+}
+.rowGone td {
+  color: var(--cdb-muted);
+  text-decoration: line-through;
+  animation: ivm-gone 1.6s var(--ease) both;
+}
+.flashAll td {
+  animation: ivm-red 0.9s var(--ease) both;
+}
+.interTag {
+  position: absolute;
+  top: -1.4rem;
+  right: 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-wire);
+}
+
+/* Events */
+.bottom {
+  margin-top: var(--gap-md);
+}
+.events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.event {
+  padding: 0.42rem 0.75rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--cdb-ink);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.event:hover {
+  border-color: rgba(236, 194, 92, 0.45);
+}
+.eventOn {
+  border-color: var(--ivm-accent);
+  background: var(--ivm-soft);
+}
+
+@keyframes ivm-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ivm-gold {
+  0% {
+    background: rgba(236, 194, 92, 0.35);
+  }
+  100% {
+    background: rgba(236, 194, 92, 0.08);
+  }
+}
+@keyframes ivm-red {
+  0% {
+    background: rgba(224, 132, 116, 0.32);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes ivm-pulse {
+  0% {
+    border-color: var(--cdb-wire);
+    background: rgba(224, 132, 116, 0.28);
+  }
+  100% {
+    border-color: var(--cdb-line);
+    background: var(--cdb-surface-2);
+  }
+}
+@keyframes ivm-redraw {
+  0% {
+    background: rgba(224, 132, 116, 0.14);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes ivm-gone {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+/* Narrow: query, then the chain going down, then the table and controls. */
+@media (max-width: 996px) {
+  .top,
+  .mid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .switches {
+    align-items: flex-start;
+  }
+  .chain {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 0 1.6rem;
+    gap: 0.4rem;
+  }
+  .chain::before {
+    left: 0.55rem;
+    right: auto;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    border-top: none;
+    border-left: 1px dashed var(--cdb-line);
+  }
+  .op {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    column-gap: 0.6rem;
+    align-items: start;
+  }
+  .opName {
+    grid-row: span 2;
+  }
+  .opSub {
+    text-align: left;
+  }
+  .opStatus {
+    min-height: 0;
+    padding-top: 0;
+  }
+  .token {
+    left: 0.55rem;
+    top: calc(var(--hop) * 20% + 0.4rem);
+  }
+  .subs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .seg {
+    display: grid;
+    width: 100%;
+  }
+  .seg button,
+  .seg button:first-child,
+  .seg button:last-child {
+    border-radius: 0;
+    text-align: left;
+  }
+  .seg button + button {
+    border-left: none;
+    border-top: 1px solid var(--cdb-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    transition: none !important;
+    animation: none !important;
+  }
+  .pulse .opName {
+    border-color: var(--cdb-wire);
+    background: rgba(224, 132, 116, 0.12);
+  }
+}

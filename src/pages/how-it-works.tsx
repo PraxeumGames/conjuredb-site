@@ -6,6 +6,7 @@ import {CodeWindow, PLAN_TABS} from '@site/src/components/CodeWindow';
 import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import MechanismChain from '@site/src/components/MechanismChain';
 import TwoPlaces from '@site/src/components/TwoPlaces';
+import IvmExplainer from '@site/src/components/IvmExplainer';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -99,17 +100,30 @@ function Optimizer(): ReactNode {
 
 function Ivm(): ReactNode {
   return (
-    <section className="cdb-section">
+    <section id="ivm" className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">Reactive data</span>
-        <h2 className="cdb-h2">Keep the result. Apply only the change.</h2>
+        <h2 className="cdb-h2">Not an event bus. A maintained result.</h2>
         <p className="cdb-lead">
-          Static queries are the easy half. Your shop screen isn't static — it changes
-          whenever anything it depends on changes. Incremental view maintenance keeps a
-          materialized result fresh by applying only the delta: add an item, you add one
-          row; change a config field, you touch the rows that pointed at it. The cost of
-          staying fresh scales with the size of the <em>change</em>, not the size of the
-          data — the only property that fits inside a frame.
+          Rebuilding every frame pays for the whole table even when nothing changed. Rx moves
+          events and every subscriber re-runs its query. Incremental view maintenance moves the
+          change itself through the query&apos;s own operators and keeps the result as a table.
+          Same event, three mechanisms — step through it.
+        </p>
+        <IvmExplainer />
+        <p className={styles.ivmSummary}>
+          10{'\u00a0'}000 rows · 60 fps · 5 changes per frame
+          <br />
+          row evaluations per second: rebuild
+          every frame 600{'\u00a0'}000, even with zero changes · Rx re-query, 2 subscribers
+          6{'\u00a0'}000{'\u00a0'}000 · IVM ≈ 900.
+        </p>
+        <p className={styles.visualCaption}>
+          IVM is not a subscription trick. The compiler lowers the query into maintainers — filter,
+          join arrangements, grouped accumulators, bounded Top-K state — and each commit pushes only
+          the delta through them. The result is a table: consistent once per commit, proportional in
+          cost to the change, and indexable like any other table. A reactive query is how a screen
+          subscribes to it. Shapes the maintainers cannot keep are rejected at compile time.
         </p>
         <p className="cdb-lead" style={{marginTop: '1rem'}}>
           And it is honest about its limits: a query shape it cannot maintain incrementally
@@ -187,7 +201,7 @@ function NoMagic(): ReactNode {
 export default function HowItWorks(): ReactNode {
   // Section anchors the mechanism chain (and other pages) link to.
   const brokenLinks = useBrokenLinks();
-  ['closed-world', 'compiler', 'determinism'].forEach((id) => brokenLinks.collectAnchor(id));
+  ['closed-world', 'compiler', 'determinism', 'ivm'].forEach((id) => brokenLinks.collectAnchor(id));
   return (
     <Layout
       title="How Conjure works — a closed world, compiled"

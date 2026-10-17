@@ -398,3 +398,9 @@
 .statBand::before {
   display: none; /* no hairline between the replay visual and its numbers */
 }
+
+.claimLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+}
