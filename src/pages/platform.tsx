@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import PlatformMap from '@site/src/components/PlatformMap';
 import {GROUPS, PARTS, partsIn, type Part} from '@site/src/components/PlatformMap/parts';
 import StatusBadge, {STATUS_LABEL, type Status} from '@site/src/components/StatusBadge';
@@ -39,6 +40,7 @@ function Header(): ReactNode {
 }
 
 function PartCard({part, wide}: {part: Part; wide?: boolean}): ReactNode {
+  useBrokenLinks().collectAnchor(part.id);
   const links = part.status === 'shipped' ? part.links : undefined;
   return (
     <article id={part.id} className={`cdb-card ${styles.part} ${wide ? styles.partWide : ''}`}>

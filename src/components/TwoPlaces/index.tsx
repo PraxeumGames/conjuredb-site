@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState, type ReactNode} from 'react';
 import clsx from 'clsx';
+import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import {BUY_TABS, CodeWindow} from '@site/src/components/CodeWindow';
 import {DEVICE_STATUS_H, DeviceFrame, ServerFrame} from '@site/src/components/Glyphs';
 import styles from './styles.module.css';
@@ -59,6 +60,9 @@ function Rows({us, run, side}: {us: number; run: Run; side: 'device' | 'server'}
 }
 
 export default function TwoPlaces({id}: {id?: string}): ReactNode {
+  // Register the anchor so links like /how-it-works#replay pass the broken-anchor check.
+  const brokenLinks = useBrokenLinks();
+  if (id) brokenLinks.collectAnchor(id);
   const [run, setRun] = useState<Run>('idle');
   const [t, setT] = useState(0); // 0..1 progress of the counters
   const [platform, setPlatform] = useState<Platform>('IL2CPP');

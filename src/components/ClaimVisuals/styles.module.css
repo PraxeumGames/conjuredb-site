@@ -1,0 +1,95 @@
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.cross {
+  stroke: var(--cdb-wire);
+}
+.screenLine,
+.screenBlock {
+  fill: var(--cdb-line);
+}
+.screenBtn {
+  fill: var(--ifm-color-primary);
+  fill-opacity: 0.85;
+}
+.stream {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.5;
+  stroke-dasharray: 2 4;
+}
+.marker {
+  fill: var(--ifm-color-primary);
+}
+.check {
+  fill: none;
+  stroke: var(--cdb-server);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.label {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-muted);
+}
+.track {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-opacity: 0.5;
+}
+.gold {
+  fill: var(--ifm-color-primary);
+}
+.tickLine {
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.6;
+}
+.goldLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--ifm-color-primary);
+}
+.serverBar {
+  fill: var(--cdb-server);
+}
+.serverLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-server);
+}
+
+.wire {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.55;
+  stroke-dasharray: 2 4;
+}
+.card {
+  fill: var(--cdb-surface-2);
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.3;
+}
+.cardTitle {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--ifm-color-primary);
+}
+.cardRule {
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.28;
+}
+.code {
+  font-family: var(--cdb-mono);
+  font-size: 0.82em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.85;
+}
+.kw {
+  fill: var(--ifm-color-primary);
+}

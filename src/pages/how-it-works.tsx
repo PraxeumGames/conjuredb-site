@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import {CodeWindow, PLAN_TABS} from '@site/src/components/CodeWindow';
 import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import MechanismChain from '@site/src/components/MechanismChain';
@@ -184,6 +185,9 @@ function NoMagic(): ReactNode {
 }
 
 export default function HowItWorks(): ReactNode {
+  // Section anchors the mechanism chain (and other pages) link to.
+  const brokenLinks = useBrokenLinks();
+  ['closed-world', 'compiler', 'determinism'].forEach((id) => brokenLinks.collectAnchor(id));
   return (
     <Layout
       title="How Conjure works — a closed world, compiled"

@@ -120,39 +120,6 @@
   padding: 0.4rem 0.85rem;
 }
 
-.proofCta {
-  margin-top: 2.2rem;
-}
-.proofCta :global(.button) {
-  white-space: normal;
-  max-width: 100%;
-}
-
-/* Problem cards: muted, a warm hairline edge to read as "pain". */
-.pain {
-  border-left: 2px solid rgba(224, 122, 95, 0.45);
-}
-.pain p {
-  font-size: 1rem;
-  color: var(--cdb-ink);
-  opacity: 0.85;
-}
-
-/* Benefit cards: gold accent edge + a small category tag. */
-.benefit {
-  border-left: 2px solid var(--ifm-color-primary);
-}
-.benefitTag {
-  display: inline-block;
-  font-family: var(--cdb-mono);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ifm-color-primary);
-  margin-bottom: 0.6rem;
-}
-
 /* Two-line subtitle: one sentence per line, not a paragraph. */
 .subLine {
   display: block;
@@ -169,19 +136,6 @@
   width: 100%;
   max-width: 56rem;
   margin: 0 auto;
-}
-
-/* "See what gets generated" — the code window, moved below the hero. */
-.generated {
-  position: relative;
-  max-width: 56rem;
-  margin-top: 3rem;
-}
-.generatedCaption {
-  margin: 1rem 0 0;
-  font-size: 0.84rem;
-  color: var(--cdb-muted);
-  text-align: center;
 }
 
 @media (max-width: 640px) {
@@ -292,5 +246,132 @@
   .facts {
     grid-template-columns: 1fr;
     max-width: 26rem;
+  }
+}
+
+/* Claims: three full-width rows, text and a small picture, alternating. */
+.claims {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-top: 2.4rem;
+}
+.claim {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2.5rem;
+  padding: 2rem 2.2rem;
+}
+.claimFlip .claimText {
+  order: 2;
+}
+.claimText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+.claim h3 {
+  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
+  line-height: 1.15;
+  margin: 0;
+}
+.claimBadges {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+}
+.claimBadges li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--cdb-mono);
+  font-size: 0.74rem;
+  color: var(--cdb-ink);
+}
+.claimVisual {
+  max-width: 22rem;
+  width: 100%;
+  justify-self: center;
+  transition: transform 0.25s ease;
+}
+.claim:hover .claimVisual {
+  transform: translateY(-3px);
+}
+@media (max-width: 996px) {
+  .claim {
+    grid-template-columns: 1fr;
+    gap: 1.6rem;
+    padding: 1.5rem 1.3rem;
+  }
+  .claimFlip .claimText {
+    order: 0;
+  }
+}
+
+/* Shipped today: the code window beside the list of what is in the docs. */
+.shipped {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+  margin-top: 2.4rem;
+  text-align: left;
+}
+.shippedCaption {
+  margin: 0.9rem 0 0;
+  font-size: 0.84rem;
+  color: var(--cdb-muted);
+  text-align: center;
+}
+.shippedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shippedList li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--cdb-line);
+}
+.shippedList li:first-child {
+  padding-top: 0.2rem;
+}
+.shippedTitle {
+  font-weight: 600;
+  color: var(--cdb-ink);
+}
+.shippedLine {
+  grid-column: 1;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--cdb-muted);
+}
+.shippedLink {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.proofLine {
+  margin: 2.2rem auto 0;
+  font-family: var(--cdb-mono);
+  font-size: 0.82rem;
+  color: var(--cdb-ink);
+  text-align: center;
+}
+.shippedCode {
+  min-width: 0;
+}
+@media (max-width: 996px) {
+  .shipped {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
