@@ -1,0 +1,265 @@
+/* Screens that update themselves: reactive view vs hand-wired presenter. */
+
+.root {
+  width: 100%;
+  text-align: left;
+}
+
+.toggle {
+  display: inline-flex;
+  margin-bottom: var(--gap-sm);
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+}
+.toggle button {
+  padding: 0.32rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--cdb-muted);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.toggle button:first-child {
+  border-radius: var(--r-md) 0 0 var(--r-md);
+}
+.toggle button:last-child {
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  border-left: 1px solid var(--cdb-line);
+}
+.toggle .on {
+  color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.isWired .toggle .on {
+  color: var(--cdb-wire);
+  background: rgba(224, 132, 116, 0.08);
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--gap-md);
+  align-items: center;
+  margin-top: var(--gap-sm);
+}
+@media (max-width: 560px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .deviceCol {
+    max-width: 15rem;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.goldLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-muted);
+}
+.gold {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  font-size: 1.1em;
+  fill: var(--ifm-color-primary);
+}
+.name {
+  fill: var(--cdb-ink);
+}
+.price {
+  font-family: var(--cdb-mono);
+  fill: var(--ifm-color-primary);
+}
+.dim {
+  fill-opacity: 0.45;
+}
+.tag {
+  fill: none;
+  stroke: var(--cdb-line);
+}
+.tagText {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-muted);
+}
+.staleTag {
+  fill: rgba(224, 132, 116, 0.12);
+  stroke: var(--cdb-wire);
+}
+.staleText {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-wire);
+}
+
+/* A brief highlight on exactly the rows that changed (red: refresh-all). */
+.flash {
+  fill: var(--ifm-color-primary);
+  opacity: 0;
+  animation: rs-flash 1.3s var(--ease) both;
+}
+.flashRed {
+  fill: var(--cdb-wire);
+}
+
+.web path {
+  fill: none;
+  stroke: var(--cdb-wire);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.isWired .web path {
+  opacity: 0.7;
+}
+
+.counter {
+  margin: 0.6rem 0 0;
+  white-space: nowrap;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+  text-align: center;
+}
+.isWired .counter {
+  color: var(--cdb-wire);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  min-width: 0;
+}
+.code {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ifm-color-primary);
+  border-radius: var(--r-md);
+  background: var(--ifm-background-color);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--cdb-ink);
+  white-space: pre;
+  overflow-x: auto;
+}
+.kw {
+  color: var(--ifm-color-primary);
+}
+.presenter {
+  border-color: var(--cdb-wire);
+}
+.cls {
+  color: var(--cdb-wire);
+  font-weight: 600;
+}
+.missed {
+  color: var(--cdb-wire);
+}
+
+.controls {
+  display: flex;
+}
+.next {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--ifm-color-primary);
+  border-radius: var(--r-md);
+  background: rgba(236, 194, 92, 0.1);
+  color: var(--cdb-ink);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.next:hover {
+  background: rgba(236, 194, 92, 0.18);
+}
+.isWired .next {
+  border-color: var(--cdb-wire);
+  background: rgba(224, 132, 116, 0.08);
+}
+
+.stream {
+  min-height: 9.5rem;
+}
+.streamTitle {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-muted);
+}
+.stream ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  color: var(--cdb-muted);
+}
+.stream li {
+  overflow-wrap: anywhere;
+}
+.stream .latest {
+  color: var(--ifm-color-primary);
+  animation: rs-in var(--dur) var(--ease) both;
+}
+.isWired .stream .latest {
+  color: var(--cdb-wire);
+}
+.stream .miss {
+  color: var(--cdb-wire);
+}
+.stream .empty {
+  opacity: 0.6;
+}
+
+.caption {
+  margin: var(--gap-md) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
+  line-height: 1.5;
+}
+
+@keyframes rs-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rs-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.22;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

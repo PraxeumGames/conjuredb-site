@@ -1,0 +1,199 @@
+/* Meta and core in one schema. Persistent = gold; per-frame = steel;
+   the connections between them pulse in gold. */
+
+.root {
+  width: 100%;
+  text-align: left;
+}
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 640px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+    max-width: 24rem;
+    margin: 0 auto;
+  }
+}
+
+/* Phone */
+.screenTitle {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  fill: var(--cdb-muted);
+}
+.item {
+  fill: var(--cdb-ink);
+}
+.equipped {
+  fill: var(--ifm-color-primary);
+}
+.xp {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--ifm-color-primary);
+}
+
+/* Battlefield */
+.field {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-server);
+  stroke-opacity: 0.5;
+  stroke-dasharray: 3 4;
+}
+.unit,
+.unitB {
+  animation: mc-wander ease-in-out infinite alternate;
+}
+.unit {
+  fill: var(--cdb-server);
+}
+.unitB {
+  fill: var(--cdb-wire);
+}
+.shot {
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  animation: mc-shot 2.4s linear infinite;
+}
+
+/* Schema card */
+.card {
+  fill: var(--cdb-surface-2);
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.4;
+}
+.cardName {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--ifm-color-primary);
+}
+.rule {
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.28;
+}
+.split {
+  stroke: var(--cdb-muted);
+  stroke-opacity: 0.5;
+}
+.group {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  letter-spacing: 0.04em;
+  fill: var(--cdb-muted);
+}
+.line {
+  font-family: var(--cdb-mono);
+  fill: var(--cdb-ink);
+  fill-opacity: 0.88;
+}
+.kw {
+  fill: var(--ifm-color-primary);
+}
+.label {
+  font-family: var(--cdb-mono);
+  fill: var(--cdb-ink);
+  fill-opacity: 0.7;
+}
+
+/* Connections */
+.track {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.25;
+  stroke-width: 1;
+}
+.pulseDown,
+.pulseUp {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 10 330;
+  animation: mc-pulse 2.6s linear infinite;
+}
+.pulseUp {
+  animation-delay: -1.3s;
+}
+.arrow {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.facts {
+  margin: var(--gap-sm) 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+  text-align: center;
+}
+.caption {
+  margin: 0.6rem 0 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
+  line-height: 1.5;
+}
+.proof {
+  margin: 0.6rem 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-ink);
+}
+
+@keyframes mc-wander {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--dx), var(--dy));
+  }
+}
+@keyframes mc-shot {
+  from {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(var(--run) - 8px));
+    opacity: 0;
+  }
+}
+@keyframes mc-pulse {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -340;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    animation: none !important;
+  }
+  .pulseDown,
+  .pulseUp {
+    stroke-dasharray: none;
+    stroke-opacity: 0.6;
+  }
+}
