@@ -115,7 +115,7 @@ const SHIPS: {title: string; body: string}[] = [
   },
   {
     title: 'Subscription or contract',
-    body: 'Access is by subscription or contract. Nothing is on sale yet; this site is here for feedback.',
+    body: 'Access is by subscription or contract. Nothing is on sale yet.',
   },
 ];
 
