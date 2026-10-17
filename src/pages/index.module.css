@@ -315,6 +315,15 @@
 .claim:hover .claimVisual {
   transform: translateY(-3px);
 }
+/* The interactive visuals need the full card width below ~1180px. */
+@media (max-width: 1180px) {
+  .claimWide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .claimWide.claimFlip .claimText {
+    order: 0;
+  }
+}
 @media (max-width: 996px) {
   .claim {
     grid-template-columns: 1fr;

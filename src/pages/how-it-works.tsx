@@ -112,11 +112,8 @@ function Ivm(): ReactNode {
         </p>
         <IvmExplainer />
         <p className={styles.ivmSummary}>
-          10{'\u00a0'}000 rows · 60 fps · 5 changes per frame
-          <br />
-          row evaluations per second: rebuild
-          every frame 600{'\u00a0'}000, even with zero changes · Rx re-query, 2 subscribers
-          6{'\u00a0'}000{'\u00a0'}000 · IVM ≈ 900.
+          10{'\u00a0'}000 rows · 60 fps · 5 changes per frame: 600{'\u00a0'}000 row evaluations per
+          second re-querying, 300 with IVM · rebuild every frame: 600{'\u00a0'}000 with zero changes
         </p>
         <p className={styles.visualCaption}>
           IVM is not a subscription trick. The compiler lowers the query into maintainers — filter,

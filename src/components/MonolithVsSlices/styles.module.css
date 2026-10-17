@@ -68,12 +68,17 @@
 /* The two states crossfade. */
 .mono,
 .slices {
-  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease);
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease),
+    visibility 0s linear 0s;
 }
+/* The inactive state fades out, then leaves the render entirely. */
 .isMono .slices,
 .isSlices .mono {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease),
+    visibility 0s linear var(--dur-slow);
 }
 .isMono .slices {
   transform: translateY(10px);

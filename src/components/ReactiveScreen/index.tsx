@@ -105,7 +105,8 @@ const SCREEN: CodeTab[] = [
     lines: [
       <><K>var</K> offers = ctx.<F>Offers</F>();</>,
       <>offersList.<F>Bind</F>(offers.<V>Current</V>);</>,
-      <>offers.<F>SubscribeChanged</F>(changes =&gt; offersList.<F>Apply</F>(changes));</>,
+      <>offers.<F>SubscribeChanged</F>(</>,
+      <>    changes =&gt; offersList.<F>Apply</F>(changes));</>,
     ],
   },
 ];

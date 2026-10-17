@@ -244,6 +244,7 @@
   --cw-locked-h: 17rem;
   /* Long code lines must not widen the column on phones. */
   contain: inline-size;
+  overflow-x: auto;
   animation: rs-swap var(--dur) var(--ease) both;
 }
 .paneDim {
