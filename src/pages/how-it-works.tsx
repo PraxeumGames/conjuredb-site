@@ -128,7 +128,7 @@ const LIMITS: {title: string; body: string}[] = [
   },
   {
     title: 'Many writers on one state',
-    body: 'Each piece of state has one owner and one writer. Shared state such as clans and leaderboards will get its own owner on the server (planned); there is no multi-writer contention to resolve.',
+    body: 'Each piece of state has one owner and one writer. Shared state such as clans and leaderboards gets its own owner on the server; there is no multi-writer contention to resolve.',
   },
   {
     title: 'Rendering and feel',

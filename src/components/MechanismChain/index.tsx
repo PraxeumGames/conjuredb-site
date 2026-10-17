@@ -60,7 +60,7 @@ const BEATS: Beat[] = [
     n: '04',
     id: 'replay',
     title: 'Replay',
-    body: 'So the same generated command can run on the device and in the self-hosted authoritative backend. The device applies it immediately and journals it; the server replays the journal and compares the state. That is the whole trust model.',
+    body: 'So the same generated command can run on the device and in a per-player grain. The device applies it immediately and journals it; the server replays the journal and compares the state. That is the whole trust model.',
     glyph: CHECK,
   },
 ];

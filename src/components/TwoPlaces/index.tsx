@@ -171,7 +171,7 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
 
         <div className={clsx(styles.side, styles.serverSide)}>
           <svg className={styles.frame} viewBox="0 0 250 150" aria-hidden="true" style={{fontSize: 14}}>
-            <ServerFrame x={0.5} y={0.5} width={249} height={149} title="Server · player aggregate">
+            <ServerFrame x={0.5} y={0.5} width={249} height={149} title="Server · player grain">
               <Progress x={18} y={88} w={214} run={run} />
             </ServerFrame>
           </svg>

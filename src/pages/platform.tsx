@@ -107,7 +107,7 @@ const SHIPS: {title: string; body: string}[] = [
   },
   {
     title: 'You host',
-    body: 'The server is an ASP.NET Core service with PostgreSQL that you run yourself. There is no hosted service to depend on.',
+    body: 'The server runs wherever Orleans runs. There is no hosted service to depend on.',
   },
   {
     title: 'Subscription or contract',

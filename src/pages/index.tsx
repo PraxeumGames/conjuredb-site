@@ -59,7 +59,7 @@ type Fact = {text: string; status: Status};
 const REPLAY_FACTS: Fact[] = [
   {text: 'Deterministic by construction — fixed-point math (Fixed64) instead of floats, seeded random in the schema', status: 'shipped'},
   {text: 'Replay verification on the server', status: 'prototype'},
-  {text: 'Microseconds per command on the server (compute only)', status: 'prototype'},
+  {text: 'Microseconds per command, device and server', status: 'prototype'},
 ];
 
 function ReplaySection(): ReactNode {
@@ -125,7 +125,7 @@ type Claim = {
 const CLAIMS: Claim[] = [
   {
     title: 'Play offline. The server still checks.',
-    body: 'The device runs the game with no connection and writes down what the player did. The server replays that command journal with the same compiled logic and either accepts the state or rebases the device onto it. No request per tap, no latency, no trust in the client.',
+    body: 'The device runs the game with no connection and writes down what the player did. The server replays that command journal with the same compiled logic and either accepts the state or rolls it back. No request per tap, no latency, no trust in the client.',
     badges: [
       {label: 'replay verification', status: 'prototype'},
       {label: 'determinism', status: 'shipped'},
@@ -145,11 +145,10 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'A feature is a schema, not a sprint.',
-    body: 'A battle pass or a store is a module of the schema: its tables, commands and queries in one place, for both sides. Overriding instead of forking is next. Change rules through liveops without a release. And because the language is small and typed, an assistant can draft a feature and the compiler rejects what is wrong.',
+    body: 'A battle pass or a store is a module of the schema: its tables, commands and queries in one place, for both sides. Override it instead of forking it. Change rules through liveops without a release. And because the language is small and typed, an assistant can draft a feature and the compiler rejects what is wrong.',
     badges: [
-      {label: 'modules', status: 'shipped'},
-      {label: 'overrides', status: 'planned'},
-      {label: 'liveops', status: 'in-progress'},
+      {label: 'modules & overrides', status: 'shipped'},
+      {label: 'liveops', status: 'prototype'},
       {label: 'ready-made modules', status: 'planned'},
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
@@ -224,8 +223,8 @@ function ShippedToday(): ReactNode {
         <h2 className="cdb-h2">What you can use today</h2>
         <p className="cdb-lead">
           The data layer, frame state, determinism and the interpreter are in the docs now. The
-          server, liveops and the first services are in progress; replay verification is a
-          validated prototype. The platform page keeps the whole list honest.
+          server and liveops are validated prototypes; the services are designed. The platform page
+          keeps the whole list honest.
         </p>
         <div className={styles.shipped}>
           <div className={styles.shippedCode}>

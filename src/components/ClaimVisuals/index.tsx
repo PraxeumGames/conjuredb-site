@@ -22,21 +22,34 @@ export function OfflineCheck(): ReactNode {
   return (
     <Svg label="A phone with no connection sends a journal of three commands to the server, which checks it.">
       <DeviceFrame
-        x={18}
+        x={14}
         y={18}
-        width={78}
+        width={70}
         height={146}
         network={<WifiGlyph crossClassName={styles.cross} />}>
-        <rect className={styles.screenLine} x={12} y={DEVICE_STATUS_H + 14} width={40} height={6} rx={3} />
-        <rect className={styles.screenBlock} x={12} y={DEVICE_STATUS_H + 30} width={54} height={30} rx={5} />
-        <rect className={styles.screenBtn} x={12} y={146 - 34} width={54} height={18} rx={5} />
+        <rect className={styles.screenLine} x={11} y={DEVICE_STATUS_H + 14} width={34} height={6} rx={3} />
+        <rect className={styles.screenBlock} x={11} y={DEVICE_STATUS_H + 30} width={48} height={30} rx={5} />
+        <rect className={styles.screenBtn} x={11} y={146 - 34} width={48} height={18} rx={5} />
       </DeviceFrame>
-      <path className={styles.stream} d="M104 91 H206" />
-      {[128, 155, 182].map((x) => (
+      <path className={styles.stream} d="M92 91 H170" />
+      {[108, 130, 152].map((x) => (
         <rect key={x} className={styles.marker} x={x - 4.5} y={86.5} width={9} height={9} rx={2} />
       ))}
-      <ServerFrame x={212} y={46} width={92} height={90} title="server">
-        <Check x={46} y={64} />
+      {/* Two-line title so "Server · player grain" stays ≥ 11px in a small frame. */}
+      <ServerFrame
+        x={176}
+        y={36}
+        width={130}
+        height={110}
+        title={
+          <>
+            Server ·
+            <tspan x={38} dy="1.25em">
+              player grain
+            </tspan>
+          </>
+        }>
+        <Check x={65} y={82} />
       </ServerFrame>
     </Svg>
   );

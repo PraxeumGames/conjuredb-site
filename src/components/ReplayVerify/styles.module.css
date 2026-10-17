@@ -239,7 +239,7 @@
   transition: stroke var(--dur) var(--ease) 1.3s, stroke-opacity var(--dur) var(--ease) 1.3s;
 }
 /* Phase 04, two beats: breaks red when the server lands (1.8 s), re-joins
-   muted after the device is rebased (2.9 s). Percentages of the 5.6 s phase. */
+   muted after the device is rolled back (2.9 s). Percentages of the 5.6 s phase. */
 .isForged .matchA {
   animation: rv-break-a 5.6s linear both;
 }

@@ -65,9 +65,6 @@ function Stats(): ReactNode {
           ))}
         </div>
         <p className={styles.footnote}>57-query game workload, 50 000 players; full methodology below.</p>
-        <p className={styles.footnote}>
-          LINQ baseline measured with the repository's LinqBaselineRunner; raw output to be published.
-        </p>
       </div>
     </section>
   );
@@ -319,9 +316,6 @@ function VsHandWritten(): ReactNode {
             </div>
           ))}
         </div>
-        <p className={styles.footnote}>
-          LINQ baseline measured with the repository's LinqBaselineRunner; raw output to be published.
-        </p>
         <div className={styles.dictCard}>
           <Table
             title="vs a plain Dictionary — raw reads"

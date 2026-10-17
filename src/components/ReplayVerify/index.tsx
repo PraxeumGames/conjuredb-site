@@ -37,7 +37,7 @@ const ARIA: Record<Phase, string> = {
   replay:
     'Server replays: the server runs the same five actions with the same compiled logic, checking each one — 5 actions in 11 microseconds. Its state hash is a3f9, the same as the device. Verdict: accepted.',
   forged:
-    "Tampered journal rejected: the device's journal was edited — its third entry is not a command but a direct edit, gold = 9,950 — so the device shows gold 9,950 and hash f00d. The server replays the five real commands and lands on a3f9; the journal's hash chain breaks at entry 3. Verdict: rejected, rebased. Then the device is rebased onto the server state: gold 1,050, hash a3f9.",
+    "Tampered journal rejected: the device's journal was edited — its third entry is not a command but a direct edit, gold = 9,950 — so the device shows gold 9,950 and hash f00d. The server replays the five real commands and lands on a3f9; entry 3 does not replay. Verdict: rejected, state rolled back. Then the device is rolled back to the server state: gold 1,050, hash a3f9.",
 };
 
 // Phase 01 story.
@@ -51,11 +51,11 @@ const HASH = ['#91c0', '#b7e2', '#4d18', '#c06a', '#2f9d', '#a3f9'];
 const TICK = (i: number) => 0.5 + 0.12 * i;
 const MICROS = [2, 4, 6, 9, 11];
 // Phase 04: slower so the ✗ is readable. The server replays all five real
-// commands; the hash chain breaks at entry 3, where the device edited state.
+// commands; entry 3, where the device edited state, does not replay.
 const TICK_FORGED = [0.6, 0.85, 1.1, 1.35, 1.6];
 const SERVER_DONE = 1.8; // server lands on its own state
 // Phase 04 has two beats: the server rejects the tampered journal, then
-// (SNAP) the device is rebased onto the server's state.
+// (SNAP) the device is rolled back to the server's state.
 const SNAP = 2.9;
 
 // --- per-phase visibility -------------------------------------------------
@@ -347,13 +347,13 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
         </text>
         <g {...vis({4: {in: SNAP + 0.1}}, styles.rollNote)}>
           <rect
-            x={layout.rollNote[0] - textWidth(25, smallPx) / 2 - 6}
+            x={layout.rollNote[0] - textWidth(27, smallPx) / 2 - 6}
             y={layout.rollNote[1] - smallPx}
-            width={textWidth(25, smallPx) + 12}
+            width={textWidth(27, smallPx) + 12}
             height={smallPx * 1.5}
           />
           <text x={layout.rollNote[0]} y={layout.rollNote[1]} textAnchor="middle">
-            rebased onto server state
+            rolled back to server state
           </text>
         </g>
 
@@ -369,7 +369,7 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           y={server.y}
           width={server.w}
           height={server.h}
-          title="Server · player aggregate"
+          title="Server · player grain"
         />
         <text
           {...vis({3: {in: 1.35}}, styles.matchLabel)}
@@ -436,7 +436,7 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           x={layout.counter[0]}
           y={layout.counter[1]}
           textAnchor="middle">
-          hash chain breaks at entry 3
+          entry 3 does not replay
         </text>
         <g {...vis({4: {in: 0.25}}, styles.forged)}>
           <text x={layout.forgedLabel[0]} y={layout.forgedLabel[1]} textAnchor="middle">
@@ -469,7 +469,7 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
 
         {/* Verdict */}
         <Verdict at={layout.verdict} label="accepted" spec={{3: {in: 1.55}}} px={smallPx} />
-        <Verdict at={layout.verdict} label="rejected · rebased" spec={{4: {in: SERVER_DONE + 0.2}}} px={smallPx} red />
+        <Verdict at={layout.verdict} label="rejected · state rolled back" spec={{4: {in: SERVER_DONE + 0.2}}} px={smallPx} red />
       </g>
     </svg>
   );
