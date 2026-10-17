@@ -5,15 +5,15 @@
 .root {
   --tts-wire: rgba(205, 118, 104, 0.72);
   --tts-wire-hot: var(--cdb-wire);
-  --tts-script-fill: #1a1c22;
+  --tts-script-fill: var(--cdb-surface-2);
   --tts-script-line: rgba(196, 128, 116, 0.38);
-  --tts-script-ink: #a59a94;
+  --tts-script-ink: var(--cdb-muted);
   --tts-gold: var(--ifm-color-primary);
   --tts-gold-soft: rgba(236, 194, 92, 0.09);
   --tts-server: var(--cdb-server);
   --tts-server-soft: var(--cdb-server-soft);
-  --tts-card-fill: #191b21;
-  --tts-ease: cubic-bezier(0.65, 0, 0.25, 1);
+  --tts-card-fill: var(--cdb-surface-2);
+  --tts-ease: var(--ease);
 
   position: relative;
   width: 100%;
@@ -22,11 +22,8 @@
 }
 :global([data-theme='light']) .root {
   --tts-wire: rgba(170, 84, 70, 0.5);
-  --tts-script-fill: #f3efe8;
   --tts-script-line: rgba(160, 92, 80, 0.35);
-  --tts-script-ink: #7d6f69;
   --tts-gold-soft: rgba(169, 117, 15, 0.08);
-  --tts-card-fill: #ffffff;
 }
 
 .stage {
@@ -188,6 +185,13 @@
 }
 .glow {
   opacity: 0.7;
+}
+/* Light mode: the glow stays a hint (0.28 stop × 0.4 ≈ 0.11). */
+:global([data-theme='light']) .glow {
+  opacity: 0.4;
+}
+:global([data-theme='light']) .stage::before {
+  background: radial-gradient(closest-side, rgba(169, 117, 15, 0.08), transparent);
 }
 
 /* ---- Act 3: rays + generated modules ----------------------------------- */

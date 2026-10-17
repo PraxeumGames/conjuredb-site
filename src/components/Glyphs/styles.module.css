@@ -1,25 +1,20 @@
-/* Device and server silhouettes shared by every homepage visual. */
+/* Device and server silhouettes shared by every homepage visual.
+   The bezel is ink at low opacity, so it reads as a light frame in both
+   themes (never a heavy black block on a light page). */
 
-.device {
-  --g-device-body: #0d0f13;
-  --g-device-screen: #16181e;
-  --g-device-line: rgba(154, 149, 140, 0.45);
-}
-:global([data-theme='light']) .device {
-  --g-device-body: #2a2723;
-  --g-device-screen: #ffffff;
-  --g-device-line: rgba(42, 39, 35, 0.5);
-}
 .deviceBody {
-  fill: var(--g-device-body);
-  stroke: var(--g-device-line);
+  fill: var(--cdb-ink);
+  fill-opacity: 0.07;
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.32;
   stroke-width: 1;
 }
 .deviceScreen {
-  fill: var(--g-device-screen);
+  fill: var(--cdb-surface-2);
 }
 .deviceNotch {
-  fill: var(--g-device-body);
+  fill: var(--cdb-ink);
+  fill-opacity: 0.22;
 }
 
 .wifi path {

@@ -39,6 +39,9 @@
   /* Third: hand-written wiring, forged and rejected things — muted red. */
   --cdb-wire: rgba(176, 82, 66, 0.8);
 
+  /* Text on the gold accent (primary buttons, the phone's Buy button). */
+  --cdb-on-accent: #2a1d04;
+
   /* ---- Design tokens (shared by both themes) ---- */
   /* Type scale. Mono labels use exactly two: 2xs (captions) and xs (data). */
   --fs-2xs: 0.68rem;
@@ -200,7 +203,7 @@ html {
   --ifm-button-background-color: var(--ifm-color-primary);
   border: none;
   font-weight: 560;
-  color: #2a1d04;
+  color: var(--cdb-on-accent);
   box-shadow: 0 8px 24px -8px rgba(236, 194, 92, 0.5);
   transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
 }

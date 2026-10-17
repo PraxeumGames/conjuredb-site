@@ -4,7 +4,7 @@
 .map {
   --pm-gap: 3.5rem;
   --pm-row-gap: 1.4rem;
-  --pm-card: #191b21;
+  --pm-card: var(--cdb-surface-2);
   --pm-line: rgba(236, 194, 92, 0.45);
 
   position: relative;
@@ -21,7 +21,6 @@
   text-align: left;
 }
 :global([data-theme='light']) .map {
-  --pm-card: #ffffff;
   --pm-line: rgba(169, 117, 15, 0.45);
 }
 
@@ -220,4 +219,8 @@
   .group::after {
     display: none;
   }
+}
+
+:global([data-theme='light']) .schema {
+  box-shadow: 0 0 50px -16px rgba(169, 117, 15, 0.25);
 }
