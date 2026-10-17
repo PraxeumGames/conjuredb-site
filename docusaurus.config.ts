@@ -68,7 +68,7 @@ const config: Config = {
       items: [
         {to: '/platform', label: 'Platform', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
-        {to: '/performance', label: 'Performance', position: 'left'},
+        {to: '/data-layer', label: 'Data layer', position: 'left'},
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
@@ -86,7 +86,7 @@ const config: Config = {
           items: [
             {label: 'Platform', to: '/platform'},
             {label: 'How it works', to: '/how-it-works'},
-            {label: 'Performance', to: '/performance'},
+            {label: 'Data layer', to: '/data-layer'},
           ],
         },
         {

@@ -85,7 +85,8 @@ export const HERO_TABS: CodeTab[] = [
     name: 'game.conjure',
     lang: 'ConjureDB schema',
     lines: [
-      <><K>table</K> <T>Player</T>(persistence: <K>local</K>, capacity: <N>16384</N>, type_id: <N>1001</N>) {'{'}</>,
+      <><K>table</K> <T>Player</T>(</>,
+      <>    persistence: <K>local</K>, capacity: <N>16384</N>, type_id: <N>1001</N>) {'{'}</>,
       <>    <V>Id</V>: <K>int</K> <span className={styles.attr}>@id</span></>,
       <>    <V>Name</V>: <K>string</K></>,
       <>    <V>Score</V>: <K>int</K></>,

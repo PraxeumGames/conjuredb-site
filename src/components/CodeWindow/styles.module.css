@@ -118,6 +118,8 @@
   display: flex;
   padding: 1rem 0;
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cw-gutter) transparent;
   font-size: 0.85rem;
   line-height: 1.7;
 }
@@ -174,4 +176,15 @@
   .lang {
     display: none;
   }
+}
+
+.body::-webkit-scrollbar {
+  height: 6px;
+}
+.body::-webkit-scrollbar-thumb {
+  background: var(--cw-gutter);
+  border-radius: 3px;
+}
+.body::-webkit-scrollbar-track {
+  background: transparent;
 }

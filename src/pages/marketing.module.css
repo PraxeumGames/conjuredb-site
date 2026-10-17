@@ -71,6 +71,7 @@
   background: var(--cdb-surface-2);
 }
 .benchTable {
+  display: table; /* Infima makes tables display: block, which stops them filling the wrap */
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95rem;
@@ -140,4 +141,79 @@
 /* Sections that the mechanism chain links to land below the navbar. */
 :global(section[id]) {
   scroll-margin-top: 4rem;
+}
+
+/* Data layer page */
+.kickerRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.footnote {
+  margin: 0.9rem auto 0;
+  font-size: 0.82rem;
+  color: var(--cdb-muted);
+  text-align: center;
+}
+.sideNote {
+  max-width: 44rem;
+  margin: 0.6rem auto 0;
+  font-size: 0.88rem;
+  font-style: italic;
+  color: var(--cdb-muted);
+}
+.compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.8rem;
+  text-align: left;
+}
+.compareCell {
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: 14px;
+  background: var(--cdb-surface-2);
+}
+.compareLabel {
+  display: block;
+  font-family: var(--cdb-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cdb-muted);
+  margin-bottom: 0.7rem;
+}
+.compareCell dl {
+  margin: 0;
+}
+.compareCell dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+}
+.compareCell dt {
+  font-weight: 400;
+  color: var(--cdb-muted);
+  font-size: 0.9rem;
+}
+.compareCell dd {
+  margin: 0;
+  font-family: var(--cdb-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--cdb-ink);
+}
+.compareCdb dt {
+  color: var(--cdb-ink);
+}
+.compareCdb dd {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+@media (max-width: 996px) {
+  .compare {
+    grid-template-columns: 1fr;
+  }
 }
