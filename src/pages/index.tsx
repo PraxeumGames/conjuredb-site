@@ -5,7 +5,7 @@ import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
 import TangleToSchema from '@site/src/components/TangleToSchema';
 import ReplayVerify from '@site/src/components/ReplayVerify';
 import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
-import {ModuleSlice, OfflineCheck} from '@site/src/components/ClaimVisuals';
+import {ModuleSlice} from '@site/src/components/ClaimVisuals';
 import ReactiveScreen from '@site/src/components/ReactiveScreen';
 import MetaCore from '@site/src/components/MetaCore';
 import styles from './index.module.css';
@@ -64,30 +64,24 @@ const REPLAY_FACTS: Fact[] = [
   {text: 'Microseconds per command, device and server', status: 'prototype'},
 ];
 
-function ReplaySection(): ReactNode {
+/** Claim 1's visual: the replay story, its caption and the three facts. */
+function ReplayClaim(): ReactNode {
   return (
-    <section className={`cdb-section cdb-surface ${styles.joinNext}`}>
-      <div className="container">
-        <span className="cdb-kicker">Play offline. The server still checks.</span>
-        <h2 className="cdb-h2">No request per tap. No trust in the client.</h2>
-        <p className={`cdb-lead ${styles.replayLead}`}>
-          The device runs the compiled logic and writes down what the player did. When the network
-          is back, the server replays that journal with the same compiled logic and compares the state.
-        </p>
-        <ReplayVerify />
-        <p className={styles.replayCaption}>
-          Same compiled command on both sides. Same inputs, same state — or the session is rejected.
-        </p>
-        <ul className={styles.facts}>
-          {REPLAY_FACTS.map((f) => (
-            <li key={f.text} className={styles.fact}>
-              <span>{f.text}</span>
-              <StatusBadge status={f.status} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+    <>
+      <ReplayVerify />
+      <p className={styles.replayCaption}>
+        Same compiled command on both sides. Offline commands are replayed; server-only ones run
+        after the replay, against the state it verified.
+      </p>
+      <ul className={styles.facts}>
+        {REPLAY_FACTS.map((f) => (
+          <li key={f.text} className={styles.fact}>
+            <span>{f.text}</span>
+            <StatusBadge status={f.status} />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -128,6 +122,17 @@ type Claim = {
 
 const CLAIMS: Claim[] = [
   {
+    title: 'Play offline. The server still checks.',
+    body: 'The device runs the compiled logic with no connection and writes down what the player did. When the network is back, the server replays that journal with the same compiled logic and compares the state. Commands that need the server — real-money purchases, shared state like clans — travel with the journal and run against the verified state. No request per tap, no latency, no trust in the client.',
+    badges: [
+      {label: 'replay verification', status: 'prototype'},
+      {label: 'determinism', status: 'shipped'},
+    ],
+    link: {label: 'See the mechanism →', to: '/how-it-works#replay'},
+    visual: <ReplayClaim />,
+    wide: true,
+  },
+  {
     title: 'Screens update themselves.',
     body: "Declare a materialized view and the compiler keeps it current by applying only the change — through filters, joins, grouped aggregates and bounded Top-K, with unsupported shapes rejected at compile time. A reactive query is the screen's subscription to that view: the current rows plus per-row changes. No OnChanged wiring, no refresh-order bugs, no stale UI.",
     badges: [
@@ -138,16 +143,6 @@ const CLAIMS: Claim[] = [
     link2: {label: 'How IVM works →', to: '/how-it-works#ivm'},
     visual: <ReactiveScreen />,
     wide: true,
-  },
-  {
-    title: 'Play offline. The server still checks.',
-    body: 'The device runs the game with no connection and writes down what the player did. The server replays that command journal with the same compiled logic and either accepts the state or rolls it back. No request per tap, no latency, no trust in the client.',
-    badges: [
-      {label: 'replay verification', status: 'prototype'},
-      {label: 'determinism', status: 'shipped'},
-    ],
-    link: {label: 'See the mechanism →', to: '/how-it-works#replay'},
-    visual: <OfflineCheck />,
   },
   {
     title: 'Meta and core in one architecture.',
@@ -348,7 +343,6 @@ export default function Home(): ReactNode {
       description="Conjure compiles one declarative description of your game into the client data layer, the server, replay verification and liveops. Play offline, verify on the server by replay, ship features in days — for Unity & .NET.">
       <Hero />
       <main>
-        <ReplaySection />
         <StatBand />
         <Claims />
         <ShippedToday />

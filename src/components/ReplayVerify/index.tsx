@@ -6,14 +6,16 @@ import styles from './styles.module.css';
 
 // Visual B — "offline tap → server replay". The device runs the compiled
 // logic and logs the player's actions; on reconnect the server replays the
-// command journal with the same compiled logic and compares state. Built like
+// command journal with the same compiled logic and compares state. A command
+// that needs the server (JoinClan) is queued with the journal and runs after
+// the replay, against the state the server just verified. Built like
 // TangleToSchema: SVG + CSS, React only flips the phase class. Timed steps
 // inside a phase are CSS animation delays, restarted by the class change.
 
 type Phase = 'offline' | 'reconnect' | 'replay' | 'forged';
 const PHASES: Phase[] = ['offline', 'reconnect', 'replay', 'forged'];
 
-const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4000, forged: 5600};
+const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4600, forged: 5600};
 
 const PHASE_CLASS: Record<Phase, string> = {
   offline: styles.isOffline,
@@ -25,35 +27,38 @@ const PHASE_CLASS: Record<Phase, string> = {
 const STEPS: {key: Phase; n: string; label: string; alt?: boolean}[] = [
   {key: 'offline', n: '01', label: 'play offline'},
   {key: 'reconnect', n: '02', label: 'reconnect'},
-  {key: 'replay', n: '03', label: 'server replays'},
+  {key: 'replay', n: '03', label: 'replay, then apply'},
   {key: 'forged', n: '04', label: 'tampered journal', alt: true},
 ]
 
 const ARIA: Record<Phase, string> = {
   offline:
-    'Play offline: the phone has no connection; the server still holds the last verified state, a hash of 91c0, and waits for the journal. The player buys a sword, equips it, opens a chest, claims a 200 gold reward and buys a potion. Each action is applied on the device at once and written to a local command journal: 5 actions, 0 requests. Gold goes from 1,200 to 1,050; device state hash a3f9.',
+    'Play offline: the phone has no connection; the server still holds the last verified state, a hash of 91c0, and waits for the journal. The player buys a sword, opens a chest and claims a 200 gold reward. Each action is applied on the device at once and written to a local command journal. Then the player joins a clan — a command that needs the server, so it is queued at the end of the journal instead of running: 3 actions offline, 1 queued for the server, 0 requests. Gold goes from 1,200 to 1,150; device state hash a3f9.',
   reconnect:
-    'Reconnect: the connection is back and the five journaled commands travel to the server as one packet, starting from the last verified state 91c0. The server notes: journal received.',
+    'Reconnect: the connection is back and the three journaled commands travel to the server together with the queued JoinClan request, as one packet, starting from the last verified state 91c0. The server notes: journal and request received.',
   replay:
-    'Server replays: the server runs the same five actions with the same compiled logic, checking each one — 5 actions in 11 microseconds. Its state hash is a3f9, the same as the device. Verdict: accepted.',
+    'Replay, then apply: the server runs the three offline actions with the same compiled logic, checking each one. Its state hash is a3f9, the same as the device. Then it runs JoinClan against that verified state: 3 replayed, 1 applied online, 11 microseconds. Verdict: accepted.',
   forged:
-    "Tampered journal rejected: the device's journal was edited — its third entry is not a command but a direct edit, gold = 9,950 — so the device shows gold 9,950 and hash f00d. The server replays the five real commands and lands on a3f9; entry 3 does not replay. Verdict: rejected, state rolled back. Then the device is rolled back to the server state: gold 1,050, hash a3f9.",
+    "Tampered journal rejected: the device's journal was edited — its third entry is not a command but a direct edit, gold = 9,950 — so the device shows gold 9,950 and hash f00d. The server replays the real commands and lands on a3f9; entry 3 does not replay, and the queued JoinClan request is not applied. Verdict: rejected, state rolled back. Then the device is rolled back to the server state: gold 1,150, hash a3f9.",
 };
 
-// Phase 01 story.
-const ACTIONS = ['BuyItem(sword)', 'EquipItem', 'OpenChest', 'ClaimReward', 'BuyItem(potion)'];
+// Phase 01 story: three offline actions, then one that needs the server.
+const ACTIONS = ['BuyItem(sword)', 'OpenChest', 'ClaimReward'];
+const ONLINE = 'JoinClan';
 const FORGED = 'gold = 9,950 (edited, no command)';
-const TAP = [0.5, 1.2, 1.9, 2.6, 3.3]; // seconds into phase 01
-const TAP_ON = ['buy', 'sword', 'chest', 'chest', 'buy'] as const;
-const GOLD = ['1,200', '950', '950', '950', '1,150', '1,050'];
-const HASH = ['#91c0', '#b7e2', '#4d18', '#c06a', '#2f9d', '#a3f9'];
-// Phase 03: fast replay, one check every 120 ms.
+const TAP = [0.5, 1.3, 2.1]; // seconds into phase 01
+const TAP_ON = ['buy', 'chest', 'chest'] as const;
+const JOIN_T = 3.0; // the queued command lands at the end of the journal
+const GOLD = ['1,200', '950', '950', '1,150'];
+const HASH = ['#91c0', '#b7e2', '#c06a', '#a3f9'];
+// Phase 03: fast replay, one check every 120 ms; then the queued command runs.
 const TICK = (i: number) => 0.5 + 0.12 * i;
-const MICROS = [2, 4, 6, 9, 11];
-// Phase 04: slower so the ✗ is readable. The server replays all five real
+const MICROS = [2, 4, 7];
+const APPLY = 1.75; // JoinClan runs against the verified state
+// Phase 04: slower so the ✗ is readable. The server replays the real
 // commands; entry 3, where the device edited state, does not replay.
-const TICK_FORGED = [0.6, 0.85, 1.1, 1.35, 1.6];
-const SERVER_DONE = 1.8; // server lands on its own state
+const TICK_FORGED = [0.6, 1.0, 1.4];
+const SERVER_DONE = 1.8; // server lands on its own state (styles: rv-break at 32 %)
 // Phase 04 has two beats: the server rejects the tampered journal, then
 // (SNAP) the device is rolled back to the server's state.
 const SNAP = 2.9;
@@ -107,7 +112,9 @@ type Layout = {
   corner: {at: Pt; anchor: Anchor};
   deviceHash: Pt;
   server: Box;
-  slots: Pt[];
+  slots: Pt[]; // three replayed commands, then the queued online one
+  online: {mark: Pt; label: Pt; tag: Pt; notApplied: Pt};
+  splitCorner: boolean; // narrow: the phase 01 counter on three lines, wide: two
   forgedLabel: Pt;
   counter: Pt;
   note: Pt;
@@ -116,7 +123,7 @@ type Layout = {
   verdict: Pt;
 };
 
-const WIDE_MARKS: Pt[] = [300, 360, 420, 480, 540].map((x) => [x, 200]);
+const WIDE_MARKS: Pt[] = [300, 365, 430].map((x) => [x, 200]);
 const WIDE: Layout = {
   top: 50,
   w: 880,
@@ -130,7 +137,9 @@ const WIDE: Layout = {
   corner: {at: [420, 112], anchor: 'middle'},
   deviceHash: [262, 322],
   server: {x: 600, y: 60, w: 250, h: 280},
-  slots: [653, 689, 725, 761, 797].map((x) => [x, 200]),
+  slots: [[665, 200], [705, 200], [745, 200], [805, 200]],
+  online: {mark: [520, 200], label: [520, 186], tag: [520, 224], notApplied: [805, 168]},
+  splitCorner: false,
   forgedLabel: [725, 238],
   counter: [725, 264],
   note: [725, 140],
@@ -139,7 +148,7 @@ const WIDE: Layout = {
   verdict: [725, 372],
 };
 
-const NARROW_MARKS: Pt[] = [272, 306, 340, 374, 408].map((y) => [180, y]);
+const NARROW_MARKS: Pt[] = [272, 306, 340].map((y) => [180, y]);
 const NARROW: Layout = {
   top: 0,
   w: 360,
@@ -150,10 +159,12 @@ const NARROW: Layout = {
   stream: 'M180 238 V500',
   marks: NARROW_MARKS,
   labels: NARROW_MARKS.map(([x, y]) => ({at: [x + 14, y + 4], anchor: 'start'})),
-  corner: {at: [16, 276], anchor: 'start'},
+  corner: {at: [10, 276], anchor: 'start'},
   deviceHash: [16, 456],
   server: {x: 30, y: 500, w: 300, h: 200},
-  slots: [100, 140, 180, 220, 260].map((x) => [x, 578]),
+  slots: [[110, 578], [150, 578], [190, 578], [262, 578]],
+  online: {mark: [180, 392], label: [194, 396], tag: [194, 413], notApplied: [262, 552]},
+  splitCorner: true,
   forgedLabel: [180, 610],
   counter: [180, 636],
   note: [180, 636],
@@ -219,7 +230,7 @@ function Shop({layout}: {layout: Layout}) {
       {sequence([0, ...TAP.map((t) => t + 0.08)], 1).map((spec, k) => (
         <text
           key={k}
-          {...vis({...spec, ...(k === 5 ? {2: true, 3: true} : {})}, styles.goldValue)}
+          {...vis({...spec, ...(k === ACTIONS.length ? {2: true, 3: true} : {})}, styles.goldValue)}
           x={g.p + 34}
           y={g.goldY}>
           {GOLD[k]}
@@ -229,7 +240,7 @@ function Shop({layout}: {layout: Layout}) {
         9,950
       </text>
       <text {...vis({4: {in: SNAP}}, styles.goldValue)} x={g.p + 34} y={g.goldY}>
-        1,050
+        1,150
       </text>
 
       {g.cards.map((c, i) => (
@@ -301,22 +312,35 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
 
         {/* The command journal */}
         <path className={styles.stream} d={layout.stream} />
-        {sequence([0, ...TAP.map((t) => t + 0.08)], 1).map((spec, k) => (
-          <text
-            key={k}
-            {...vis(spec, styles.corner)}
-            x={layout.corner.at[0]}
-            y={layout.corner.at[1]}
-            textAnchor={layout.corner.anchor}>
-            {k} {k === 1 ? 'action' : 'actions'} · 0 requests
-          </text>
-        ))}
+        {sequence([0, ...TAP.map((t) => t + 0.08), JOIN_T + 0.08], 1).map((spec, k) =>
+          k <= ACTIONS.length ? (
+            <text
+              key={k}
+              {...vis(spec, styles.corner)}
+              x={layout.corner.at[0]}
+              y={layout.corner.at[1]}
+              textAnchor={layout.corner.anchor}>
+              {k} {k === 1 ? 'action' : 'actions'} · 0 requests
+            </text>
+          ) : (
+            <text key={k} {...vis(spec, clsx(styles.corner, styles.cornerTight))} x={layout.corner.at[0]} y={layout.corner.at[1]} textAnchor={layout.corner.anchor}>
+              {(layout.splitCorner
+                ? ['3 actions offline', '1 queued for the server', '0 requests']
+                : ['3 actions offline · 1 queued for the server', '0 requests']
+              ).map((line, j) => (
+                <tspan key={line} x={layout.corner.at[0]} dy={j ? '1.3em' : 0}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          ),
+        )}
         <text
           {...vis({2: {in: 0.3}}, styles.corner)}
           x={layout.corner.at[0]}
           y={layout.corner.at[1]}
           textAnchor={layout.corner.anchor}>
-          5 actions · 1 request
+          3 actions + 1 queued · 1 request
         </text>
         {ACTIONS.map((a, i) => (
           <text
@@ -329,11 +353,18 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           </text>
         ))}
 
+        <text {...vis({1: {in: JOIN_T + 0.08}, 2: 'off'}, clsx(styles.markLabel, styles.dimLabel))} x={layout.online.label[0]} y={layout.online.label[1]} textAnchor={layout.labels[0].anchor}>
+          {ONLINE}
+        </text>
+        <text {...vis({1: {in: JOIN_T + 0.08}, 2: 'off'}, styles.queuedTag)} x={layout.online.tag[0]} y={layout.online.tag[1]} textAnchor={layout.labels[0].anchor}>
+          needs server · queued
+        </text>
+
         {/* Device state hash */}
         {sequence([0, ...TAP.map((t) => t + 0.08)], 1).map((spec, k) => (
           <text
             key={k}
-            {...vis({...spec, ...(k === 5 ? {2: true, 3: true} : {})}, styles.hash)}
+            {...vis({...spec, ...(k === ACTIONS.length ? {2: true, 3: true} : {})}, styles.hash)}
             x={layout.deviceHash[0]}
             y={layout.deviceHash[1]}>
             device state {HASH[k]}
@@ -408,11 +439,11 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           </text>
         </g>
         <text {...vis({2: {in: 1.2}}, styles.note)} x={layout.note[0]} y={layout.note[1]} textAnchor="middle">
-          journal received
+          journal + request received
         </text>
 
         {/* Replay: checks, counter, the forged action */}
-        {layout.slots.map(([sx, sy], i) => (
+        {layout.slots.slice(0, ACTIONS.length).map(([sx, sy], i) => (
           <g key={i} transform={`translate(${sx} ${sy - 18})`}>
             <path
               {...vis({3: {in: TICK(i) + 0.02}, ...(i !== 2 ? {4: {in: TICK_FORGED[i]}} : {})}, styles.check)}
@@ -421,16 +452,32 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
             {i === 2 && <path {...vis({4: {in: TICK_FORGED[2]}}, styles.cross)} d="M-4 -4 L4 4 M4 -4 L-4 4" />}
           </g>
         ))}
+        {/* The queued command: runs after the replay, or never if the journal is rejected */}
+        <g transform={`translate(${layout.slots[3][0]} ${layout.slots[3][1] - 19})`}>
+          <g {...vis({3: {in: APPLY}}, styles.onlineTick)}>
+            <circle r={7} />
+            <path d="M-3.5 0 l2.5 2.5 l4.5 -5" />
+          </g>
+        </g>
+        <text {...vis({3: {in: APPLY}}, styles.applied)} x={layout.forgedLabel[0]} y={layout.forgedLabel[1]} textAnchor="middle">
+          JoinClan applied to verified state
+        </text>
+        <text {...vis({4: {in: SERVER_DONE + 0.3}}, clsx(styles.applied, styles.red))} x={layout.online.notApplied[0]} y={layout.online.notApplied[1]} textAnchor="middle">
+          not applied
+        </text>
         {MICROS.map((us, k) => (
           <text
             key={k}
-            {...vis({3: {in: TICK(k) + 0.02, out: k < 4 ? TICK(k + 1) + 0.02 : undefined}}, styles.counter)}
+            {...vis({3: {in: TICK(k) + 0.02, out: k < MICROS.length - 1 ? TICK(k + 1) + 0.02 : APPLY}}, styles.counter)}
             x={layout.counter[0]}
             y={layout.counter[1]}
             textAnchor="middle">
-            {k + 1} {k === 0 ? 'action' : 'actions'} · {us} µs
+            {k + 1} replayed · {us} µs
           </text>
         ))}
+        <text {...vis({3: {in: APPLY}}, clsx(styles.counter, styles.counterLong))} x={layout.counter[0]} y={layout.counter[1]} textAnchor="middle">
+          3 replayed · 1 applied online · 11 µs
+        </text>
         <text
           {...vis({4: {in: TICK_FORGED[2]}}, clsx(styles.counter, styles.red))}
           x={layout.counter[0]}
@@ -467,8 +514,23 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           );
         })}
 
+        {(() => {
+          const [mx, my] = layout.online.mark;
+          const [sx, sy] = layout.slots[3];
+          const style = {'--tx': `${sx - mx}px`, '--ty': `${sy - my}px`, '--d': '0.5s'} as CSSProperties;
+          return (
+            <g transform={`translate(${mx} ${my})`}>
+              <g className={clsx(styles.mk, styles.onlineMk)} style={style}>
+                <g {...vis({1: {in: JOIN_T + 0.08}, 2: true, 3: true, 4: true})}>
+                  <path className={styles.cloud} d="M-6 4 a3.2 3.2 0 0 1 0.4 -6.4 a4.4 4.4 0 0 1 8.4 -0.6 a3.4 3.4 0 0 1 0.2 7 Z" />
+                </g>
+              </g>
+            </g>
+          );
+        })()}
+
         {/* Verdict */}
-        <Verdict at={layout.verdict} label="accepted" spec={{3: {in: 1.55}}} px={smallPx} />
+        <Verdict at={layout.verdict} label="accepted" spec={{3: {in: APPLY + 0.35}}} px={smallPx} />
         <Verdict at={layout.verdict} label="rejected · state rolled back" spec={{4: {in: SERVER_DONE + 0.2}}} px={smallPx} red />
       </g>
     </svg>

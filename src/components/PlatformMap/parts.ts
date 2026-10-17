@@ -105,7 +105,7 @@ export const PARTS: Part[] = [
     name: 'Replay verification',
     group: 'server',
     status: 'prototype',
-    body: "The server replays the device's command journal with the same compiled logic and compares state hashes. Forged or divergent sessions are rejected and the device is rolled back to the server's state.",
+    body: "The server replays the device's command journal with the same compiled logic and compares state hashes. Forged or divergent sessions are rejected and the device is rolled back to the server's state. Commands that need the server travel with the journal and run against the verified state.",
     items: [
       'Microseconds per replayed command',
       'No request per tap, no trust in the client',

@@ -210,19 +210,18 @@
   }
 }
 
-/* Replay section: one-line caption + three facts with status badges. */
-@media (max-width: 996px) {
-  .replayLead {
-    font-size: var(--fs-md);
-  }
-}
+/* Claim 1: the replay visual's caption + three facts with status badges. */
 .replayCaption {
   margin: var(--gap-md) auto 0;
   max-width: 44rem;
   font-size: var(--fs-md);
   color: var(--cdb-ink);
   opacity: 0.85;
+  text-align: center;
   text-wrap: balance;
+}
+.claimVisual .replayCaption {
+  margin: var(--gap-sm) auto 0; /* beats the card's paragraph reset */
 }
 .facts {
   list-style: none;
@@ -420,15 +419,11 @@
   }
 }
 
-/* Sections that belong together sit tight: the stat band right under the replay visual. */
-.joinNext {
-  padding-bottom: 0;
-}
 .statBand {
   padding-top: var(--section-y-tight);
 }
 .statBand::before {
-  display: none; /* no hairline between the replay visual and its numbers */
+  display: none; /* the numbers sit directly under the hero */
 }
 
 .claimLinks {

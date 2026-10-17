@@ -222,6 +222,61 @@
 .isForged .forgedMk .mkBox {
   fill: var(--rv-red);
 }
+/* The queued command that needs the server: a cloud, dimmed until it runs. */
+.cloud {
+  fill: none;
+  stroke: var(--rv-server);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.onlineMk {
+  opacity: 0.55;
+  transition: opacity var(--dur) var(--ease);
+}
+.isReplay .onlineMk {
+  opacity: 1;
+}
+.isForged .onlineMk .cloud {
+  stroke: var(--rv-red);
+  stroke-dasharray: 2 2;
+}
+.dimLabel {
+  fill-opacity: 0.55;
+}
+.queuedTag {
+  font-family: var(--cdb-mono);
+  font-size: 0.72em;
+  letter-spacing: 0.03em;
+  fill: var(--rv-server);
+  fill-opacity: 0.8;
+}
+.onlineTick circle {
+  fill: var(--rv-server);
+  fill-opacity: 0.2;
+  stroke: var(--rv-server);
+  stroke-width: 1.2;
+}
+.onlineTick path {
+  fill: none;
+  stroke: var(--rv-server);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cornerTight {
+  letter-spacing: 0;
+}
+.counterLong {
+  font-size: 0.72em;
+}
+.applied {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  fill: var(--rv-server);
+}
+.applied.red {
+  fill: var(--rv-red);
+}
 
 /* ---- Match line -------------------------------------------------------- */
 .matchHalf {

@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {DEVICE_STATUS_H, DeviceFrame, ServerFrame, WifiGlyph} from '@site/src/components/Glyphs';
+import {DeviceFrame, ServerFrame} from '@site/src/components/Glyphs';
 import styles from './styles.module.css';
 
 // Small static pictures for the three homepage claims. Same palette and the
@@ -10,48 +10,6 @@ function Svg({children, label}: {children: ReactNode; label: string}) {
     <svg className={styles.svg} viewBox="0 0 320 180" role="img" aria-label={label} style={{fontSize: 14}}>
       {children}
     </svg>
-  );
-}
-
-const Check = ({x, y}: {x: number; y: number}) => (
-  <path className={styles.check} d={`M${x - 8} ${y} l5.5 5.5 l11 -12`} />
-);
-
-/** Claim 1: offline device → command journal → server with a check. */
-export function OfflineCheck(): ReactNode {
-  return (
-    <Svg label="A phone with no connection sends a journal of three commands to the server, which checks it.">
-      <DeviceFrame
-        x={14}
-        y={18}
-        width={70}
-        height={146}
-        network={<WifiGlyph crossClassName={styles.cross} />}>
-        <rect className={styles.screenLine} x={11} y={DEVICE_STATUS_H + 14} width={34} height={6} rx={3} />
-        <rect className={styles.screenBlock} x={11} y={DEVICE_STATUS_H + 30} width={48} height={30} rx={5} />
-        <rect className={styles.screenBtn} x={11} y={146 - 34} width={48} height={18} rx={5} />
-      </DeviceFrame>
-      <path className={styles.stream} d="M92 91 H170" />
-      {[108, 130, 152].map((x) => (
-        <rect key={x} className={styles.marker} x={x - 4.5} y={86.5} width={9} height={9} rx={2} />
-      ))}
-      {/* Two-line title so "Server · player grain" stays ≥ 11px in a small frame. */}
-      <ServerFrame
-        x={176}
-        y={36}
-        width={130}
-        height={110}
-        title={
-          <>
-            Server ·
-            <tspan x={38} dy="1.25em">
-              player grain
-            </tspan>
-          </>
-        }>
-        <Check x={65} y={82} />
-      </ServerFrame>
-    </Svg>
   );
 }
 
