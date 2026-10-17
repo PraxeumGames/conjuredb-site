@@ -264,11 +264,10 @@ function Stage({index, live}: {index: number; live: boolean}): ReactNode {
   );
 }
 
-export default function FeatureSlice({poster = false}: {poster?: boolean}): ReactNode {
+export default function FeatureSlice(): ReactNode {
   return (
     <DemoStage
       title="a feature from declaration to reuse"
-      poster={poster}
       steps={STEPS}
       codeTabs={[
         {id: 'schema', label: 'schema', content: <CodeWindow tabs={PLAIN_TABS} dense />},

@@ -1,17 +1,18 @@
-import {useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import {createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
 import Steps from '@site/src/components/Steps';
+import {CodeCap, CodeWindow} from '@site/src/components/CodeWindow';
 import styles from './styles.module.css';
 
 // One shell for every interactive visual on the site, top to bottom:
 //   header (▶ interactive · title | modes | ↺ replay) → stage → cost line →
-//   step rail → narration → code tabs (collapsed by default).
-// Everything renders at first paint, static and fully visible. Autoplay — the
-// step timer and the entrance effects (ctx.live) — starts once, when the
-// header row is fully in view or 20 % of the shell is (stages taller than
-// 70 vh use the header rule only), then waits on the last step. Clicking a
-// step pins it; ↺ replay runs the steps again. Reduced motion shows the last
-// step, static. Nothing blinks: a continuous process is a <Sweep>.
+//   step rail → narration → "under the hood" panel (open, segmented tabs).
+// Everything renders at first paint, static and fully visible. Only the demo
+// most in view runs: the first time a shell is that demo it autoplays once
+// (the step timer and the entrance effects, ctx.live), then waits on the last
+// step; while another demo is most in view, its timer pauses. Clicking a step
+// pins it; ↺ replay runs the steps again. Reduced motion shows the last step,
+// static. Nothing blinks: a continuous process is a <Sweep>.
 
 export type DemoStep = {
   id: string;
@@ -42,6 +43,34 @@ export type DemoContext = {
 
 const DEFAULT_HOLD = 3200;
 
+/**
+ * Page-level defaults for the shells inside a subtree. The homepage caps the
+ * under-the-hood code at 7 visible lines (`show all ⌄` expands it).
+ */
+export const DemoDefaults = createContext<{hoodLines?: number}>({});
+
+// Only the demo most in view runs. Each shell reports its visible area; the
+// one with the largest area is active, the others pause their timers.
+type Entry = {area: number; setActive: (on: boolean) => void};
+const registry = new Map<symbol, Entry>();
+let activeId: symbol | null = null;
+function elect() {
+  let best: symbol | null = null;
+  let bestArea = 0;
+  registry.forEach((e, id) => {
+    if (e.area > bestArea) {
+      best = id;
+      bestArea = e.area;
+    }
+  });
+  if (best === activeId) return;
+  const prev = activeId;
+  activeId = best;
+  if (prev) registry.get(prev)?.setActive(false);
+  if (best) registry.get(best)?.setActive(true);
+}
+const THRESHOLDS = Array.from({length: 21}, (_, i) => i / 20);
+
 type Props = {
   title: string;
   steps: DemoStep[];
@@ -56,11 +85,6 @@ type Props = {
   stageClassName?: string;
   /** Columns of the step rail on phones (default 2). */
   narrowColumns?: number;
-  /**
-   * Start as a poster: the last step as a static frame under a ▶ play button,
-   * no autoplay. Play (or picking a step) starts the demo as usual.
-   */
-  poster?: boolean;
   children: ReactNode | ((ctx: DemoContext) => ReactNode);
 };
 
@@ -76,18 +100,17 @@ export default function DemoStage({
   stageMinHeight,
   stageClassName,
   narrowColumns = 2,
-  poster = false,
   children,
 }: Props): ReactNode {
-  const [index, setIndex] = useState(poster ? steps.length - 1 : 0);
-  const [posterOn, setPosterOn] = useState(poster);
+  const {hoodLines} = useContext(DemoDefaults);
+  const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [active, setActive] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [seen, setSeen] = useState(false);
   const [run, setRun] = useState(0);
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | undefined>(codeTabs?.[0]?.id);
   const rootRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
   const last = steps.length - 1;
   // Steps and onStep are usually rebuilt on every parent render; read them
   // through a ref so a parent re-render never resets the autoplay timer.
@@ -99,9 +122,8 @@ export default function DemoStage({
     latest.current.onStep?.(latest.current.steps[i].id);
   }, []);
 
-  // Reduced motion: the last step, static. Otherwise start on the first of:
-  // the header row fully in view, or 20 % of the shell in view (unless the
-  // shell is taller than 70 vh, where 20 % can sit below the fold).
+  // Reduced motion: the last step, static. Otherwise take part in the
+  // most-in-view election; the first time this shell wins, it autoplays once.
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setReduced(true);
@@ -109,37 +131,48 @@ export default function DemoStage({
       return;
     }
     const root = rootRef.current;
-    const header = headerRef.current;
-    if (!root || !header || typeof IntersectionObserver === 'undefined') return;
-    const start = () => {
-      ios.forEach((io) => io.disconnect());
-      setSeen(true);
-      // A poster waits for its ▶ play.
-      if (!poster) setPlaying(true);
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    const id = Symbol(title);
+    registry.set(id, {area: 0, setActive});
+    const io = new IntersectionObserver(
+      ([e]) => {
+        const r = e.intersectionRect;
+        const area = r.width * r.height;
+        // Counts once a fifth of it, or 40 % of the viewport, is in view.
+        const enough = e.intersectionRatio >= 0.2 || area >= 0.4 * window.innerWidth * window.innerHeight;
+        const entry = registry.get(id);
+        if (entry) entry.area = enough ? area : 0;
+        elect();
+      },
+      {threshold: THRESHOLDS},
+    );
+    io.observe(root);
+    return () => {
+      io.disconnect();
+      registry.delete(id);
+      if (activeId === id) activeId = null;
+      elect();
     };
-    const watch = (el: Element, threshold: number) =>
-      new IntersectionObserver(([e]) => e.isIntersecting && start(), {threshold});
-    const ios = [watch(header, 1)];
-    ios[0].observe(header);
-    if (root.getBoundingClientRect().height <= window.innerHeight * 0.7) {
-      const io = watch(root, 0.2);
-      io.observe(root);
-      ios.push(io);
-    }
-    return () => ios.forEach((io) => io.disconnect());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Autoplay: hold each step, stop on the last one.
+  // The first time this shell is the one most in view, it plays once.
   useEffect(() => {
-    if (!playing) return;
+    if (active && !seen && !reduced) {
+      setSeen(true);
+      setPlaying(true);
+    }
+  }, [active, seen, reduced]);
+
+  // Autoplay: hold each step, stop on the last one; paused while another demo is most in view.
+  useEffect(() => {
+    if (!playing || !active) return;
     const hold = latest.current.steps[index]?.holdMs ?? DEFAULT_HOLD;
     const t = window.setTimeout(() => (index >= last ? setPlaying(false) : go(index + 1)), hold);
     return () => window.clearTimeout(t);
-  }, [playing, index, last, go, run]);
+  }, [playing, active, index, last, go, run]);
 
   const replay = () => {
-    setPosterOn(false);
     setRun((r) => r + 1);
     if (reduced) return;
     setSeen(true);
@@ -147,16 +180,6 @@ export default function DemoStage({
     setPlaying(true);
   };
   const pick = (id: string) => {
-    if (posterOn && !reduced) {
-      // Leaving the poster through a step starts the demo from that step.
-      setPosterOn(false);
-      setSeen(true);
-      setRun((r) => r + 1);
-      go(Math.max(0, steps.findIndex((s) => s.id === id)));
-      setPlaying(true);
-      return;
-    }
-    setPosterOn(false);
     setSeen(true);
     setPlaying(false);
     setRun((r) => r + 1);
@@ -166,77 +189,61 @@ export default function DemoStage({
     if (id === mode) return;
     onMode?.(id);
     setRun((r) => r + 1);
-    if (!reduced && seen && !posterOn) {
+    if (!reduced && seen) {
       go(0);
       setPlaying(true);
     }
   };
 
-  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced && !posterOn};
-  const stageStyle = stageMinHeight
-    ? ({'--stage-h': stageMinHeight.wide} as CSSProperties)
-    : undefined;
+  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced};
+  const stageStyle = stageMinHeight ? ({'--stage-h': stageMinHeight.wide} as CSSProperties) : undefined;
   const cost = typeof costLine === 'function' ? costLine(ctx) : costLine;
-  const activeTab = codeTabs?.find((t) => t.id === tab);
+  const activeTab = codeTabs?.find((t) => t.id === tab) ?? codeTabs?.[0];
 
   return (
     <div ref={rootRef} className={clsx(styles.root, seen && styles.seen)}>
-      <div ref={headerRef}>
-        <DemoHeader title={title} modes={modes} mode={mode} onMode={pickMode} onReplay={replay} />
-      </div>
+      <DemoHeader title={title} modes={modes} mode={mode} onMode={pickMode} onReplay={replay} />
 
       <div className={clsx(styles.stage, stageClassName)} style={stageStyle}>
         {typeof children === 'function' ? children(ctx) : children}
-        {posterOn && !reduced && (
-          <div className={styles.poster}>
-            <button type="button" className={styles.playBtn} onClick={replay} aria-label={`Play: ${title}`}>
-              ▶ play
-            </button>
-          </div>
-        )}
       </div>
 
+      {/* The cost, in mono under the stage, when it carries a number. */}
+      {cost && (typeof cost !== 'string' || /\d/.test(cost)) && <p className={styles.cost}>{cost}</p>}
 
       <Steps
         steps={steps.map((s, i) => ({key: s.id, n: String(i + 1).padStart(2, '0'), label: s.label, alt: s.alt}))}
         active={steps[index].id}
         onPick={pick}
-        timerMs={playing && index <= last ? (steps[index].holdMs ?? DEFAULT_HOLD) : undefined}
+        timerMs={playing && active ? (steps[index].holdMs ?? DEFAULT_HOLD) : undefined}
         label={`${title}: step`}
         columns={steps.length}
         narrowColumns={Math.min(narrowColumns, steps.length)}
         silent
       />
-      {/* One block under the rail: the cost (mono) when it carries a number, then the narration. */}
-      <div className={styles.readout}>
-        {cost && (typeof cost !== 'string' || /\d/.test(cost)) && <p className={styles.cost}>{cost}</p>}
-        <DemoNarration>{steps[index].narration}</DemoNarration>
-      </div>
+      <DemoNarration>{steps[index].narration}</DemoNarration>
 
-      {codeTabs && codeTabs.length > 0 && (
-        <div className={styles.code}>
-          <div className={styles.tabs} role="tablist" aria-label={`${title}: code`}>
-            {codeTabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={t.id === tab}
-                aria-expanded={t.id === tab}
-                className={clsx(styles.tab, t.id === tab && styles.tabOn)}
-                onClick={() => setTab((cur) => (cur === t.id ? null : t.id))}>
-                {t.label}
-              </button>
-            ))}
-            <span className={clsx(styles.chevron, tab && styles.chevronOpen)} aria-hidden="true">
-              ⌄
-            </span>
-          </div>
-          {activeTab && (
-            <div className={styles.tabPanel} role="tabpanel">
-              {activeTab.content}
+      {codeTabs && codeTabs.length > 0 && activeTab && (
+        <div className={styles.hood}>
+          <div className={styles.hoodHead}>
+            <span className={styles.hoodLabel}>under the hood</span>
+            <div className={clsx(styles.modes, styles.hoodTabs)} role="tablist" aria-label={`${title}: under the hood`}>
+              {codeTabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={t.id === activeTab.id}
+                  className={clsx(styles.mode, t.id === activeTab.id && styles.modeOn)}
+                  onClick={() => setTab(t.id)}>
+                  {t.label}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+          <div className={styles.hoodBody} role="tabpanel">
+            <CodeCap.Provider value={hoodLines}>{activeTab.content}</CodeCap.Provider>
+          </div>
         </div>
       )}
     </div>
@@ -311,13 +318,22 @@ export function Sweep({label, className}: {label: ReactNode; className?: string}
   );
 }
 
-/** A box of mono lines for the "what the compiler does" tab. */
+/** The "what the compiler does" tab: plain lines in the same code window. */
 export function CompilerNotes({lines}: {lines: ReactNode[]}): ReactNode {
   return (
-    <ul className={styles.notes}>
-      {lines.map((l, i) => (
-        <li key={i}>{l}</li>
-      ))}
-    </ul>
+    <CodeWindow
+      dense
+      tabs={[
+        {
+          name: 'what the compiler does',
+          lang: '',
+          lines: lines.map((l, i) => (
+            <span key={i} className={styles.note}>
+              › {l}
+            </span>
+          )),
+        },
+      ]}
+    />
   );
 }

@@ -162,12 +162,11 @@ function Scene({L, index, className}: {L: Layout; index: number; className: stri
   );
 }
 
-export default function MetaCore({poster = false}: {poster?: boolean}): ReactNode {
+export default function MetaCore(): ReactNode {
   return (
     <div className={styles.root}>
       <DemoStage
         title="meta and core, one schema"
-        poster={poster}
         steps={STEPS}
         costLine="0 B per frame · one planner"
         codeTabs={[

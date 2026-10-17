@@ -6,6 +6,7 @@ import TangleToSchema from '@site/src/components/TangleToSchema';
 import ReplayVerify from '@site/src/components/ReplayVerify';
 import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
 import ReactiveScreen from '@site/src/components/ReactiveScreen';
+import {DemoDefaults} from '@site/src/components/DemoStage';
 import MetaCore from '@site/src/components/MetaCore';
 import FeatureSlice from '@site/src/components/FeatureSlice';
 import styles from './index.module.css';
@@ -137,7 +138,7 @@ const CLAIMS: Claim[] = [
     ],
     link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
     link2: {label: 'How IVM works →', to: '/how-it-works#ivm'},
-    visual: <ReactiveScreen poster />,
+    visual: <ReactiveScreen />,
     wide: true,
   },
   {
@@ -148,7 +149,7 @@ const CLAIMS: Claim[] = [
       {label: 'persistent + frame joins', status: 'shipped'},
     ],
     link: {label: 'Ephemeral tables →', to: '/docs/advanced/ephemeral-tables'},
-    visual: <MetaCore poster />,
+    visual: <MetaCore />,
     wide: true,
   },
   {
@@ -161,10 +162,13 @@ const CLAIMS: Claim[] = [
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
     link2: {label: 'Vertical slices →', to: '/architecture'},
-    visual: <FeatureSlice poster />,
+    visual: <FeatureSlice />,
     wide: true,
   },
 ];
+
+// Homepage demos cap their under-the-hood code at 7 visible lines.
+const HOOD = {hoodLines: 7};
 
 function Claims(): ReactNode {
   return (
@@ -172,29 +176,31 @@ function Claims(): ReactNode {
       <div className="container">
         <span className="cdb-kicker">Why this is new</span>
         <h2 className="cdb-h2">Four things that change.</h2>
-        <div className={styles.claims}>
-          {CLAIMS.map((c) => (
-            <article key={c.title} className={`cdb-card ${styles.claim} ${c.wide ? styles.claimWide : ''}`}>
-              <div className={styles.claimText}>
-                <h3>{c.title}</h3>
-                <p>{c.body}</p>
-                <ul className={styles.claimBadges}>
-                  {c.badges.map((b) => (
-                    <li key={b.label}>
-                      <span>{b.label}</span>
-                      <StatusBadge status={b.status} />
-                    </li>
-                  ))}
-                </ul>
-                <div className={styles.claimLinks}>
-                  <Link to={c.link.to}>{c.link.label}</Link>
-                  {c.link2 && <Link to={c.link2.to}>{c.link2.label}</Link>}
+        <DemoDefaults.Provider value={HOOD}>
+          <div className={styles.claims}>
+            {CLAIMS.map((c) => (
+              <article key={c.title} className={`cdb-card ${styles.claim} ${c.wide ? styles.claimWide : ''}`}>
+                <div className={styles.claimText}>
+                  <h3>{c.title}</h3>
+                  <p>{c.body}</p>
+                  <ul className={styles.claimBadges}>
+                    {c.badges.map((b) => (
+                      <li key={b.label}>
+                        <span>{b.label}</span>
+                        <StatusBadge status={b.status} />
+                      </li>
+                    ))}
+                  </ul>
+                  <div className={styles.claimLinks}>
+                    <Link to={c.link.to}>{c.link.label}</Link>
+                    {c.link2 && <Link to={c.link2.to}>{c.link2.label}</Link>}
+                  </div>
                 </div>
-              </div>
-              <div className={styles.claimVisual}>{c.visual}</div>
-            </article>
-          ))}
-        </div>
+                <div className={styles.claimVisual}>{c.visual}</div>
+              </article>
+            ))}
+          </div>
+        </DemoDefaults.Provider>
       </div>
     </section>
   );

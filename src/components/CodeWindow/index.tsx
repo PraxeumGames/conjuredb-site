@@ -1,4 +1,4 @@
-import {useState, type CSSProperties, type ReactNode} from 'react';
+import {createContext, useContext, useState, type CSSProperties, type ReactNode} from 'react';
 import styles from './styles.module.css';
 
 // VSCode Dark+ token helpers — hand-colored for a crisp, reliable editor look
@@ -22,7 +22,12 @@ function Dot({color}: {color: string}) {
  * `dense`: smaller type for narrow columns. `locked`: a fixed-height,
  * non-scrolling excerpt — the reader sees how much there is, not every line.
  * `maxLines`: cap the visible lines and scroll the rest inside the window.
+ * Inside a `CodeCap` provider (the homepage's under-the-hood panels), a window
+ * longer than the cap shows that many lines over a faded edge, with
+ * `show all ⌄` / `show less ⌃` in its footer.
  */
+export const CodeCap = createContext<number | undefined>(undefined);
+
 export function CodeWindow({
   tabs,
   dense = false,
@@ -35,9 +40,17 @@ export function CodeWindow({
   maxLines?: number;
 }) {
   const [active, setActive] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const cap = useContext(CodeCap);
   const tab = tabs[active];
+  const capped = cap !== undefined && tab.lines.length > cap;
+  const clipped = capped && !expanded;
   return (
-    <div className={[styles.window, dense && styles.dense, locked && styles.locked].filter(Boolean).join(' ')}>
+    <div
+      className={[styles.window, dense && styles.dense, locked && !capped && styles.locked, clipped && styles.clipped]
+        .filter(Boolean)
+        .join(' ')}
+      style={capped ? ({'--cw-cap': cap} as CSSProperties) : undefined}>
       <div className={styles.titlebar}>
         <div className={styles.dots}>
           <Dot color="#ff5f56" />
@@ -77,6 +90,13 @@ export function CodeWindow({
           </div>
         </pre>
       </div>
+      {capped && (
+        <div className={styles.footer}>
+          <button type="button" className={styles.more} aria-expanded={expanded} onClick={() => setExpanded((x) => !x)}>
+            {expanded ? 'show less ⌃' : `show all ${tab.lines.length} lines ⌄`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

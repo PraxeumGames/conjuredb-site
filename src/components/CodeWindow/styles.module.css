@@ -160,6 +160,36 @@
   .caret { animation: none; }
 }
 
+/* Capped (homepage under-the-hood): N lines over a faded edge, expandable. */
+.clipped .body {
+  max-height: calc(var(--cw-cap) * 1.7em + 1rem);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.35rem 0.9rem 0.55rem;
+  border-top: 1px solid var(--cw-bar-border);
+  background: var(--cw-bar);
+}
+.more {
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--cw-bar-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cw-tab-active);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.more:hover {
+  border-color: var(--ifm-color-primary);
+}
+.more:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
 .scroll {
   /* 1.7em per line plus the body's vertical padding */
   max-height: calc(var(--cw-lines) * 1.7em + 2rem);
