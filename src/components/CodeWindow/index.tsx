@@ -180,7 +180,8 @@ export const BUY_TABS: CodeTab[] = [
     lines: [
       <><K>public static class</K> <T>BuyItemExecutor</T></>,
       <>{'{'}</>,
-      <>    <K>public static</K> <T>BuyItemOutcome</T> <F>ExecuteCore</F>(<T>DbContext</T> context, <T>BuyItemCommand</T> command, <T>CommandExecutionFrame</T> frame)</>,
+      <>    <K>public static</K> <T>BuyItemOutcome</T> <F>ExecuteCore</F>(</>,
+      <>        <T>DbContext</T> context, <T>BuyItemCommand</T> command, <T>CommandExecutionFrame</T> frame)</>,
       <>    {'{'}</>,
       <>        <K>if</K> (context <K>is null</K>) <K>throw new</K> <T>global::System.ArgumentNullException</T>(<K>nameof</K>(context));</>,
       <>        <K>var</K> db = (<T>GameDbContext</T>)context;</>,
