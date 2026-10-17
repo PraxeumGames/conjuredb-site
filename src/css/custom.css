@@ -104,6 +104,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* One visible focus ring everywhere: buttons, step buttons, links, pills. */
+:where(a, button, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
 /* ---- Navbar: glassy, subtle bottom hairline ---------------------------- */
 .navbar {
   backdrop-filter: saturate(150%) blur(14px);

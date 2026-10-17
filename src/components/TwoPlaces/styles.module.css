@@ -100,7 +100,6 @@
   margin-top: 0.8rem;
   border: 1px solid var(--cdb-line);
   border-radius: var(--r-md);
-  overflow: hidden;
 }
 .toggle button {
   flex: 1;
@@ -120,9 +119,15 @@
   background: rgba(236, 194, 92, 0.12);
   color: var(--ifm-color-primary);
 }
+.toggle button:first-child {
+  border-radius: var(--r-md) 0 0 var(--r-md);
+}
+.toggle button:last-child {
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+}
 .toggle button:focus-visible {
-  outline: 2px solid var(--ifm-color-primary);
-  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
 }
 
 .rows {
