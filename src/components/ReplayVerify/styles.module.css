@@ -14,7 +14,7 @@
   position: relative;
   width: 100%;
   max-width: 62rem;
-  margin: 2.6rem auto 0;
+  margin: 0 auto;
 }
 :global([data-theme='light']) .root {
   --rv-gold-soft: rgba(169, 117, 15, 0.08);
@@ -92,9 +92,6 @@
 }
 .isForged .off4 {
   animation: rv-out-4 var(--dur) both;
-}
-.paused * {
-  animation-play-state: paused !important;
 }
 
 /* Back to 01 is a quick fade, not the story played backwards. */
@@ -185,7 +182,6 @@
   stroke-width: 1;
   stroke-dasharray: 2 4;
 }
-.corner,
 .note {
   font-family: var(--cdb-mono);
   font-size: 0.76em;
@@ -262,9 +258,6 @@
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.cornerTight {
-  letter-spacing: 0;
 }
 .counterLong {
   font-size: 0.72em;
@@ -386,12 +379,8 @@
   fill: var(--rv-red);
 }
 
-.note {
-  margin: 0.6rem 0 0;
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+.illustrative {
   color: var(--cdb-muted);
-  text-align: center;
 }
 
 /* ---- Keyframes --------------------------------------------------------- */

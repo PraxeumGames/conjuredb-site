@@ -1,7 +1,8 @@
-import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import type {CSSProperties, ReactNode} from 'react';
 import clsx from 'clsx';
 import {DEVICE_STATUS_H, DeviceFrame, ServerFrame, WifiGlyph, serverHashAt} from '@site/src/components/Glyphs';
-import Steps from '@site/src/components/Steps';
+import {CodeWindow, F, K, T, type CodeTab} from '@site/src/components/CodeWindow';
+import DemoStage, {CompilerNotes, type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
 // Visual B — "offline tap → server replay". The device runs the compiled
@@ -13,7 +14,6 @@ import styles from './styles.module.css';
 // inside a phase are CSS animation delays, restarted by the class change.
 
 type Phase = 'offline' | 'reconnect' | 'replay' | 'forged';
-const PHASES: Phase[] = ['offline', 'reconnect', 'replay', 'forged'];
 
 const HOLD_MS: Record<Phase, number> = {offline: 4600, reconnect: 2600, replay: 4600, forged: 5600};
 
@@ -24,12 +24,61 @@ const PHASE_CLASS: Record<Phase, string> = {
   forged: styles.isForged,
 };
 
-const STEPS: {key: Phase; n: string; label: string; alt?: boolean}[] = [
-  {key: 'offline', n: '01', label: 'play offline'},
-  {key: 'reconnect', n: '02', label: 'reconnect'},
-  {key: 'replay', n: '03', label: 'replay, then apply'},
-  {key: 'forged', n: '04', label: 'tampered journal', alt: true},
-]
+const STEPS: DemoStep[] = [
+  {
+    id: 'offline',
+    label: 'play offline',
+    holdMs: HOLD_MS.offline,
+    narration:
+      'The phone is offline: three actions run on the device at once and go into a journal. Joining a clan needs the server, so it waits in the queue.',
+  },
+  {
+    id: 'reconnect',
+    label: 'reconnect',
+    holdMs: HOLD_MS.reconnect,
+    narration: 'The connection is back: the journal and the queued request travel to the server together, as one request.',
+  },
+  {
+    id: 'replay',
+    label: 'replay, then apply',
+    holdMs: HOLD_MS.replay,
+    narration:
+      'The server replays the three commands with the same compiled logic, lands on the same state, then applies JoinClan to that verified state.',
+  },
+  {
+    id: 'forged',
+    label: 'tampered journal',
+    alt: true,
+    holdMs: HOLD_MS.forged,
+    narration:
+      "The journal was edited: entry 3 does not replay, the session is rejected, the queued request never runs, and the device rolls back to the server's state.",
+  },
+];
+
+const COST: Record<Phase, string> = {
+  offline: '3 actions offline · 1 queued · 0 requests',
+  reconnect: '3 actions + 1 queued · 1 request',
+  replay: '3 replayed · 1 applied online · 11 µs',
+  forged: 'entry 3 does not replay · 1 queued, not applied',
+};
+
+const SCHEMA: CodeTab[] = [
+  {
+    name: 'game.conjure',
+    lang: 'schema',
+    lines: [
+      <><K>module</K> <T>Shop</T> {'{'}</>,
+      <>    <K>command</K> <F>BuyItem</F>(…)</>,
+      <>    <K>command</K> <F>OpenChest</F>(…)</>,
+      <>    <K>command</K> <F>ClaimReward</F>(…)</>,
+      <>{'}'}</>,
+      <><K>module</K> <T>Clans</T> {'{'}</>,
+      <>    <K>command</K> <F>JoinClan</F>(…)</>,
+      <>{'}'}</>,
+    ],
+  },
+];
+const COMPILER = ['same compiled command on both sides', 'journal hash chain', 'verdict per journal'];
 
 const ARIA: Record<Phase, string> = {
   offline:
@@ -109,12 +158,10 @@ type Layout = {
   stream: string;
   marks: Pt[];
   labels: {at: Pt; anchor: Anchor}[];
-  corner: {at: Pt; anchor: Anchor};
   deviceHash: Pt;
   server: Box;
   slots: Pt[]; // three replayed commands, then the queued online one
   online: {mark: Pt; label: Pt; tag: Pt; notApplied: Pt};
-  splitCorner: boolean; // narrow: the phase 01 counter on three lines, wide: two
   forgedLabel: Pt;
   counter: Pt;
   note: Pt;
@@ -134,12 +181,10 @@ const WIDE: Layout = {
   stream: 'M240 200 H600',
   marks: WIDE_MARKS,
   labels: WIDE_MARKS.map(([x], i) => ({at: [x, i % 2 ? 224 : 186], anchor: 'middle'})),
-  corner: {at: [420, 112], anchor: 'middle'},
   deviceHash: [262, 322],
   server: {x: 600, y: 60, w: 250, h: 280},
   slots: [[665, 200], [705, 200], [745, 200], [805, 200]],
   online: {mark: [520, 200], label: [520, 186], tag: [520, 224], notApplied: [805, 168]},
-  splitCorner: false,
   forgedLabel: [725, 238],
   counter: [725, 264],
   note: [725, 140],
@@ -159,12 +204,10 @@ const NARROW: Layout = {
   stream: 'M180 238 V500',
   marks: NARROW_MARKS,
   labels: NARROW_MARKS.map(([x, y]) => ({at: [x + 14, y + 4], anchor: 'start'})),
-  corner: {at: [10, 276], anchor: 'start'},
   deviceHash: [16, 456],
   server: {x: 30, y: 500, w: 300, h: 200},
   slots: [[110, 578], [150, 578], [190, 578], [262, 578]],
   online: {mark: [180, 392], label: [194, 396], tag: [194, 413], notApplied: [262, 552]},
-  splitCorner: true,
   forgedLabel: [180, 610],
   counter: [180, 636],
   note: [180, 636],
@@ -312,36 +355,6 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
 
         {/* The command journal */}
         <path className={styles.stream} d={layout.stream} />
-        {sequence([0, ...TAP.map((t) => t + 0.08), JOIN_T + 0.08], 1).map((spec, k) =>
-          k <= ACTIONS.length ? (
-            <text
-              key={k}
-              {...vis(spec, styles.corner)}
-              x={layout.corner.at[0]}
-              y={layout.corner.at[1]}
-              textAnchor={layout.corner.anchor}>
-              {k} {k === 1 ? 'action' : 'actions'} · 0 requests
-            </text>
-          ) : (
-            <text key={k} {...vis(spec, clsx(styles.corner, styles.cornerTight))} x={layout.corner.at[0]} y={layout.corner.at[1]} textAnchor={layout.corner.anchor}>
-              {(layout.splitCorner
-                ? ['3 actions offline', '1 queued for the server', '0 requests']
-                : ['3 actions offline · 1 queued for the server', '0 requests']
-              ).map((line, j) => (
-                <tspan key={line} x={layout.corner.at[0]} dy={j ? '1.3em' : 0}>
-                  {line}
-                </tspan>
-              ))}
-            </text>
-          ),
-        )}
-        <text
-          {...vis({2: {in: 0.3}}, styles.corner)}
-          x={layout.corner.at[0]}
-          y={layout.corner.at[1]}
-          textAnchor={layout.corner.anchor}>
-          3 actions + 1 queued · 1 request
-        </text>
         {ACTIONS.map((a, i) => (
           <text
             key={a}
@@ -550,66 +563,28 @@ function Verdict({at, label, spec, px, red}: {at: Pt; label: string; spec: VisSp
 }
 
 export default function ReplayVerify(): ReactNode {
-  const [phase, setPhase] = useState<Phase>('offline');
-  const [auto, setAuto] = useState(true);
-  const [visible, setVisible] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  // Reduced motion: show the replay result, no cycling.
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const apply = () => {
-      if (mq.matches) {
-        setAuto(false);
-        setPhase('replay');
-      }
-    };
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
-
-  // Only cycle while on screen; restart the story when it scrolls into view.
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
-    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {threshold: 0.35});
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!auto || !visible) return;
-    const t = window.setTimeout(() => {
-      setPhase((p) => PHASES[(PHASES.indexOf(p) + 1) % PHASES.length]);
-    }, HOLD_MS[phase]);
-    return () => window.clearTimeout(t);
-  }, [phase, auto, visible]);
-
-  const pick = (p: Phase) => {
-    setAuto(false);
-    setPhase(p);
-  };
-
   return (
-    <div ref={rootRef} className={clsx(styles.root, PHASE_CLASS[phase], !visible && auto && styles.paused)}>
-      <div className={styles.stage}>
-        <Scene layout={WIDE} phase={phase} className={styles.wide} />
-        <Scene layout={NARROW} phase={phase} className={styles.narrow} />
-      </div>
-      <Steps
-        steps={STEPS}
-        active={phase}
-        onPick={pick}
-        timerMs={auto && visible ? HOLD_MS[phase] : undefined}
-        label="Show step"
-        columns={4}
-        narrowColumns={2}
-      />
-      <p className={styles.note}>illustrative timings</p>
-    </div>
+    <DemoStage
+      title="offline play, server replay"
+      steps={STEPS}
+      stageMinHeight={{wide: '0px', narrow: '0px'}}
+      costLine={({step}) => (
+        <>
+          {COST[step as Phase]} <span className={styles.illustrative}>· illustrative timings</span>
+        </>
+      )}
+      codeTabs={[
+        {id: 'schema', label: 'schema', content: <CodeWindow tabs={SCHEMA} dense />},
+        {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
+      ]}>
+      {({step, run}) => (
+        <div key={run} className={clsx(styles.root, PHASE_CLASS[step as Phase])}>
+          <div className={styles.stage}>
+            <Scene layout={WIDE} phase={step as Phase} className={styles.wide} />
+            <Scene layout={NARROW} phase={step as Phase} className={styles.narrow} />
+          </div>
+        </div>
+      )}
+    </DemoStage>
   );
 }
