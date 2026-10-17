@@ -82,8 +82,8 @@ export const PLAN_TABS: CodeTab[] = [
 // The hero's "compile" story: a .conjure source file and the plain C# it emits.
 export const HERO_TABS: CodeTab[] = [
   {
-    name: 'game.conjure · syntax v3',
-    lang: 'ConjureDB schema',
+    name: 'game.conjure',
+    lang: 'ConjureDB schema · v3',
     lines: [
       <><K>table</K> <T>Player</T>(</>,
       <>    persistence: <K>local</K>, capacity: <N>16384</N>, type_id: <N>1001</N>) {'{'}</>,
