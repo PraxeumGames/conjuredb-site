@@ -82,6 +82,7 @@ const COMPILER = [
   'one generated method per command, run by the device and by the server',
   'journal hash chain',
   'verdict per journal',
+  'offline commands are replayed; server-only ones run after the replay, against the state it verified',
   'no request per tap, no latency, no trust in the client',
 ];
 

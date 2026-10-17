@@ -120,7 +120,7 @@
 }
 .ledgerHead {
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--cdb-muted);
@@ -172,7 +172,7 @@
   display: block;
   margin-bottom: 0.3rem;
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 .hunk pre {
@@ -192,7 +192,7 @@
   display: inline-block;
   margin-top: 0.35rem;
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--cdb-wire);
   animation: dvi-blink 0.9s var(--ease) 0.4s 2 both;

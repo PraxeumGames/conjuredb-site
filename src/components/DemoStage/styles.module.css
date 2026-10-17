@@ -145,20 +145,32 @@
   outline-offset: 3px;
 }
 
-/* c. Cost line */
+/* c + e. The readout under the rail: cost (mono) above the narration. */
+.readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--gap-sm);
+}
 .root .cost {
-  margin: var(--gap-sm) 0 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 46rem;
+  margin: 0;
   font-family: var(--cdb-mono);
   font-size: var(--fs-xs);
   line-height: 1.5;
-  color: var(--cdb-ink);
+  color: var(--cdb-muted);
+  text-align: center;
 }
 
 /* e. Narration */
 .narration,
 .root .narration {
   min-height: 3em;
-  margin: var(--gap-sm) auto 0;
+  margin: 0 auto;
   max-width: 46rem;
   font-size: var(--fs-md);
   line-height: 1.5;
@@ -244,7 +256,7 @@
 }
 .sweepLabel {
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   color: var(--cdb-wire);
 }
 

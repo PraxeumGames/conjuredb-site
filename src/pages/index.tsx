@@ -64,15 +64,11 @@ const REPLAY_FACTS: Fact[] = [
   {text: 'Microseconds per command, device and server', status: 'prototype'},
 ];
 
-/** Claim 1's visual: the replay story, its caption and the three facts. */
+/** Claim 1's visual: the replay story and the three facts. */
 function ReplayClaim(): ReactNode {
   return (
     <>
       <ReplayVerify />
-      <p className={styles.replayCaption}>
-        Same compiled command on both sides. Offline commands are replayed; server-only ones run
-        after the replay, against the state it verified.
-      </p>
       <ul className={styles.facts}>
         {REPLAY_FACTS.map((f) => (
           <li key={f.text} className={styles.fact}>

@@ -136,7 +136,7 @@
   display: block;
   margin-bottom: 0.35rem;
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 .stream ol {

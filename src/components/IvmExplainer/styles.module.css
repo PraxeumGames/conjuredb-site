@@ -118,7 +118,7 @@
 }
 .boxSub {
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 .boxStatus {
@@ -148,7 +148,7 @@
   background: transparent;
   color: var(--cdb-muted);
   font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
@@ -200,7 +200,7 @@
   border-radius: var(--r-pill);
   background: var(--cdb-wire);
   color: var(--cdb-on-accent);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
 }

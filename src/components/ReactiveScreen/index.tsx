@@ -123,6 +123,7 @@ const COMPILER = [
   'bounded sort state',
   'filters, joins, grouped aggregates and bounded Top-K are all maintained by delta',
   'a shape it cannot maintain is a compile error, not a slow path',
+  'the UI view binds the view model once; the reactive query delivers current rows plus per-row changes',
 ];
 
 const NARRATION: Record<Mode, string[]> = {

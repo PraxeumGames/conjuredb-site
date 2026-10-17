@@ -196,7 +196,6 @@ export default function DemoStage({
         )}
       </div>
 
-      {cost && <p className={styles.cost}>{cost}</p>}
 
       <Steps
         steps={steps.map((s, i) => ({key: s.id, n: String(i + 1).padStart(2, '0'), label: s.label, alt: s.alt}))}
@@ -208,7 +207,11 @@ export default function DemoStage({
         narrowColumns={Math.min(narrowColumns, steps.length)}
         silent
       />
-      <DemoNarration>{steps[index].narration}</DemoNarration>
+      {/* One block under the rail: the cost (mono) when it carries a number, then the narration. */}
+      <div className={styles.readout}>
+        {cost && (typeof cost !== 'string' || /\d/.test(cost)) && <p className={styles.cost}>{cost}</p>}
+        <DemoNarration>{steps[index].narration}</DemoNarration>
+      </div>
 
       {codeTabs && codeTabs.length > 0 && (
         <div className={styles.code}>

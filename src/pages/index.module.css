@@ -210,19 +210,7 @@
   }
 }
 
-/* Claim 1: the replay visual's caption + three facts with status badges. */
-.replayCaption {
-  margin: var(--gap-md) auto 0;
-  max-width: 44rem;
-  font-size: var(--fs-md);
-  color: var(--cdb-ink);
-  opacity: 0.85;
-  text-align: center;
-  text-wrap: balance;
-}
-.claimVisual .replayCaption {
-  margin: var(--gap-sm) auto 0; /* beats the card's paragraph reset */
-}
+/* Claim 1: three facts with status badges under the replay demo. */
 .facts {
   list-style: none;
   margin: var(--gap-md) auto 0;
