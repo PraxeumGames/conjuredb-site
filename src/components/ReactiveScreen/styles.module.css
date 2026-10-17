@@ -154,6 +154,7 @@
   color: var(--cdb-ink);
   white-space: pre;
   overflow-x: auto;
+  contain: inline-size;
 }
 .kw {
   color: var(--ifm-color-primary);
@@ -228,6 +229,37 @@
   opacity: 0.6;
 }
 
+/* What you write: only the active mode's pane, swapped with a short slide. */
+.write {
+  margin: var(--gap-md) 0 0.9rem;
+}
+.writeTitle {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-muted);
+}
+.pane {
+  --cw-locked-h: 17rem;
+  /* Long code lines must not widen the column on phones. */
+  contain: inline-size;
+  animation: rs-swap var(--dur) var(--ease) both;
+}
+.paneDim {
+  opacity: 0.62;
+  pointer-events: none;
+}
+.writeSummary {
+  margin: 0.5rem 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+.isWired .writeSummary {
+  color: var(--cdb-wire);
+}
+
 .caption {
   margin: var(--gap-md) 0 0;
   font-size: var(--fs-sm);
@@ -243,6 +275,12 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes rs-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 @keyframes rs-flash {

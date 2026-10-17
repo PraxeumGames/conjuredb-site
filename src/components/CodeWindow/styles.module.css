@@ -160,6 +160,16 @@
   .caret { animation: none; }
 }
 
+.dense .body {
+  font-size: var(--fs-xs);
+}
+/* Locked excerpt: fixed height, no scrolling, fades out at the bottom. */
+.locked .body {
+  max-height: var(--cw-locked-h, 22rem);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
 /* Token colors — theme-aware via vars */
 .kw { color: var(--cw-kw); }
 .ty { color: var(--cw-ty); }

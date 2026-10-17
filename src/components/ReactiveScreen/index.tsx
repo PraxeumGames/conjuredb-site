@@ -1,12 +1,14 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
 import clsx from 'clsx';
 import {DEVICE_STATUS_H, DeviceFrame} from '@site/src/components/Glyphs';
+import {C, CodeWindow, F, K, T, V, type CodeTab} from '@site/src/components/CodeWindow';
 import styles from './styles.module.css';
 
 // "Screens update themselves": a shop screen backed by a reactive query.
 // Each event changes the data; in "reactive view" mode only the rows whose
 // output changed are touched, in "hand-wired" mode an OnChanged presenter
-// refreshes every row — and misses one subscription on the third event.
+// refreshes every row — and on the third event its handlers run in the wrong
+// order and leave a stale row. Below, what each mode asks you to write.
 
 type Mode = 'reactive' | 'wired';
 type Row = {name: string; price: number | null; owned: boolean};
@@ -30,13 +32,83 @@ const DELTAS: string[][] = [
   ['Replace · row 3 · price 120 → 60', 'Replace · row 4 · price 480 → 240'],
   ['Replace · gold 420 → 70', 'Replace · row 1 · owned', 'Replace · row 4 · too expensive', 'Replace · row 6 · price — → 80'],
 ];
-// The hand-wired presenter: every change refreshes everything; one event has no handler.
+// The hand-wired presenter: every change refreshes everything, and on the
+// third event the price handler runs before the list refresh that undoes it.
 const WIRED: string[][] = [
   ['OnGoldChanged → refresh 6 rows'],
-  ['OnPricesChanged → refresh 6 rows'],
-  ['OnGoldChanged → refresh 6 rows', 'inventory changed → no handler'],
+  ['OnPriceChanged ×2 → refresh 6 rows'],
+  ['OnGoldChanged → refresh 6 rows', 'OnPriceChanged → row 6 · 80', 'OnInventoryChanged → refresh 6 rows', '! cached list → row 6 back to —'],
 ];
-const STALE_ROW = 5; // the hand-wired presenter never subscribed to inventory changes
+const STALE_ROW = 5; // overwritten by a refresh from the cached offer list
+
+// What you write, per mode. Bind/Apply stand for whatever list widget the game uses.
+const PRESENTER: CodeTab[] = [
+  {
+    name: 'ShopPresenter.cs',
+    lang: 'C#',
+    lines: [
+      <><K>public sealed class</K> <T>ShopPresenter</T>(<T>Wallet</T> wallet, <T>Inventory</T> inventory,</>,
+      <>    <T>PriceService</T> prices, <T>OfferCatalog</T> offers, <T>OfferListView</T> view)</>,
+      <>{'{'}</>,
+      <>    <T>List</T>&lt;<T>OfferRow</T>&gt; rows = <K>new</K>();</>,
+      <>{' '}</>,
+      <>    <K>public void</K> <F>Start</F>()</>,
+      <>    {'{'}</>,
+      <>        wallet.<V>OnGoldChanged</V> += <F>OnGoldChanged</F>;</>,
+      <>        inventory.<V>OnInventoryChanged</V> += <F>OnInventoryChanged</F>;</>,
+      <>        prices.<V>OnPriceChanged</V> += <F>OnPriceChanged</F>;</>,
+      <>        offers.<V>OnOfferAdded</V> += <F>OnOfferAdded</F>;</>,
+      <>        <F>Refresh</F>();</>,
+      <>    {'}'}</>,
+      <>{' '}</>,
+      <>    <K>void</K> <F>OnGoldChanged</F>(<K>int</K> gold) =&gt; <F>Refresh</F>();</>,
+      <>    <K>void</K> <F>OnInventoryChanged</F>(<T>ItemId</T> item) =&gt; <F>Refresh</F>();</>,
+      <>    <K>void</K> <F>OnOfferAdded</F>(<T>Offer</T> offer) =&gt; <F>Refresh</F>();</>,
+      <>{' '}</>,
+      <>    <K>void</K> <F>OnPriceChanged</F>(<T>OfferId</T> id, <K>int</K> price)</>,
+      <>    {'{'}</>,
+      <>        <C>// TODO: price change arrives before offer list refresh → stale row</C></>,
+      <>        <K>var</K> n = rows.<F>FindIndex</F>(r =&gt; r.Id == id);</>,
+      <>        <K>if</K> (n &lt; <span>0</span>) <K>return</K>;</>,
+      <>        rows[n] = rows[n] <K>with</K> {'{'} Price = price {'}'};</>,
+      <>        view.<F>SetRow</F>(n, rows[n]);</>,
+      <>    {'}'}</>,
+      <>{' '}</>,
+      <>    <K>void</K> <F>Refresh</F>()</>,
+      <>    {'{'}</>,
+      <>        rows.<F>Clear</F>();</>,
+      <>        <K>foreach</K> (<K>var</K> offer <K>in</K> offers.<F>Visible</F>(inventory))</>,
+      <>        {'{'}</>,
+      <>            <K>var</K> price = offers.<F>CachedPrice</F>(offer.Id);</>,
+      <>            <K>var</K> owned = inventory.<F>Has</F>(offer.ItemId);</>,
+      <>            rows.<F>Add</F>(<K>new</K> <T>OfferRow</T>(offer, price, owned, !owned &amp;&amp; price &lt;= wallet.Gold));</>,
+      <>        {'}'}</>,
+      <>        rows.<F>Sort</F>((a, b) =&gt; a.Price.<F>CompareTo</F>(b.Price));</>,
+      <>        view.<F>SetRows</F>(rows);</>,
+      <>    {'}'}</>,
+      <>{' '}</>,
+      <>    <K>public void</K> <F>OnDestroy</F>()</>,
+      <>    {'{'}</>,
+      <>        wallet.<V>OnGoldChanged</V> -= <F>OnGoldChanged</F>;</>,
+      <>        inventory.<V>OnInventoryChanged</V> -= <F>OnInventoryChanged</F>;</>,
+      <>        prices.<V>OnPriceChanged</V> -= <F>OnPriceChanged</F>;</>,
+      <>        offers.<V>OnOfferAdded</V> -= <F>OnOfferAdded</F>;</>,
+      <>    {'}'}</>,
+      <>{'}'}</>,
+    ],
+  },
+];
+const SCREEN: CodeTab[] = [
+  {
+    name: 'ShopScreen.cs',
+    lang: 'C#',
+    lines: [
+      <><K>var</K> offers = ctx.<F>Offers</F>();</>,
+      <>offersList.<F>Bind</F>(offers.<V>Current</V>);</>,
+      <>offers.<F>SubscribeChanged</F>(changes =&gt; offersList.<F>Apply</F>(changes));</>,
+    ],
+  },
+];
 
 type State = {gold: number; rows: Row[]};
 
@@ -119,9 +191,11 @@ export default function ReactiveScreen(): ReactNode {
       {wired ? (
         <pre className={clsx(styles.code, styles.presenter)}>
           <span className={styles.cls}>ShopPresenter</span>
-          {'\n'}  OnGoldChanged   += RefreshAll;
-          {'\n'}  OnPricesChanged += RefreshAll;
-          {'\n'}<span className={styles.missed}>  // OnInventoryChanged — never wired</span>
+          {'\n'}  OnGoldChanged      += Refresh;
+          {'\n'}  OnInventoryChanged += Refresh;
+          {'\n'}  OnOfferAdded       += Refresh;
+          {'\n'}  OnPriceChanged     += OnPriceChanged;
+          {'\n'}<span className={styles.missed}>  // arrival order decides the row</span>
         </pre>
       ) : (
         <pre className={styles.code}>
@@ -214,8 +288,8 @@ export default function ReactiveScreen(): ReactNode {
             <ol>
               {(wired ? WIRED : DELTAS).slice(0, applied).flatMap((lines, step) =>
                 lines.map((l) => (
-                  <li key={`${step}-${l}`} className={clsx(step === applied - 1 && styles.latest, l.includes('no handler') && styles.miss)}>
-                    {l}
+                  <li key={`${step}-${l}`} className={clsx(step === applied - 1 && styles.latest, l.startsWith('! ') && styles.miss)}>
+                    {l.replace(/^! /, '')}
                   </li>
                 )),
               )}
@@ -224,8 +298,17 @@ export default function ReactiveScreen(): ReactNode {
           </div>
         </div>
       </div>
+      <div className={styles.write}>
+        <span className={styles.writeTitle}>what you write</span>
+        <div key={mode} className={clsx(styles.pane, wired && styles.paneDim)}>
+          <CodeWindow tabs={wired ? PRESENTER : SCREEN} dense locked={wired} />
+        </div>
+        <p className={styles.writeSummary}>
+          {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
+        </p>
+      </div>
       <p className={styles.caption}>
-        A materialized view keeps the result and the compiler maintains it by delta — filters,
+        The screen is a view. Bind it once. A materialized view keeps the result and the compiler maintains it by delta — filters,
         joins, aggregates, bounded Top-K. A reactive query is the screen&apos;s subscription to it:
         the current rows and per-row changes. Ordinary queries reuse the same state.
       </p>

@@ -3,13 +3,13 @@ import styles from './styles.module.css';
 
 // VSCode Dark+ token helpers — hand-colored for a crisp, reliable editor look
 // independent of any Prism grammar availability.
-const K = ({children}: {children: ReactNode}) => <span className={styles.kw}>{children}</span>;
-const T = ({children}: {children: ReactNode}) => <span className={styles.ty}>{children}</span>;
-const F = ({children}: {children: ReactNode}) => <span className={styles.fn}>{children}</span>;
-const S = ({children}: {children: ReactNode}) => <span className={styles.str}>{children}</span>;
-const N = ({children}: {children: ReactNode}) => <span className={styles.num}>{children}</span>;
-const C = ({children}: {children: ReactNode}) => <span className={styles.com}>{children}</span>;
-const V = ({children}: {children: ReactNode}) => <span className={styles.varname}>{children}</span>;
+export const K = ({children}: {children: ReactNode}) => <span className={styles.kw}>{children}</span>;
+export const T = ({children}: {children: ReactNode}) => <span className={styles.ty}>{children}</span>;
+export const F = ({children}: {children: ReactNode}) => <span className={styles.fn}>{children}</span>;
+export const S = ({children}: {children: ReactNode}) => <span className={styles.str}>{children}</span>;
+export const N = ({children}: {children: ReactNode}) => <span className={styles.num}>{children}</span>;
+export const C = ({children}: {children: ReactNode}) => <span className={styles.com}>{children}</span>;
+export const V = ({children}: {children: ReactNode}) => <span className={styles.varname}>{children}</span>;
 
 export type CodeTab = {name: string; lang: string; lines: ReactNode[]};
 
@@ -17,11 +17,15 @@ function Dot({color}: {color: string}) {
   return <span className={styles.dot} style={{background: color}} />;
 }
 
-export function CodeWindow({tabs}: {tabs: CodeTab[]}) {
+/**
+ * `dense`: smaller type for narrow columns. `locked`: a fixed-height,
+ * non-scrolling excerpt — the reader sees how much there is, not every line.
+ */
+export function CodeWindow({tabs, dense = false, locked = false}: {tabs: CodeTab[]; dense?: boolean; locked?: boolean}) {
   const [active, setActive] = useState(0);
   const tab = tabs[active];
   return (
-    <div className={styles.window}>
+    <div className={[styles.window, dense && styles.dense, locked && styles.locked].filter(Boolean).join(' ')}>
       <div className={styles.titlebar}>
         <div className={styles.dots}>
           <Dot color="#ff5f56" />
