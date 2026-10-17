@@ -17,7 +17,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
     var(--cdb-surface-2);
   border: 1px solid var(--cdb-line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   padding: 0.95rem 0.8rem;
   text-align: center;
   position: relative;
@@ -26,13 +26,13 @@
 .node b {
   display: block;
   font-family: var(--cdb-mono);
-  font-size: 0.92rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-ink);
 }
 .node span {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 
@@ -40,7 +40,7 @@
   align-self: center;
   flex: 0 0 1.6rem;
   height: 2px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   background: linear-gradient(90deg, rgba(236, 194, 92, 0.5), rgba(224, 154, 52, 0.5));
   position: relative;
   overflow: hidden;

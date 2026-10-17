@@ -33,6 +33,43 @@
   --cdb-line: #e8e2d6;
   --cdb-surface: #faf8f4;
   --cdb-surface-2: #ffffff;
+  /* Second semantic colour: the server / cloud side. Gold stays the schema. */
+  --cdb-server: #46627d;
+  --cdb-server-soft: rgba(70, 98, 125, 0.08);
+  /* Third: hand-written wiring, forged and rejected things — muted red. */
+  --cdb-wire: rgba(176, 82, 66, 0.8);
+
+  /* Text on the gold accent (primary buttons, the phone's Buy button). */
+  --cdb-on-accent: #2a1d04;
+
+  /* ---- Design tokens (shared by both themes) ---- */
+  /* Type scale. Mono labels use exactly two: 2xs (captions) and xs (data). */
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.74rem;
+  --fs-sm: 0.84rem;
+  --fs-md: 0.95rem;
+  --fs-lg: 1.08rem;
+  --fs-xl: 1.3rem;
+  --fs-h1: clamp(2.6rem, 4.4vw, 4.2rem);
+  --fs-h2: clamp(1.9rem, 3.4vw, 2.8rem);
+  --fs-h3: 1.25rem;
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+  /* Spacing */
+  --section-y: 6rem;
+  --section-y-tight: 3rem;
+  --card-pad: 1.5rem;
+  --gap-sm: 1rem;
+  --gap-md: 1.5rem;
+  --gap-lg: 2.5rem;
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur: 320ms;
+  --dur-slow: 700ms;
 }
 
 [data-theme='dark'] {
@@ -58,10 +95,19 @@
   --cdb-line: #262a31;
   --cdb-surface: #171a20;
   --cdb-surface-2: #1b1e25;
+  --cdb-server: #8ea7bf;
+  --cdb-server-soft: rgba(142, 167, 191, 0.1);
+  --cdb-wire: rgba(232, 138, 120, 0.95);
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+/* One visible focus ring everywhere: buttons, step buttons, links, pills. */
+:where(a, button, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
 }
 
 /* ---- Navbar: glassy, subtle bottom hairline ---------------------------- */
@@ -77,6 +123,85 @@ html {
 }
 .navbar__link {
   font-weight: 450;
+  transition: color var(--dur-fast) var(--ease);
+}
+/* Active item: a 2px gold underline, 6px below the text. */
+.navbar__link--active {
+  text-decoration: underline;
+  text-decoration-color: var(--ifm-color-primary);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.navbar__logo {
+  height: 24px;
+  margin-right: 0.5rem;
+}
+.navbar__logo img {
+  height: 24px;
+  width: 24px;
+}
+
+/* ---- Footer: brand column + three link columns, hairline on top ------- */
+.footer {
+  background: var(--cdb-surface);
+  border-top: 1px solid var(--cdb-line);
+  padding: var(--section-y-tight) 0;
+}
+.footer__links {
+  margin-bottom: var(--gap-md);
+}
+.footer__col:first-child {
+  flex-grow: 1.6;
+}
+.footer__title {
+  font-family: var(--ifm-heading-font-family);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--cdb-ink);
+}
+.footer__link-item {
+  color: var(--cdb-muted);
+  font-size: var(--fs-sm);
+  transition: color var(--dur-fast) var(--ease);
+}
+.footer__link-item:hover {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+.footer__copyright {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+  text-align: left;
+}
+.cdb-footer-brand {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.55rem;
+  row-gap: 0.6rem;
+  max-width: 18rem;
+}
+.cdb-footer-mark {
+  width: 13px;
+  height: 13px;
+  margin: 0 3px;
+  border-radius: 2px;
+  background: var(--ifm-color-primary);
+  transform: rotate(45deg);
+}
+.cdb-footer-word {
+  font-family: var(--ifm-heading-font-family);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.02em;
+  color: var(--cdb-ink);
+}
+.cdb-footer-brand p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
 }
 
 /* ---- Buttons: premium, with glow on the primary CTA -------------------- */
@@ -84,9 +209,9 @@ html {
   --ifm-button-background-color: var(--ifm-color-primary);
   border: none;
   font-weight: 560;
-  color: #2a1d04;
+  color: var(--cdb-on-accent);
   box-shadow: 0 8px 24px -8px rgba(236, 194, 92, 0.5);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
 }
 .button.button--primary:hover {
   transform: translateY(-1px);
@@ -98,7 +223,7 @@ html {
   color: var(--cdb-ink);
   border: 1px solid var(--cdb-line);
   font-weight: 540;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .button.button--secondary:hover {
   border-color: var(--ifm-color-primary);
@@ -107,11 +232,11 @@ html {
 
 /* ---- Shared marketing helpers ----------------------------------------- */
 .cdb-section {
-  padding: 7rem 0;
+  padding: var(--section-y) 0;
   position: relative;
 }
 .cdb-section--tight {
-  padding: 4rem 0;
+  padding: var(--section-y-tight) 0;
 }
 
 /* Editorial: centered section intros; card grids stay left-aligned. */
@@ -137,18 +262,17 @@ html {
   color: var(--ifm-color-primary);
   font-family: var(--cdb-mono);
   font-weight: 500;
-  font-size: 0.76rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .cdb-kicker::before {
   content: '◆ ';
   opacity: 0.85;
-  font-size: 0.7em;
 }
 .cdb-h2 {
   font-family: var(--ifm-heading-font-family);
-  font-size: clamp(2.1rem, 4.6vw, 3.5rem);
+  font-size: var(--fs-h2);
   line-height: 1.04;
   letter-spacing: -0.03em;
   margin: 0.7rem auto 1rem;
@@ -157,7 +281,7 @@ html {
 }
 .cdb-lead {
   color: var(--cdb-muted);
-  font-size: 1.18rem;
+  font-size: var(--fs-lg);
   line-height: 1.6;
   max-width: 52rem;
   text-wrap: pretty;
@@ -166,7 +290,7 @@ html {
 .cdb-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.1rem;
+  gap: var(--gap-sm);
   margin-top: 3rem;
 }
 @media (max-width: 996px) {
@@ -175,25 +299,26 @@ html {
   }
 }
 
-/* Cards: layered surface, hairline border, hover lift + accent edge. */
+/* Content cards: no border — a surface step and spacing separate them.
+   Borders belong to interactive or "window" surfaces only; a linked card
+   (cdb-card--link) shows one on hover as its affordance. */
 .cdb-card {
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
-    var(--cdb-surface-2);
-  border: 1px solid var(--cdb-line);
-  border-radius: 16px;
-  padding: 1.7rem;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  background: var(--cdb-surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  padding: var(--card-pad);
+  transition: border-color var(--dur-fast) var(--ease);
 }
-.cdb-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(236, 194, 92, 0.4);
-  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+.cdb-surface .cdb-card {
+  background: var(--ifm-background-color);
+}
+.cdb-card--link:hover {
+  border-color: rgba(236, 194, 92, 0.45);
 }
 .cdb-card h3 {
   font-family: var(--ifm-heading-font-family);
-  font-size: 1.2rem;
+  font-size: var(--fs-h3);
   margin: 0 0 0.5rem;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -201,7 +326,7 @@ html {
 .cdb-card p {
   color: var(--cdb-muted);
   margin: 0;
-  font-size: 0.98rem;
+  font-size: var(--fs-md);
   line-height: 1.6;
 }
 .cdb-center {
@@ -251,7 +376,7 @@ html {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
-  transition: opacity 0.18s ease;
+  transition: opacity var(--dur-fast) var(--ease);
   pointer-events: none;
 }
 .cdb-card:hover::after {
@@ -262,11 +387,7 @@ html {
 .cdb-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--cdb-line);
-  border: 1px solid var(--cdb-line);
-  border-radius: 16px;
-  overflow: hidden;
+  gap: var(--gap-md);
 }
 @media (max-width: 768px) {
   .cdb-stats {
@@ -274,22 +395,22 @@ html {
   }
 }
 .cdb-stat {
-  background: var(--cdb-surface-2);
-  padding: 1.7rem 1.2rem;
+  padding: 0.4rem 0.6rem;
   text-align: center;
 }
 .cdb-stat b {
   display: block;
   font-family: var(--ifm-heading-font-family);
-  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  font-size: var(--fs-h2);
   font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--ifm-color-primary);
 }
 .cdb-stat span {
   display: block;
-  margin-top: 0.4rem;
-  font-size: 0.82rem;
+  margin-top: 0.5rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 

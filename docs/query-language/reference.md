@@ -1,1602 +1,805 @@
 # ConjureDB Query Language Reference
 
-> **Version**: 1.0 — ConjureDB Compiler  
-> **Audience**: Developers writing compiled queries via `query`
+This reference describes the **implemented Syntax V3 query contract (waves
+1A–1C)**. A query is a typed pipeline declared in a `.conjure` file and compiled
+ahead of time. Parsing an expression does not establish that its types, result
+shape, ordering, or execution context are valid: binding checks those contracts.
 
----
+The declared result selects the generated API. Queries do not acquire every
+materialization overload automatically, and a query's module/table owner is not
+changed by choosing a different collection surface.
 
-## Table of Contents
+## Contents
 
-- [Overview](#overview)
-- [Syntax](#syntax)
-  - [Pipeline Structure](#pipeline-structure)
-  - [Comments](#comments)
-  - [Identifiers and Quoting](#identifiers-and-quoting)
-- [Data Sources](#data-sources)
-  - [FROM Clause](#from-clause)
-  - [Table Aliases](#table-aliases)
-  - [Subqueries as Sources](#subqueries-as-sources)
-- [Transforms (Operators)](#transforms-operators)
-  - [FILTER](#filter)
-  - [SELECT](#select)
-  - [DERIVE](#derive)
-  - [JOIN](#join)
-  - [GROUP](#group)
-  - [AGGREGATE](#aggregate)
-  - [WINDOW](#window)
-  - [SORT](#sort)
-  - [TAKE](#take)
-  - [SKIP](#skip)
-  - [DISTINCT](#distinct)
-  - [INTO](#into)
-- [ORM-Style Navigation](#orm-style-navigation)
-  - [Dot-Path Navigation](#dot-path-navigation)
-  - [Safe Navigation (`?.`)](#safe-navigation-)
-  - [Navigation in JOIN Predicates](#navigation-in-join-predicates)
-  - [Collection Navigation](#collection-navigation)
-- [Expressions](#expressions)
-  - [Literals](#literals)
-  - [Parameters](#parameters)
-  - [Operators](#operators)
-  - [NULL Handling](#null-handling)
-  - [Pattern Matching](#pattern-matching)
-  - [Set Membership (IN / NOT IN)](#set-membership-in--not-in)
-  - [BETWEEN](#between)
-  - [EXISTS / NOT EXISTS](#exists--not-exists)
-  - [Type Casting](#type-casting)
-  - [Switch (CASE) Expressions](#switch-case-expressions)
-  - [Method Call Syntax](#method-call-syntax)
-- [See Also](#see-also)
+- [Example schema](#example-schema)
+- [Syntax and names](#syntax-and-names)
+- [Sources and intermediate results](#sources-and-intermediate-results)
+- [Filtering and expressions](#filtering-and-expressions)
+- [Named projections and derive](#named-projections-and-derive)
+- [Joins](#joins)
+- [Scoped groups and aggregates](#scoped-groups-and-aggregates)
+- [Windows in derive](#windows-in-derive)
+- [Nested pipelines and existence](#nested-pipelines-and-existence)
+- [Ordering, limits, and distinct](#ordering-limits-and-distinct)
+- [Set operations](#set-operations)
+- [Result signatures and cardinality](#result-signatures-and-cardinality)
+- [Sampling, shuffling, and generated rows](#sampling-shuffling-and-generated-rows)
+- [Current boundaries and migration](#current-boundaries-and-migration)
+- [Related references](#related-references)
 
----
+## Example schema
 
-## Overview
+Unless a section supplies a standalone module, its query declarations are added
+to this shared schema. Names such as `Player`, `Purchase`, and `Guild` are source
+declarations, not assumed CLR collections. Explicit runtime IDs below make the
+context suitable for generated runtime examples as well as binding.
 
-ConjureDB uses a **pipeline-based query language** inspired by PRQL and functional data transformation patterns. Queries are composed as a chain of **transforms** separated by the pipe operator (`|`), reading naturally from top to bottom.
+```conjure
+struct table Player(plural: Players, persistence: none, type_id: 64011) {
+    Id: int @id
+    GuildId: int
+    Name: string
+    Score: int
+    Level: int
+}
+struct table Purchase(plural: Purchases, persistence: none, type_id: 64012) {
+    Id: int @id
+    PlayerId: int
+    Amount: long
+}
+struct table Guild(plural: Guilds, persistence: none, type_id: 64013) {
+    Id: int @id
+    Name: string
+}
 
-Queries are compiled **ahead-of-time** into optimized, zero-allocation C# code. Each query is declared in a `.conjure` schema file with the `query` keyword; the source generator emits a method on the corresponding entity set (e.g. `context.Players.GetTopPlayersByScore(limit)`).
-
-**Key design principles:**
-
-- **Pipe-first**: Data flows through a linear chain of transforms, each operating on the output of the previous one.
-- **Composable**: Sub-pipelines, `let` bindings, and `| into` naming enable modular query construction without dropping into SQL text.
-- **Familiar**: Operator names map closely to SQL (`filter` ≈ `WHERE`, `select` ≈ `SELECT`, `group` ≈ `GROUP BY`), but the syntax removes nesting and subquery gymnastics.
-- **Strongly typed**: All expressions are statically typed during AOT compilation. Type mismatches are compile-time errors, not runtime surprises.
-
-**Relationship to SQL:**
-
-| ConjureDB DSL | SQL Equivalent |
-|---------------|----------------|
-| `from Table` | `FROM Table` |
-| `filter ...` | `WHERE ...` |
-| `select ...` | `SELECT ...` |
-| `derive ...` | `SELECT *, expr AS alias` |
-| `join ...` | `JOIN ... ON ...` |
-| `group ... (aggregate ...)` | `GROUP BY ... SELECT agg(...)` |
-| `sort ...` | `ORDER BY ...` |
-| `take N` | `LIMIT N` / `TOP N` |
-| `skip N` | `OFFSET N` |
-| `distinct` | `SELECT DISTINCT` |
-| `let name = (...)` | `WITH name AS (...)` |
-
-> **Support boundary:** the SQL equivalence table is conceptual. The supported named-subquery surface is `let` (and `| into`), while SQL-style `WITH` / `WITH RECURSIVE` text, SQLite `GLOB`, and per-sort collations such as `COLLATE NOCASE` are outside the current DSL contract and are expected to fail at compile time.
-
----
-## Syntax
-
-### Pipeline Structure
-
-A query module consists of optional **`let` declarations** followed by a **main pipeline**:
-
-```
-[let name = (pipeline)]
-[let name2 = (pipeline)]
-
-from <table> [<alias>]
-| <transform>
-| <transform>
-| ...
+using PlayerRow = (Id: int, Name: string, Score: int)
+using PurchaseRow = (Id: int, Amount: long)
+using ScoredId = (Id: int, Adjusted: int)
 ```
 
-**Grammar:**
+## Syntax and names
 
-```ebnf
-module     = { let_decl } pipeline ;
-let_decl   = "let" IDENT "=" "(" pipeline ")" ;
-pipeline   = from_clause { "|" transform } ;
-from_clause = "from" ( IDENT | let_ref ) [ IDENT ] ;
-transform  = filter | select | derive | join | group
-           | aggregate | window | sort | take | skip
-           | distinct | into | set_op ;
+### Pipeline structure
+
+A query has parameters, a declared result, optional named intermediate pipelines,
+and one main pipeline. `|` separates stages; line breaks improve readability but
+do not replace the pipe.
+
+```conjure
+query TopPlayers(minimum: int, limit: int) -> PlayerRow[] {
+    from Player p
+    | filter p.Score >= @minimum
+    | sort { -p.Score, p.Id }
+    | take @limit
+    | select { p.Id, p.Name, p.Score }
+}
 ```
 
-Each transform receives the row set from the preceding step, applies its operation, and passes the result downstream.
+### Parameters and lexical rules
 
-### Comments
+<a id="parameters"></a>
 
-Line comments begin with `#` and extend to the end of the line:
+Use lower-case language keywords: `from`, `filter`, `select`, `group`, and so on.
+User parameters are read as `@minimum`, not bare `minimum`. Source aliases follow
+the source: `from Player p`.
 
-```
-from Players   # Start with the Players table
-| filter Level > 10   # Only high-level players
-| select Id, Name
-```
+- `//` introduces a line comment. Block comments and hash comments are not part
+  of the admitted source grammar.
+- Strings use double quotes, for example `"Alice"`.
+- Numbers support typed suffixes, including `L`, `u`, `ul`, `f`, `d`, `m`,
+  `fx32`, and `fx64`. Keep the intended carrier explicit when it matters.
+- Duration literals include `5s`, `100ms`, `2min`, and `1h`. Use `datetime(...)`
+  for date/time construction, not an `@` date literal.
+- Many words are contextual identifiers, not globally reserved words. Whether a
+  word can name an alias or member depends on that grammar position.
+- **Identifier references are case-sensitive.** Use the declaration's exact
+  spelling. Names that differ only in case cannot be sibling declarations;
+  rejecting such a collision does not make either spelling an alias.
 
-There are no block comments.
+<a id="transforms-operators"></a>
 
-### Identifiers and Quoting
+This is a pipeline outline, not a second executable grammar:
 
-Identifiers follow standard rules: start with a letter or underscore, followed by letters, digits, or underscores. Keywords used as identifiers must be contextually unambiguous.
-
-Qualified identifiers use dot notation:
-
-```
-alias.ColumnName
-alias.Navigation.Property
-```
-
----
-
-## Data Sources
-
-### FROM Clause
-
-Every pipeline begins with a `from` clause specifying the data source.
-
-**Syntax:**
-
-```ebnf
-from_clause = "from" table_ref [ alias ] ;
-table_ref   = IDENT | let_ref ;
-alias       = IDENT ;
+```text
+query Name(parameters) -> ResultType {
+    let intermediate = (from Source alias | ...)
+    from Source alias
+    | stage
+    | stage
+    | optional_cardinality_marker
+}
 ```
 
-**Examples:**
+## Sources and intermediate results
 
-```
-from Players
-from Orders o
-from top_players t    # Reference to a let-binding
-```
+### Tables and aliases
 
-### Table Aliases
+<a id="from-clause"></a>
 
-Aliases provide shorthand names for tables and are required when joining multiple tables to disambiguate column references.
+`from Player p` reads the declared table. The alias qualifies its fields, such as
+`p.Id`. Aliases are particularly useful in joins and correlated nested pipelines.
+A projection changes the visible row surface; fields removed by `select` do not
+remain readable merely because they existed in the original table.
 
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId)
-| select p.Name, o.Total
-```
+Navigation sources can traverse declared relationships, for example a declared
+collection navigation in `from parent.Children child`. Navigation must come from
+actual schema relationship metadata; a dotted spelling does not invent a
+relationship. See [Schema Language](/docs/schema/schema-language) for relationship declarations.
 
-Aliases are single identifiers and follow the table reference. When provided, all column references from that table must use the alias prefix.
+### Named intermediate pipelines
 
-### Subqueries as Sources
+Use `let name = (from ... | ...)` before the main pipeline. These bindings are
+non-recursive and scoped to the query; they are not writes or mutable variables.
 
-Parenthesized pipelines can serve as inline data sources in joins:
-
-```
-from Orders o
-| join (from Products p | filter p.IsActive == true | select p.Id, p.Name) prod (o.ProductId == prod.Id)
-| select o.Id, prod.Name
-```
-
-Named subquery sources use `alias = (pipeline)` syntax:
-
-```
-from Orders o
-| join t = (from Products p | select p.Id, p.Name) (o.ProductId == t.Id)
-| select o.Id, t.Name
-```
-
----
-
-## Transforms (Operators)
-
-### FILTER
-
-Keeps only rows that satisfy a boolean predicate. Equivalent to SQL `WHERE` (or `HAVING` when placed after `group`).
-
-**Syntax:**
-
-```ebnf
-filter = "filter" predicate ;
-predicate = expr
-          | expr comp_op expr
-          | predicate ("and" | "&&") predicate
-          | predicate ("or" | "||") predicate
-          | ("not" | "!") predicate
-          | "(" predicate ")"
-          | "exists" "(" pipeline ")"
-          | "not" "exists" "(" pipeline ")" ;
-```
-
-**Comparison operators:**
-
-| Operator | Aliases | Description |
-|----------|---------|-------------|
-| `==` | `=` | Equality |
-| `!=` | `<>` | Inequality |
-| `>` | | Greater than |
-| `>=` | | Greater than or equal |
-| `<` | | Less than |
-| `<=` | | Less than or equal |
-
-**Logical operators:**
-
-| Operator | Aliases | Description |
-|----------|---------|-------------|
-| `and` | `&&` | Logical AND |
-| `or` | `\|\|` | Logical OR |
-| `not` | `!` | Logical negation |
-
-**Examples — basic filters:**
-
-```
-from Players | filter Level > 10
-from Players | filter Level > @minLevel and IsActive == true
-```
-
-**Examples — compound predicates with parentheses:**
-
-```
-from Players | filter (Score < 100 or Level >= 50) and IsActive == true
-from Players p | filter not (p.Level >= 10 || p.Id == 1)
-```
-
-**Examples — NULL checks:**
-
-```
-from Players | filter Name is null
-from Players | filter Name is not null
-```
-
-**Examples — pattern matching:**
-
-```
-from Players | filter Name like 'A%'
-from Players | filter contains(Name, @searchTerm)
-```
-
-**Examples — existence tests:**
-
-```
-from Players p
-| filter exists (from Orders o | filter o.PlayerId == p.Id)
-
-from Players p
-| filter not exists (from Bans b | filter b.PlayerId == p.Id)
-```
-
-**Examples — set membership:**
-
-```
-from Players | filter Level in (1, 5, 10)
-from Players | filter Status not in ("Banned", "Suspended")
-```
-
-**Examples — correlated subquery in filter:**
-
-```
-from Players p
-| filter p.Id in (from Orders o | filter o.Total > 100 | select o.PlayerId)
-```
-
-**Examples — BETWEEN:**
-
-```
-from Players | filter Level between 10 and 50
-```
-
-> **Note:** `between` is syntactic sugar — it is lowered to `Level >= 10 and Level <= 50` during parsing.
-
-**Multiple filters** can be chained; they are logically ANDed:
-
-```
-from Players p
-| filter p.Level >= 10
-| filter p.Score > 500
-# Equivalent to: filter p.Level >= 10 and p.Score > 500
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | filter Level > 10 and Name is not null
-SELECT * FROM Players WHERE Level > 10 AND Name IS NOT NULL;
-```
-
-**Examples — spatial queries:**
-
-Spatial filter functions trigger index-accelerated spatial scans when a `SpatialGrid` index is declared on the referenced coordinate columns (see [Indexing — SpatialGridIndex](/docs/schema/indexing#spatialgridindex)).
-
-```
-// Radius query — all objects within 50 units of a point
-from GameObjects
-| filter within_radius(PosX, PosY, @centerX, @centerY, 50.0)
-| select Name, PosX, PosY
-
-// Bounding box query
-from GameObjects
-| filter within_bounds(PosX, PosY, @minX, @minY, @maxX, @maxY)
-| select Name, PosX, PosY
-
-// 3D radius query
-from GameObjects
-| filter within_radius(PosX, PosY, PosZ, @cx, @cy, @cz, @radius)
-| select Name, PosX, PosY, PosZ
-
-// Spatial filter combined with other predicates
-from GameObjects
-| filter within_radius(PosX, PosY, @cx, @cy, @radius) and IsActive == true
-| select Name, PosX, PosY
-```
-
-> **Note:** `within_radius` uses Euclidean distance. `within_bounds` tests axis-aligned bounding box containment. Non-spatial predicates combined with spatial functions are applied as residual post-filters after spatial index candidate selection.
-
----
-
-### SELECT
-
-Projects specific columns, computed expressions, or structured objects. Equivalent to SQL `SELECT`.
-
-**Syntax:**
-
-```ebnf
-select       = "select" column_list | "select" obj_block ;
-column_list  = column { "," column } ;
-column       = expr [ "as" IDENT ]
-             | IDENT "=" expr
-             | alias ".*" ;
-obj_block    = "{" field_assign { "," field_assign } "}" ;
-field_assign = IDENT "=" expr
-             | IDENT "=" obj_block
-             | IDENT "=" collect_clause ;
-```
-
-**Examples — basic projection:**
-
-```
-from Players | select Id, Name
-from Players | select Id, Name, Score
-```
-
-**Examples — aliased columns:**
-
-```
-from Players | select Id, upper(Name) as UpperName, Score
-from Players | select PlayerID = Id, PlayerName = Name
-```
-
-**Examples — wildcard (all columns from alias):**
-
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId)
-| select p.*, o.Total
-```
-
-**Examples — computed expressions:**
-
-```
-from Players p | select p.Id, p.Score * 2 as DoubleScore
-from Players | select Id, (Level switch { >= 10 => 1, _ => 0 }) as IsHigh
-```
-
-**Examples — object projection (nested structures):**
-
-```dsl
-from Customers c
-| select {
-    Id = c.Id,
-    Profile = {
-      Name = c.Name,
-      IsVip = c.IsVip
-    }
-  }
-```
-
-**Examples — collection projection with `collect`:**
-
-```dsl
-from Customers c
-| select {
-    Id = c.Id,
-    Orders = collect c.Orders (
-      where TotalAmount > @minTotal,
-      sort -OrderDate,
-      take 5,
-      select {
-        Id = Id,
-        Total = TotalAmount
-      }
+```conjure
+query EligiblePlayers(minimum: int) -> PlayerRow[] {
+    let eligible = (
+        from Player p
+        | filter p.Score >= @minimum
+        | select { p.Id, p.Name, p.Score }
     )
-  }
-```
-
-**`collect` clause rules:**
-
-- Mandatory form: `collect <path> ([where ...], [sort ...], [take ...], select { ... })`
-- Clause order is strict: `where` → `sort` → `take` → `select`
-- `take` accepts literals and parameters: `take 5`, `take @orderTake`
-- Inner `select { ... }` is mandatory and defines element shape
-- Object blocks must have explicit `field = expression` assignments
-- Empty object blocks are rejected
-
-**SQL equivalent:**
-
-```sql
--- from Players | select Id, upper(Name) as UpperName
-SELECT Id, UPPER(Name) AS UpperName FROM Players;
-```
-
----
-
-### DERIVE
-
-Adds new computed columns to the row without removing existing ones. Equivalent to SQL `SELECT *, expr AS alias`.
-
-**Syntax:**
-
-```ebnf
-derive = "derive" IDENT "=" expr
-       | "derive" "{" field_assign { "," field_assign } "}" ;
-```
-
-**Examples — single column:**
-
-```
-from Products | derive Value = Price * Quantity
-from Products | derive DiscountedPrice = Price * 0.9m
-```
-
-**Examples — multiple columns (block form):**
-
-```
-from Products | derive { Tax = Price * 0.1m, Total = Price * 1.1m }
-
-from Players
-| derive {
-    Tier = Score switch {
-        >= 1000 => "Diamond",
-        >= 500  => "Gold",
-        _       => "Silver"
-    },
-    PowerLevel = Level * Score
+    from eligible e
+    | select { e.Id, e.Name, e.Score }
 }
 ```
 
-**Forward references within a block:**
+A named pipeline is not an implicit materialization promise. The compiler chooses
+its physical implementation while retaining the query's observable semantics.
 
-Derived columns in a block can reference earlier derivations within the same block:
+### Literal rows
 
-```
-from Products | derive { Subtotal = Price * Quantity, Tax = Subtotal * 0.1m }
-```
+Query pipelines do not currently admit `from values` as a source. Literal values
+can appear in expressions, but a literal row list is not a query table. Use a
+declared table, a named pipeline, or the supported `generate(count)` source.
+System-driver syntax has a separate admission contract and does not extend the
+query grammar.
 
-**Examples — derive with filter:**
+## Filtering and expressions
 
-```
-from Players p
-| derive { X = p.Score * 2 + p.Level }
-| filter X >= 25
-| select { p.Id, p.Score, X }
-```
+<a id="filter"></a>
 
-**SQL equivalent:**
+`filter predicate` retains rows for which the predicate holds. Use `&&`, `||`,
+and `!` for boolean operations, `==`/`!=` for equality, and `== null`/`!= null` for
+absence tests. `??` supplies an explicit fallback; `?:` selects a value.
 
-```sql
--- from Products | derive { Tax = Price * 0.1m, Total = Price * 1.1m }
-SELECT *, Price * 0.1 AS Tax, Price * 1.1 AS Total FROM Products;
-```
-
----
-
-### JOIN
-
-Combines rows from two data sources based on a join predicate.
-
-**Syntax:**
-
-```ebnf
-join = [join_type] "join" table_ref alias "(" predicate ")"
-     | [join_type] "join" alias "=" "(" pipeline ")" "(" predicate ")"
-     | [join_type] "join" "(" pipeline ")" alias "(" predicate ")" ;
-join_type = "inner" | "left" | "right" | "full" | "semi" | "anti" ;
-```
-
-When no `join_type` is specified, `inner` is the default.
-
-**Join types:**
-
-| Keyword | SQL Equivalent | Description |
-|---------|---------------|-------------|
-| `join` / `inner join` | `INNER JOIN` | Only matching rows from both sides |
-| `left join` | `LEFT OUTER JOIN` | All left rows; NULLs for non-matching right columns |
-| `right join` | `RIGHT OUTER JOIN` | All right rows; NULLs for non-matching left columns |
-| `full join` | `FULL OUTER JOIN` | All rows from both sides; NULLs where no match |
-| `semi join` | `WHERE EXISTS(...)` | Left rows that have ≥1 match on the right; no right columns in output |
-| `anti join` | `WHERE NOT EXISTS(...)` | Left rows that have no match on the right |
-
-**Examples — inner join:**
-
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId)
-| select p.Name, o.Total
-```
-
-**Examples — left join:**
-
-```
-from Orders o
-| left join Customers c (o.CustomerId == c.Id)
-| select o.Id, coalesce(c.Name, "Unknown") as CustomerName
-```
-
-**Examples — right join:**
-
-```
-from Players p
-| right join Orders o (p.Id == o.PlayerId && o.Total >= 100)
-| select { OrderId = o.Id, PlayerName = p.Name, o.Total }
-```
-
-**Examples — full join:**
-
-```
-from Players p
-| full join Orders o (p.Id == o.PlayerId)
-| select p.Id as PlayerId, o.Id as OrderId
-```
-
-**Examples — semi join (players who have orders):**
-
-```
-from Players p
-| semi join Orders o (p.Id == o.PlayerId)
-| select p.Id, p.Name
-```
-
-**Examples — anti join (players without orders):**
-
-```
-from Players p
-| anti join Orders o (p.Id == o.PlayerId)
-| select p.Id, p.Name
-```
-
-**Examples — compound join predicate:**
-
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId && o.Total > 100)
-| select p.Name, o.Total
-```
-
-**Examples — join with subquery source:**
-
-```
-from Players p
-| join (from Orders o | sort -o.Total | take 100) top_orders (p.Id == top_orders.PlayerId)
-| select p.Name, top_orders.Total
-```
-
-**Examples — named subquery join:**
-
-```
-from Orders o
-| join t = (from Products p | select p.Id, p.Name) (o.ProductId == t.Id)
-| select o.Id, t.Name
-```
-
-**Examples — multiple joins (chained):**
-
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId)
-| join OrderItems i (i.OrderId == o.Id)
-| select { p.Name, i.Qty }
-| sort p.Id, i.Id
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players p | left join Orders o (p.Id == o.PlayerId) | select p.Name, o.Total
-SELECT p.Name, o.Total
-FROM Players p LEFT JOIN Orders o ON p.Id = o.PlayerId;
-```
-
----
-
-### GROUP
-
-Groups rows by one or more columns and computes aggregates per group. Equivalent to SQL `GROUP BY`.
-
-**Syntax:**
-
-```ebnf
-group = "group" group_keys "(" "aggregate" "{" agg_list "}" ")"
-      | "group" group_keys "(" agg_list ")" ;
-group_keys = column_ref { "," column_ref }
-           | "(" column_ref { "," column_ref } ")"
-           | "{}" ;
-agg_list   = agg_assign { "," agg_assign } ;
-agg_assign = IDENT "=" agg_func ;
-```
-
-Using `{}` (empty braces) as group keys produces a **global aggregate** (single-row result, equivalent to omitting `GROUP BY`).
-
-**Examples — single key:**
-
-```
-from Orders o
-| group o.PlayerId (aggregate { SumTotal = sum o.Total, Cnt = count o.Id })
-```
-
-**Examples — multiple keys:**
-
-```
-from Orders o
-| group (o.PlayerId, o.Id) (aggregate { MinTotal = min o.Total, MaxTotal = max o.Total })
-```
-
-**Examples — flat multi-key syntax (no parentheses):**
-
-```
-from Items | group ProductId, CategoryId (aggregate { Qty = sum Quantity, Cnt = count Id })
-```
-
-**Examples — global aggregate (no grouping):**
-
-```
-from Orders o
-| group {} (aggregate { AvgTotal = avg o.Total, DistinctPlayers = count(distinct o.PlayerId) })
-```
-
-**Examples — HAVING equivalent (filter after group):**
-
-```
-from Orders o
-| group o.PlayerId (aggregate { SumTotal = sum o.Total })
-| filter SumTotal > 200
-| select o.PlayerId, SumTotal
-```
-
-> **Note:** Place a `filter` after `group` to achieve SQL `HAVING` behavior.
-
-**SQL equivalent:**
-
-```sql
--- from Orders o | group o.PlayerId (aggregate { Total = sum o.Amount })
-SELECT o.PlayerId, SUM(o.Amount) AS Total
-FROM Orders o
-GROUP BY o.PlayerId;
-```
-
----
-
-### AGGREGATE
-
-Computes aggregate values. Can be used standalone (without `group`) for **scalar aggregates** that collapse the entire table into one row.
-
-**Syntax:**
-
-```ebnf
-aggregate  = "aggregate" "{" agg_list "}" ;
-agg_list   = agg_assign { "," agg_assign } ;
-agg_assign = IDENT "=" agg_func [ "filter" "(" "where" predicate ")" ] ;
-agg_func   = func_name column_ref
-           | func_name "(" column_ref ")"
-           | func_name "(" "distinct" column_ref ")"
-           | func_name "(" "*" ")"
-           | func_name "()" ;
-```
-
-**Aggregate function names:**
-
-| Function | Aliases | Description |
-|----------|---------|-------------|
-| `count` | | Count non-null values (or all rows with `count(*)`) |
-| `sum` | | Sum of numeric values |
-| `avg` | `average` | Arithmetic mean |
-| `min` | | Minimum value |
-| `max` | | Maximum value |
-| `first` | | First value in group |
-| `last` | | Last value in group |
-| `stddev` | `stdev`, `std_dev` | Sample standard deviation |
-| `stddev_pop` | `stdevpop`, `stdev_pop` | Population standard deviation |
-| `variance` | | Sample variance |
-| `var_pop` | `varpop`, `variance_pop`, `variancepop` | Population variance |
-| `bool_and` | `booland` | Logical AND of all values |
-| `bool_or` | `boolor` | Logical OR of all values |
-| `bit_and` | `bitand` | Bitwise AND of all values |
-| `bit_or` | `bitor` | Bitwise OR of all values |
-| `array_agg` | `arrayagg` | Collect values into array |
-
-**DISTINCT modifier:**
-
-Add `distinct` inside parentheses to aggregate only unique values:
-
-```
-from Orders | aggregate { UniqueProducts = count(distinct ProductId) }
-from Players | aggregate { DistinctScore = sum(distinct Score) }
-```
-
-> **Note:** `distinct` is not allowed with `count(*)`.
-
-**FILTER clause on aggregates:**
-
-Apply a per-aggregate filter using the `filter (where ...)` clause:
-
-```
-from Players
-| aggregate {
-    HighCount = count(Id) filter (where Level >= 10),
-    TotalScore = sum Score
-  }
-```
-
-**Examples — scalar aggregate (no group):**
-
-```
-from Orders
-| aggregate { TotalRevenue = sum Amount, OrderCount = count Id, AvgOrder = avg Amount }
-```
-
-**Examples — with distinct and filter:**
-
-```
-from Players p
-| group {} (aggregate {
-    CntName = count p.Name,
-    DistinctNames = count(distinct p.Name),
-    HighLevelCount = count(p.Id) filter (where p.Level >= 10)
-  })
-```
-
-**SQL equivalent:**
-
-```sql
--- from Orders | aggregate { Total = sum Amount, Cnt = count(*) }
-SELECT SUM(Amount) AS Total, COUNT(*) AS Cnt FROM Orders;
-
--- count(Id) filter (where Level >= 10)
-COUNT(Id) FILTER (WHERE Level >= 10)   -- PostgreSQL syntax
-```
-
----
-
-### WINDOW
-
-Computes window functions over partitions of the data without collapsing rows. Equivalent to SQL `OVER(...)`.
-
-**Syntax:**
-
-```ebnf
-window    = "window" ["by" partition_cols] "(" win_list ")" ;
-partition_cols = column_ref { "," column_ref }
-              | "(" column_ref { "," column_ref } ")" ;
-win_list  = win_assign { "," win_assign } ;
-win_assign = IDENT "=" win_func [column_ref] [frame_spec] ;
-win_func  = "row_number" | "rank" | "dense_rank"
-          | "sum" | "avg" | "average" | "min" | "max" | "count"
-          | "lag" | "lead" | "ntile" | "first_value" | "last_value" ;
-frame_spec = "frame:" bound ".." bound ;
-bound     = ["-"] INTEGER | /* empty (unbounded) */ ;
-```
-
-**Partition columns (`by` clause):**
-
-When `by` is specified, window functions are computed within each partition. Without `by`, the entire result set is a single partition.
-
-```
-# Global window (entire result set)
-from Players | sort -Score | window (Rn = row_number)
-
-# Partitioned by GuildId
-from Players | window by GuildId (Rn = row_number)
-
-# Multiple partition columns
-from Sales | window by (Region, Category) (Rn = row_number)
-```
-
-**Window function reference:**
-
-| Function | Args | Description | Return Type |
-|----------|------|-------------|-------------|
-| `row_number` | 0 | Sequential number within partition | `int` |
-| `rank` | 0 | Rank with gaps for ties | `int` |
-| `dense_rank` | 0 | Rank without gaps | `int` |
-| `ntile N` | 1 | Distribute rows into N buckets | `int` |
-| `lag col` | 1 | Value from previous row | `Nullable<T>` |
-| `lag col offset` | 2 | Value from N rows back | `Nullable<T>` |
-| `lead col` | 1 | Value from next row | `Nullable<T>` |
-| `lead col offset` | 2 | Value from N rows ahead | `Nullable<T>` |
-| `first_value col` | 1 | First value in window frame | `Nullable<T>` |
-| `last_value col` | 1 | Last value in window frame | `Nullable<T>` |
-| `sum col` | 1 | Running/partitioned sum | Same as aggregate `sum` |
-| `avg col` / `average col` | 1 | Running/partitioned average | `double?` |
-| `min col` | 1 | Running/partitioned minimum | `Nullable<T>` |
-| `max col` | 1 | Running/partitioned maximum | `Nullable<T>` |
-| `count` | 0 | Running/partitioned count | `int` |
-| `count col` | 1 | Running/partitioned count of non-null values | `int` |
-
-**Frame specification:**
-
-Frames control which rows relative to the current row are included in the window computation.
-
-| Frame | SQL Equivalent | Meaning |
-|-------|----------------|---------|
-| `frame: -2..0` | `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW` | Current row and 2 preceding |
-| `frame: 0..0` | `ROWS BETWEEN CURRENT ROW AND CURRENT ROW` | Current row only |
-| `frame: -1..1` | `ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING` | 1 preceding through 1 following |
-| `frame: 0..` | `ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING` | Current row to end of partition |
-| `frame: ..0` | `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | Start of partition to current row |
-| `frame: ..` | `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` | Entire partition |
-| `frame: -6..0` | `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` | 7-row sliding window |
-
-**Examples — ranking:**
-
-```
-from Players p
-| sort -p.Score, p.Id
-| window (Rn = row_number)
-| filter Rn <= 10
-| select { p.Id, p.Score, Rn }
-```
-
-**Examples — partitioned ranking:**
-
-```
-from Orders o
-| sort o.Id
-| window by o.PlayerId (Rn = row_number)
-| select { o.Id, o.PlayerId, Rn }
-```
-
-**Examples — running aggregate:**
-
-```
-from Orders o
-| sort o.Id
-| window (RunningTotal = sum o.Total)
-| select { o.Id, o.Total, RunningTotal }
-```
-
-**Examples — partitioned running aggregate:**
-
-```
-from Orders o
-| sort o.Id
-| window by o.PlayerId (RunningTotal = sum o.Total)
-| select { o.Id, o.PlayerId, o.Total, RunningTotal }
-```
-
-**Examples — sliding window (moving average):**
-
-```
-from Sales
-| sort Date
-| window (MovingAvg = average Amount frame: -6..0)
-| select Date, Amount, MovingAvg
-```
-
-**Examples — lag/lead:**
-
-```
-from Sales
-| window by Region (Prev = lag Amount, Next = lead Amount)
-| select Date, Amount, Prev, Next
-```
-
-**Examples — ntile:**
-
-```
-from Players
-| sort -Score
-| window (Quartile = ntile 4)
-| select Id, Name, Score, Quartile
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | sort -Score | window by GuildId (Rn = row_number)
-SELECT *, ROW_NUMBER() OVER (PARTITION BY GuildId ORDER BY Score DESC) AS Rn
-FROM Players;
-
--- window (Running = sum Amount frame: -6..0)
-SUM(Amount) OVER (ORDER BY Date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS Running
-```
-
----
-
-### SORT
-
-Orders rows by one or more columns. Equivalent to SQL `ORDER BY`.
-
-**Syntax:**
-
-```ebnf
-sort       = "sort" sort_spec { "," sort_spec } ;
-sort_spec  = ["+"|"-"] column_ref [null_order] ;
-null_order = "nulls" ("first" | "last") ;
-```
-
-- **`+` prefix** (or no prefix): ascending order (default)
-- **`-` prefix**: descending order
-- **`nulls first`**: NULL values sort before non-NULL
-- **`nulls last`**: NULL values sort after non-NULL
-
-**Examples — basic sorting:**
-
-```
-from Players | sort Score          # Ascending (default)
-from Players | sort -Score         # Descending
-from Players | sort +Score         # Ascending (explicit)
-```
-
-**Examples — multi-column sort:**
-
-```
-from Players | sort GuildId, -Score         # Guild ascending, score descending
-from Players | sort -Level, Score, Id       # Three columns, mixed directions
-```
-
-**Examples — NULL ordering:**
-
-```
-from Players | sort Name nulls last, Id
-from Players | sort -Score nulls first
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | sort -Score, Name nulls last
-SELECT * FROM Players ORDER BY Score DESC, Name NULLS LAST;
-```
-
----
-
-### TAKE
-
-Limits the number of returned rows. Equivalent to SQL `LIMIT` / `TOP`.
-
-**Syntax:**
-
-```ebnf
-take = "take" ( INTEGER | PARAMETER ) ;
-```
-
-**Examples:**
-
-```
-from Players | sort -Score | take 10
-from Players | take @count
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | sort -Score | take 10
-SELECT * FROM Players ORDER BY Score DESC LIMIT 10;
-```
-
----
-
-### SKIP
-
-Skips the first N rows. Equivalent to SQL `OFFSET`. Typically used with `take` for pagination.
-
-**Syntax:**
-
-```ebnf
-skip = "skip" ( INTEGER | PARAMETER ) ;
-```
-
-**Examples:**
-
-```
-from Players | sort -Score | skip 20 | take 10     # Page 3 (rows 21-30)
-from Players | sort Id | skip @offset | take @limit
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | sort Id | skip 20 | take 10
-SELECT * FROM Players ORDER BY Id LIMIT 10 OFFSET 20;
-```
-
----
-
-### DISTINCT
-
-Removes duplicate rows from the result. Equivalent to SQL `SELECT DISTINCT`.
-
-**Syntax:**
-
-```ebnf
-distinct = "distinct" [ column_list | "{" column_list "}" ] ;
-```
-
-When no columns are specified, deduplication operates on the entire row. When columns are specified, only those columns are considered for uniqueness.
-
-**Examples — whole-row distinct:**
-
-```
-from Players | select GuildId | distinct
-from Players | select Level, Score | distinct | sort Level, Score
-```
-
-**Examples — column-specific distinct:**
-
-```
-from Players | distinct Level
-from Players | distinct { Level, GuildId }
-```
-
-**Examples — distinct in pipeline:**
-
-```
-from Players p
-| join Orders o (p.Id == o.PlayerId)
-| select { PlayerId = p.Id }
-| distinct
-| sort PlayerId
-```
-
-**SQL equivalent:**
-
-```sql
--- from Players | select Level | distinct
-SELECT DISTINCT Level FROM Players;
-```
-
----
-
-### INTO
-
-Assigns the current pipeline to a named variable for later reference. The result becomes an implicit `let` declaration.
-
-**Syntax:**
-
-```ebnf
-into = "into" IDENT ;
-```
-
-**Examples:**
-
-```
-from Orders | filter Status == "Shipped" | into shipped
-from shipped | group CustomerId (aggregate { Total = sum Amount })
-```
-
-**SQL equivalent:**
-
-```sql
--- into shipped ... from shipped
-WITH shipped AS (SELECT * FROM Orders WHERE Status = 'Shipped')
-SELECT CustomerId, SUM(Amount) AS Total FROM shipped GROUP BY CustomerId;
-```
-
----
-## ORM-Style Navigation
-
-ConjureDB supports ORM-style dot-path navigation for accessing related entities without writing explicit joins.
-
-### Dot-Path Navigation
-
-Reference related entities using dot notation. The compiler automatically lowers these to `INNER JOIN` chains.
-
-**Syntax:**
-
-```ebnf
-nav_path = alias "." segment { "." segment } ;
-segment  = IDENT ;
-```
-
-**Examples:**
-
-```
-from Orders o
-| filter o.Product.Category.Name == "Electronics"
-| select o.Id
-```
-
-**Lowered equivalent:**
-
-```
-from Orders o
-| join Products __p (o.ProductId == __p.Id)
-| join Categories __c (__p.CategoryId == __c.Id)
-| filter __c.Name == "Electronics"
-| select o.Id
-```
-
-### Safe Navigation (`?.`)
-
-Use `?.` between segments to mark a nullable traversal. A `?.` hop generates a `LEFT JOIN` instead of an `INNER JOIN`, and all downstream hops in the same path also become left joins.
-
-**Examples:**
-
-```
-from Orders o
-| filter o.Product?.Category.Name == "Electronics"
-| select o.Id, o.TotalAmount
-```
-
-**Semantics:**
-
-| Path | Join Type |
-|------|-----------|
-| `o.Product.Name` | `INNER JOIN Products` |
-| `o.Product?.Name` | `LEFT JOIN Products` |
-| `o.Product.Category?.Name` | `INNER JOIN Products`, `LEFT JOIN Categories` |
-| `o.Product?.Category.Name` | `LEFT JOIN Products`, `LEFT JOIN Categories` |
-
-> **Note:** Once `?.` appears in a path, all downstream hops become LEFT JOINs.
-
-### Navigation in JOIN Predicates
-
-Navigation paths work inside `JOIN ... (predicate)` conditions with two rewrite modes.
-
-**Left-root navigation (expanded in outer pipeline):**
-
-```dsl
-from Orders o
-| join Categories c (o.Product.CategoryId == c.Id)
-| select o.Id
-```
-
-The compiler inserts the intermediate join into the outer pipeline.
-
-**Right-root navigation (expanded inside right source):**
-
-```dsl
-from Orders o
-| join Products p (o.ProductId == p.Id and p.Category.Name == "Electronics")
-| select o.Id
-```
-
-The compiler wraps the right side in a subquery with materialized helper columns.
-
-**Navigation over `let`/subquery aliases:**
-
-Navigation works on projected aliases when FK column lineage is deterministic:
-
-```dsl
-let filtered_reviews = (
-  from Reviews r | select r.Id, r.CustomerId, r.Rating
-)
-from filtered_reviews f
-| filter f.Customer.Country == "USA"
-| select f.Id, f.Rating
-```
-
-**Implicit root resolution:**
-
-When the first navigation segment is unambiguous, you can omit the alias:
-
-```dsl
-from filtered_reviews f
-| filter Customer.Country == "USA"     # Equivalent to f.Customer.Country
-```
-
-> **Fail-fast rules:**
-> - Opaque projection lineage (only computed columns) → compilation error
-> - Ambiguous navigation root (multiple aliases could own the segment) → compilation error with candidate list
-> - Navigation inside `JOIN ... ON` from right-root when right source is shape-changing (`group`/`aggregate`/`window`/`distinct`/set ops) → hard error
-
-### Collection Navigation
-
-For one-to-many relationships, use collection navigation methods instead of correlated subqueries.
-
-**Supported methods:**
-
-| Method | Description | Lowers To |
-|--------|-------------|-----------|
-| `Any()` | Has any related rows | `EXISTS(...)` |
-| `Any(predicate)` | Has any matching rows | `EXISTS(... WHERE ...)` |
-| `All(predicate)` | All related rows match | `NOT EXISTS(... WHERE NOT ...)` |
-| `Count()` | Count of related rows | Correlated scalar aggregate |
-| `Count(predicate)` | Count of matching rows | Correlated filtered aggregate |
-| `Sum(selector[, predicate])` | Sum of related values | Correlated scalar aggregate |
-| `Min(selector[, predicate])` | Min of related values | Correlated scalar aggregate |
-| `Max(selector[, predicate])` | Max of related values | Correlated scalar aggregate |
-| `Average(selector[, predicate])` / `Avg(...)` | Average of related values | Correlated scalar aggregate |
-
-**Examples — basic collection navigation:**
-
-```dsl
-from Customers c
-| filter c.Orders.Any()
-| select c.Id, c.Name
-```
-
-**Examples — with predicate (lambda form):**
-
-```dsl
-from Customers c
-| filter c.Orders.Any(o => o.TotalAmount > @minTotal)
-| filter c.Orders.Count(o => o.TotalAmount > @minTotal) > @minCount
-| filter c.Orders.Sum(o => o.TotalAmount, o => o.TotalAmount > @minTotal) > @minSum
-| select c.Id, c.Name
-```
-
-**PRQL-like phrase syntax (alternative):**
-
-```dsl
-from Customers c
-| filter sum c.Orders (by TotalAmount, where TotalAmount > @minTotal) > @minSum
-| filter count c.Orders (where TotalAmount > @minTotal) > @minCount
-| select c.Id, c.Name
-```
-
-**Phrase syntax rules:**
-
-- `sum|min|max|average|avg`: require `(by <selector>)` with optional `, where <predicate>`
-- `count`: supports optional `(where <predicate>)`, rejects `by`
-
-> **Fail-fast rules:**
-> - Requires explicit root alias (`c.Orders.Any()`, not `Orders.Any()`)
-> - Collection segment must map to a deterministic reverse FK edge
-> - Collection navigation inside `JOIN ... ON` is rejected — rewrite to explicit subquery
-> - Lambda form requires qualified element references (`o => o.Amount`, not just `Amount`)
-> - Direct predicate form (without `=>`) allows unqualified element references
-
-**Observability reason codes:**
-
-- `navigation.implicit_root.inferred` — implicit root was resolved
-- `navigation.synthetic_join.inserted` — synthetic join was added
-- `navigation.collection.lowered` — collection navigation was lowered
-- `collection.materialization.decision` — physical planning decision for nested collections
-
----
-
-## Expressions
-
-### Literals
-
-| Type | Syntax | Examples |
-|------|--------|---------|
-| Integer | Digits, optional `L` suffix | `42`, `0`, `123L` (long) |
-| Float | Decimal point or suffix | `3.14`, `1.5F` (float), `2.7D` (double) |
-| Decimal | `m`/`M` suffix | `9.99m`, `100.00M` |
-| Scientific | `e`/`E` notation | `1.5e-3`, `2E10` |
-| String | Single or double quotes | `'hello'`, `"world"` |
-| Boolean | `true`, `false` | `true`, `false` |
-| Null | `null` | `null` |
-| Date | `@YYYY-MM-DD` | `@2025-01-15` |
-| Time | `@THH:MM[:SS[.fff]]` | `@T12:30`, `@T12:30:45.123` |
-| Timestamp | `@YYYY-MM-DDTHH:MM[:SS[.fff]]` | `@2025-01-15T12:30:45` |
-| Interval | `@P...` (ISO 8601 subset) | `@P2DT3H` (2 days, 3 hours) |
-
-**String escape sequences:**
-
-| Escape | Character | Notes |
-|--------|-----------|-------|
-| `\n` | Newline | C-style |
-| `\t` | Tab | C-style |
-| `\r` | Carriage return | C-style |
-| `\\` | Backslash | C-style |
-| `\'` | Single quote | C-style |
-| `\"` | Double quote | C-style |
-| `\0` | Null character | C-style |
-| `\uXXXX` | Unicode code point | C-style |
-| `''` | Single quote | SQL-style (inside `'...'` only) |
-| `""` | Double quote | SQL-style (inside `"..."` only) |
-
-**Number suffixes:**
-
-| Suffix | Type | Example |
-|--------|------|---------|
-| (none) | `int` / `double` (with dot) | `42`, `3.14` |
-| `L` | `long` | `123L` |
-| `F` | `float` | `1.5F` |
-| `D` | `double` | `2.7D` |
-| `M` / `m` | `decimal` | `9.99m` |
-
-### Parameters
-
-External values are referenced with the `@` prefix. Parameters are mapped to C# method parameters by name during code generation.
-
-**Syntax:**
-
-```ebnf
-parameter = "@" IDENT ;
-```
-
-**Examples:**
-
-```
-from Players | filter Level > @minLevel | take @count
-from Players | sort Id | skip @offset | take @limit
-```
-
-### Operators
-
-#### Operator Precedence (lowest to highest)
-
-| Level | Operators | Associativity |
-|-------|-----------|---------------|
-| 1 | `or`, `\|\|` | Left |
-| 2 | `and`, `&&` | Left |
-| 3 | `==`, `!=`, `<>`, `<`, `>`, `<=`, `>=`, `is null`, `is not null`, `like`, `in`, `between` | Non-associative |
-| 4 | `??` (null coalesce) | Right |
-| 5 | `+`, `-` (binary) | Left |
-| 6 | `*`, `/`, `%` | Left |
-| 7 | `not`, `!`, `-` (unary) | Right (prefix) |
-| 8 | `switch`, `.`, `?.`, `[]`, `()` | Left (postfix) |
-
-#### Arithmetic Operators
-
-| Operator | Description | Example |
-|----------|-------------|---------|
-| `+` | Addition | `Price + Tax` |
-| `-` | Subtraction | `Total - Discount` |
-| `*` | Multiplication | `Price * Quantity` |
-| `/` | Division | `Total / Count` |
-| `%` | Modulo (remainder) | `Id % 2` |
-| `-` (unary) | Negation | `-Score` |
-
-#### Comparison Operators
-
-| Operator | Aliases | Description |
-|----------|---------|-------------|
-| `==` | `=` | Equality |
-| `!=` | `<>` | Inequality |
-| `>` | | Greater than |
-| `>=` | | Greater than or equal |
-| `<` | | Less than |
-| `<=` | | Less than or equal |
-
-#### Logical Operators
-
-| Operator | Aliases | Description |
-|----------|---------|-------------|
-| `and` | `&&` | Logical AND |
-| `or` | `\|\|` | Logical OR |
-| `not` | `!` | Logical NOT |
-
-### NULL Handling
-
-**Operators:**
-
-| Expression | Description |
-|------------|-------------|
-| `expr is null` | True if expression is NULL |
-| `expr is not null` | True if expression is not NULL |
-| `a ?? b` | Returns `a` if non-null, else `b` (null coalesce) |
-| `coalesce(a, b, ...)` | Returns first non-null argument |
-
-**Examples:**
-
-```
-from Players | filter Email is null
-from Players | filter Notes is not null
-from Orders | select Id, coalesce(ShipDate, OrderDate) as EffectiveDate
-from Players | derive DisplayName = Name ?? "Anonymous"
-```
-
-### Pattern Matching
-
-**String comparison operators:**
-
-| Operator | Syntax | Description |
-|----------|--------|-------------|
-| `like` | `col like 'pattern'` | SQL LIKE pattern (`%` = any chars, `_` = single char) |
-| `contains()` | `contains(col, value)` | Substring search |
-| `startswith()` | `startswith(col, prefix)` | Prefix test |
-| `endswith()` | `endswith(col, suffix)` | Suffix test |
-
-**Infix operator forms:**
-
-```
-from Players | filter Name like 'A%'        # Names starting with 'A'
-from Players | filter Name like 'A_%'       # Names starting with 'A', at least 2 chars
-```
-
-**Function forms:**
-
-```
-from Players | filter startswith(Name, @prefix)
-from Players | filter endswith(Email, "@gmail.com")
-from Players | filter contains(Bio, "veteran")
-```
-
-### Set Membership (IN / NOT IN)
-
-**Syntax:**
-
-```ebnf
-in_expr = expr "in" "(" value_list ")"
-        | expr "in" "(" pipeline ")"
-        | expr "in" PARAMETER
-        | expr "not" "in" "(" value_list ")"
-        | expr "not" "in" "(" pipeline ")" ;
-```
-
-**Examples — literal list:**
-
-```
-from Players | filter Level in (1, 5, 10)
-from Players | filter Status not in ("Cancelled", "Returned")
-```
-
-**Examples — parameter (collection):**
-
-```
-from Players | filter CategoryId in @ids
-```
-
-**Examples — subquery:**
-
-```
-from Orders o
-| filter o.Id in (from OrderItems i | filter i.OrderId == o.Id | select i.OrderId)
-
-from Orders o
-| filter o.Id not in (from OrderItems i | filter i.Qty > 1 | select i.OrderId)
-```
-
-### BETWEEN
-
-Range test operator. Syntactic sugar that lowers to two comparisons.
-
-**Syntax:**
-
-```ebnf
-between = expr "between" expr "and" expr ;
-```
-
-**Example:**
-
-```
-from Players | filter Level between 10 and 50
-# Equivalent to: filter Level >= 10 and Level <= 50
-```
-
-### EXISTS / NOT EXISTS
-
-Tests for the presence or absence of correlated rows.
-
-**Syntax:**
-
-```ebnf
-exists = "exists" "(" pipeline ")"
-       | "not" "exists" "(" pipeline ")" ;
-```
-
-**Examples:**
-
-```
-from Players p
-| filter exists (from Orders o | filter o.PlayerId == p.Id)
-| select p.Id, p.Name
-
-from Players p
-| filter not exists (from Bans b | filter b.PlayerId == p.Id)
-| select p.Id, p.Name
-```
-
-**Examples — compound with other predicates:**
-
-```
-from Players p
-| filter p.Level >= 10 && exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 100 | select o.Id)
-| select p.Id
-```
-
-### Type Casting
-
-Two syntax forms are supported for type conversion.
-
-**C-style cast:**
-
-```ebnf
-c_cast = "(" type ")" expr ;
-```
-
-```
-derive IntId = (int)StringId
-derive Amount = (decimal)RawValue
-```
-
-**SQL-style cast:**
-
-```ebnf
-sql_cast = "cast" "(" expr "as" type ")" ;
-```
-
-```
-derive IntId = cast(StringId as int)
-derive Amount = cast(RawValue as decimal)
-```
-
-Both forms are semantically identical. Use whichever reads more clearly in context.
-
-### Switch (CASE) Expressions
-
-Pattern-matching expressions equivalent to SQL `CASE WHEN`. Both braces `{}` and parentheses `()` delimiters are supported.
-
-**Syntax:**
-
-```ebnf
-switch_expr = expr "switch" ("{" | "(") switch_arm { "," switch_arm } ("}" | ")") ;
-switch_arm  = pattern "=>" expr
-            | "_" "=>" expr ;
-pattern     = comp_op literal
-            | literal ;
-```
-
-**Examples — simple switch:**
-
-```
-from Players
-| select Id, (Level switch { >= 10 => 1, _ => 0 }) as IsHigh
-```
-
-**Examples — multi-arm switch:**
-
-```
-from Players
-| derive Tier = Score switch {
-    >= 1000 => "Diamond",
-    >= 500  => "Gold",
-    >= 100  => "Silver",
-    _       => "Bronze"
+```conjure
+query MidLevelPlayers() -> PlayerRow[] {
+    from Player p
+    | filter (p.Level in 10..20) && p.Score > 0
+    | select { p.Id, p.Name, p.Score }
 }
 ```
 
-**Examples — switch in derive block:**
+`x in a..b` is **half-open**: it tests `x >= a && x < b`. The upper bound is
+excluded. `x not in a..b` is its negated range-membership form. This is distinct
+from inclusive window-frame endpoints. Membership also supports lists such as
+`x in (1, 3, 5)`, a declared collection parameter, and a scalar-output nested
+pipeline.
 
-```
-from Players
-| derive {
-    Tier = Score switch {
-        >= 1000 => "Diamond",
-        >= 500  => "Gold",
-        _       => "Silver"
-    },
-    PowerLevel = Level * Score
+```conjure
+query PlayersInGuilds(guilds: int[]) -> PlayerRow[] {
+    from Player p
+    | filter p.GuildId in @guilds
+    | select { p.Id, p.Name, p.Score }
 }
-| select Id, Name, Tier, PowerLevel
 ```
 
-**SQL equivalent:**
+### Nulls in membership
 
-```sql
--- Score switch { >= 1000 => "Diamond", >= 500 => "Gold", _ => "Silver" }
-CASE WHEN Score >= 1000 THEN 'Diamond'
-     WHEN Score >= 500 THEN 'Gold'
-     ELSE 'Silver'
-END
+List, collection, and nested-pipeline membership returns a plain `bool`. `x in S`
+is true only when a present probe equals a present element. A null probe or null
+element is a non-match. `x not in S` is true when `S` is empty; otherwise the
+probe and every element must be present, and no element may equal the probe.
+A null probe over nonempty input, or a null element anywhere in that input,
+makes `not in` false.
+
+Consequently, `!(x in S)` and `x not in S` are not interchangeable: the former
+negates the already two-valued result. Negated membership needs an element-
+inspectable right-hand carrier; an unsupported carrier is refused rather than
+silently losing the null-witness rule. Typed arrays are an admitted carrier.
+This membership rule does not change the half-open bounds of range membership.
+
+<a id="null-handling"></a>
+
+Nullable expressions retain their typed absence semantics. A nullable value is
+not automatically a matching predicate, and absence is not an implicit numeric
+zero. Use an explicit presence test or fallback when the query requires one.
+Boolean short-circuiting and function-argument evaluation order remain observable;
+rewriting a predicate must not move an effectful or throwing expression into a
+previously unreached branch.
+
+### Type casting
+
+The cast form is `expression as Type`. Arithmetic can be enclosed in `checked(...)`
+or `unchecked(...)` when that overflow policy is needed. These are not SQL
+`CAST` expressions and are not retired wrapping-function aliases.
+
+### Functions and enum members
+
+<a id="enum-members"></a>
+
+An enum constant uses its declared type and member, `EnumName.MemberName`, and
+retains the enum's type rather than becoming an untyped backing integer. A bare
+member name does not import every enum's members into the current scope. A
+member of a different enum is not interchangeable merely because its backing
+value is equal. See [Data Types](/docs/query-language/data-types) for enum conversion rules.
+
+Built-in scalar functions have their actual module-qualified names, for example
+`math.abs`, `math.power`, and `text.upper`. Other catalog families include
+`date.*` and `bits.*`; availability and operand types belong to the function
+catalog, not to spelling alone.
+
+```conjure
+query PlayerLabels() -> string[] {
+    from Player p
+    | select text.upper(p.Name)
+}
 ```
 
-> **Note:** The `_` arm is the default/else case. It must be the last arm. No trailing comma is allowed after the final arm.
+Named arguments name the actual selected declaration's parameters:
+`math.power(exp: 2.0, value: 3.0)`. Reordering parameter assignment does not reorder
+the authored evaluation of argument expressions. Unknown or repeated labels are
+errors. A native user function retains its lexical module/import ownership;
+there is no global fallback from an unqualified name to every built-in module.
 
-### Method Call Syntax
+Record construction uses `{ Field = expression }` or `Type { Field = expression }`.
+A result type must be available in its genuine declaration or project context;
+a textual type name alone does not authorize a CLR constructor or member read.
+See [Expressions](/docs/query-language/expressions) and [Custom Functions](/docs/query-language/functions) for
+individual operators and function declarations.
 
-Expressions support method-call syntax for function invocation:
+## Named projections and derive
 
+### Select
+
+A scalar projection can be a single expression:
+
+```conjure
+query PlayerIds() -> int[] {
+    from Player p | select p.Id
+}
 ```
-from Players | filter Name.Contains("admin") == true
-from Players | derive Upper = Name.ToUpper()
+
+Multiple outputs use a **named object block**. Assign a name explicitly, or use a
+member's name as shorthand. Source order is retained in the named output contract. A declared tuple's CLR
+field order still comes from its declaration; named binding maps the authored
+fields to that target rather than guessing constructor positions.
+
+```conjure
+query AdjustedPlayers(bonus: int) -> ScoredId[] {
+    from Player p
+    | select { p.Id, Adjusted = p.Score + @bonus }
+}
 ```
 
-These are resolved to the corresponding built-in functions during compilation.
+`select { p.Id }` is a one-field named object, not a positional one-element list.
+Use the declared result to express the intended row/tuple shape. Unbraced
+multi-expression positional projections are retired. A declared named tuple is
+not an instruction to bind arbitrary extern constructor arguments by position.
 
----
+### Derive
 
+`derive` adds named values while retaining the current row. Several additions
+can be written in a block.
 
-## See Also
+```conjure
+query PositiveAdjustedPlayers(bonus: int) -> ScoredId[] {
+    from Player p
+    | derive Adjusted = p.Score + @bonus
+    | filter Adjusted > 0
+    | select { p.Id, Adjusted }
+}
+```
 
-- **[Set Operations & Composition](/docs/query-language/set-operations)** — `union`, `intersect`, `except`, `let` bindings, `into`, and subquery expressions
-- **[SQL Reference & Examples](/docs/query-language/sql-reference)** — DSL ↔ SQL equivalents table, practical query examples (basic through advanced)
-- **[Functions Reference](/docs/query-language/functions)** — built-in string, math, date/time, aggregate, and window functions
-- **[Mutations](/docs/query-language/mutations)** — `update`, `delete`, `insert`, `upsert`, `assert` statements
-- **[Expressions](/docs/query-language/expressions)** — expression details and advanced usage
+Use `derive` before `sort` when ordering by a computed expression: sort keys are
+column references, not arbitrary scalar-expression slots. An aggregate call in
+`derive` requires its window role and explicit frame where applicable; it is not
+an implicit whole-input reduction.
+
+## Joins
+
+<a id="join"></a>
+
+Canonical joins are:
+
+```text
+join Source alias (predicate)
+left join Source alias (predicate)
+right join Source alias (predicate)
+full join Source alias (predicate)
+```
+
+Plain `join` means an inner join. The predicate is parenthesized; `on`, the
+explicit `inner join` spelling, and inferred `(==Key)` shorthand are retired.
+
+```conjure
+using PlayerGuild = (PlayerId: int, GuildName: string)
+query GuildMembers() -> PlayerGuild[] {
+    from Player p
+    | join Guild g (p.GuildId == g.Id)
+    | select { PlayerId = p.Id, GuildName = g.Name }
+}
+```
+
+A join can use equality, conjunctions, or a general admitted boolean predicate.
+The compiler selects probes, indexes, or scans; a particular access path is not
+part of the query's meaning. An index is not required to make an ordinary admitted
+join predicate semantically valid.
+
+Outer joins make the absent side nullable. Test presence or provide a fallback
+before requiring a nonnullable member in the result.
+
+```conjure
+query GuildLabels() -> string[] {
+    from Player p
+    | left join Guild g (p.GuildId == g.Id)
+    | select g.Name ?? "No guild"
+}
+```
+
+Null keys do not become equal merely because both sides are absent. For
+existence/non-existence filtering, use `exists(...)` or `!exists(...)`, not
+semi/anti-join source spellings. See [Ordering](#ordering-limits-and-distinct) for
+observable join traversal and unmatched outer rows.
+
+## Scoped groups and aggregates
+
+### Group creates a scope
+
+<a id="group"></a>
+
+`group key (pipeline)` runs the inner pipeline independently for each key.
+Multiple keys use a key block. A group is not itself a reduction: its body may
+filter, sort, take, project, aggregate, or contain supported nested stages.
+
+```conjure
+query BestPlayerIdsPerGuild() -> int[] {
+    from Player p
+    | group p.GuildId (
+        sort { -p.Score, p.Id }
+        | take 1
+        | select p.Id
+    )
+}
+```
+
+The `take 1` applies **per group**, not once globally. A later projection closes
+the old row surface in that scope. `sort` inside a group orders that group's
+rows; it is not a global sort of the flattened result.
+
+### Aggregate reduces its actual input
+
+<a id="aggregate"></a>
+
+`aggregate` without group keys produces one aggregate row, including for empty
+input. A row-shaped aggregate names its outputs:
+
+```conjure
+using ScoreSummary = (Count: long, Total: long?)
+query ScoreSummaryRow() -> ScoreSummary {
+    from Player p
+    | aggregate { Count = count(), Total = sum(p.Score) }
+}
+```
+
+In a scalar result position, the single aggregate must instead be **unnamed**:
+
+```conjure
+query PlayerCount() -> long {
+    from Player p | aggregate count()
+}
+query TotalScore() -> long? {
+    from Player p | aggregate sum(p.Score)
+}
+```
+
+This also applies to a scalar nested aggregate. A name on that otherwise
+unobservable scalar output is rejected, rather than silently changing its shape.
+
+| Aggregate | Meaning / empty-input behavior |
+|---|---|
+| `count()` | Row count, nonnullable `long`; empty input gives zero |
+| `count(value)` | Count of present values; empty input gives zero |
+| `count_distinct(value)` | Distinct present-value count |
+| `sum`, `min`, `max`, `avg` | Value reductions; empty input is absent, not an implicit zero |
+| `any_value(value)` | An arbitrary value; not an ordering guarantee |
+| `any()` | Existence aggregate; false for empty input |
+| `array_agg(value)` | Collection-valued aggregate; not the removed nested-pipeline wrapper |
+
+Other admitted aggregates and exact result carriers are catalog-defined. For
+example, integer `sum` widens to a nullable `long`, not necessarily its input
+carrier. Do not infer aggregate types from a CLR method's name.
+
+An aggregate may restrict its own input with `filter (predicate)`:
+
+```conjure
+query PositiveScoreTotal() -> long? {
+    from Player p | aggregate sum(p.Score) filter (p.Score > 0)
+}
+```
+
+A group starts with at least one row, but a child filter, limit, join, or aggregate
+filter can remove every contributing value. Non-nullability requires the actual
+nonempty-input proof; merely writing `group` is insufficient. Nullable operands
+also retain their absence behavior.
+
+Aggregate calls outside `aggregate` or an admitted window invocation are errors.
+Write the reduction first, then filter its named output for a HAVING-like query.
+
+### Grouped maps
+
+A `map<K, V>` result ends in its actual `group` stage. The group key supplies
+`K`; the child pipeline supplies `V`. Collection-valued children and scalar
+aggregate children are different shapes.
+
+```conjure
+query PlayerIdsByGuild() -> map<int, int[]> {
+    from Player p | group p.GuildId (select p.Id)
+}
+query PlayerCountsByGuild() -> map<int, long> {
+    from Player p | group p.GuildId (aggregate count())
+}
+```
+
+Nullable map keys are not admitted. An existing group whose child filters out
+all rows still has its own partition and may produce an empty collection value;
+an empty outer source does not invent a group. Do not append a flattening stage
+and assume the same map result contract survives.
+
+## Windows in derive
+
+<a id="window"></a>
+
+There is no standalone `window` stage. Window values are named `derive` outputs;
+partitioning comes from an enclosing scoped group and ordering from `sort` in
+that scope.
+
+```conjure
+using RunningScore = (Id: int, Running: long?)
+query RunningScores() -> RunningScore[] {
+    from Player p
+    | sort p.Id
+    | derive Running = sum(p.Score) over rows(unbounded, 0)
+    | select { p.Id, Running }
+}
+query TopThreeIds() -> int[] {
+    from Player p
+    | sort { -p.Score, p.Id }
+    | derive Position = row_number()
+    | filter Position <= 3
+    | select p.Id
+}
+```
+
+- Aggregate windows require an explicit `over rows(start, end)` or
+  `over range(start, end)` frame. There is no implicit default frame.
+- `rows(-2, 0)` includes two preceding rows through the current row. Endpoints
+  are inclusive; `0` means the current row, negative offsets precede it, and
+  positive offsets follow it. `unbounded` opens the corresponding end.
+- Row offsets must be admitted constant integral offsets. Row-dependent frame
+  bounds and reversed frames are rejected.
+- `range` measures **sort-key values**, not row counts. It requires exactly one
+  compatible numeric or temporal sort key. Temporal distance uses duration
+  values, for example `over range(-5s, 0s)` on an ascending datetime key.
+- `row_number`, `rank`, `dense_rank`, `lag`, and `lead` use their catalog-owned
+  window role without `over`. Giving them an aggregate frame is an error.
+- Window calls belong in `derive`, not directly in `filter` or `select`.
+  Derive the value, then refer to its name.
+
+For partitioned windows, place the sort and derive inside `group key (...)`.
+The sort keys required for deterministic window evaluation must actually be
+available and ordered in that scope.
+
+## Nested pipelines and existence
+
+<a id="subquery-expressions"></a>
+
+A parenthesized pipeline is the canonical nested-query form. It can be correlated
+with aliases in its enclosing scope.
+
+- In a collection-valued projection, a nested pipeline supplies the child rows.
+- A scalar terminal supplies a selected/checked scalar value.
+- One unnamed aggregate supplies a scalar reduction.
+- `exists(pipeline)` or `(pipeline | any)` supplies existence, not an arbitrary
+  projected value converted to `bool`.
+
+```conjure
+query PlayersWithPurchases() -> PlayerRow[] {
+    from Player p
+    | filter exists(from Purchase o | filter o.PlayerId == p.Id)
+    | select { p.Id, p.Name, p.Score }
+}
+query PlayersWithoutPurchases() -> PlayerRow[] {
+    from Player p
+    | filter !exists(from Purchase o | filter o.PlayerId == p.Id)
+    | select { p.Id, p.Name, p.Score }
+}
+query PurchaseTotals() -> long?[] {
+    from Player p
+    | select (from Purchase o | filter o.PlayerId == p.Id | aggregate sum(o.Amount))
+}
+```
+
+Child order and limits are local to each parent. They must not be lifted into a
+single global limit. For a collection projection, declare the collection member
+in the outer result type and use the nested pipeline directly as its value:
+
+```conjure
+type PlayerPurchaseIds {
+    Id: int
+    PurchaseIds: int[]
+}
+query PurchaseHistory() -> PlayerPurchaseIds[] {
+    from Player p
+    | select {
+        p.Id,
+        PurchaseIds = (from Purchase o
+            | filter o.PlayerId == p.Id
+            | sort o.Id
+            | take 5
+            | select o.Id)
+    }
+}
+```
+
+There is no `collect(...)` wrapper.
+
+Membership can consume a one-output nested pipeline:
+
+```conjure
+query PurchasingPlayerIds() -> int[] {
+    from Player p
+    | filter p.Id in (from Purchase o | select o.PlayerId)
+    | select p.Id
+}
+```
+
+The compiler validates the actual correlation, carrier, and result-shaping
+combination. A representable nested syntax does not authorize arbitrary runtime
+fallbacks, recursive queries, or borrowed CLR member/constructor metadata.
+
+## Ordering, limits, and distinct
+
+Order-sensitive operations need a defined input sequence. For table sources,
+write an explicit `sort` before `take`, `skip`, selecting `first` markers, and
+window evaluation. Do not rely on the physical index or scan selected by a plan.
+Literal `values` and `generate` sources have construction-defined order.
+
+```conjure
+query PlayerPage(offset: int, limit: int) -> PlayerRow[] {
+    from Player p
+    | sort { -p.Score, p.Id }
+    | skip @offset
+    | take @limit
+    | select { p.Id, p.Name, p.Score }
+}
+query DistinctGuildIds() -> int[] {
+    from Player p | select p.GuildId | distinct
+}
+```
+
+<a id="sort"></a>
+
+`sort` keys are columns, optionally prefixed with `-` for descending or `+` for
+ascending. Several keys use `{ ... }`. Nullable keys may specify `nulls first`
+or `nulls last`. Derive a computed key before sorting by it.
+
+<a id="take"></a>
+<a id="skip"></a>
+
+`take n` limits the number of rows; `skip n` discards the leading rows of the
+admitted input sequence. Supply valid nonnegative page sizes and offsets; these
+stages are not a substitute for defining which rows come first.
+
+<a id="distinct"></a>
+
+`distinct` removes repeated projected rows/values while preserving the first
+occurrence. Project the comparison value first when distinctness should apply
+to that value rather than the entire input row.
+
+The observable sequence rules are:
+
+| Operation | Sequence contract |
+|---|---|
+| Table source | Canonical logical traversal follows ascending primary-key identity when order is observable |
+| `filter`, `derive`, `select`, `take`, `skip` | Preserve the relevant input sequence |
+| `sort` | Establishes key order; equal keys retain input order |
+| `distinct` | Retains the first occurrence in the input sequence |
+| Ordinary join | Left traversal first; matches for a left row follow the right side's canonical order |
+| Right/full outer join | Unmatched right rows follow the matched/left-driven traversal, in right canonical order |
+| Scoped group | Groups follow first appearance of keys; each child starts with its group's input order |
+| `union all` | Left input followed by right input |
+| `sample`, `shuffle` | Defined by the admitted seed and sampling algorithm |
+
+These rules do not make every final unsorted collection a user-visible sorted
+list. Where only the final collection's multiset is observable, its order can be
+unspecified. If the consumer needs a particular ordering, express it in the
+pipeline. A group, join, or projection does not by itself grant every downstream
+operation a usable sort proof.
+
+## Set operations
+
+Set operands are parenthesized pipelines with compatible result shapes. `union
+all` retains duplicates; `union` eliminates them. `intersect` and `except` operate
+on the projected row/value shape, rather than on an extra `by` key clause.
+
+```conjure
+query ActivePlayerIds() -> int[] {
+    from Player p
+    | filter p.Level >= 10
+    | select p.Id
+    | union (from Player other | filter other.Score > 100 | select other.Id)
+}
+```
+
+For keyed membership, write a scalar projection and `in`/`not in`, or a correlated
+`exists`/`!exists`. Set operations cannot invent missing members or reconcile
+incompatible projected types merely by ordinal position.
+
+## Result signatures and cardinality
+
+### The signature chooses the surface
+
+| Signature | Ownership / generated surface |
+|---|---|
+| `T[]` | An owned array result; the selected ordinary query method materializes it |
+| `pooled<T>` | A read-only pooled result lease, disposed by its caller; generated type `ReadOnlyPooledQueryResult<T>` |
+| `seq<T>` | Push traversal through the selected `NameForEach<TConsumer>(ref consumer, ...)` method |
+| `map<K, V>` | Group-keyed dictionary result with values supplied by the scoped group body |
+| `T` / `T?` | Required / optional row or scalar result, subject to cardinality admission |
+
+For these canonical result constructors, only the selected surface is emitted. For example, `seq<int>` does not also
+create a materializing `Name()` or a `NameNoAlloc()` companion. A pooled lease is
+not a borrowed view into table storage, and does not expose the writable pooled
+builder. Result-surface aliases retain their declared target:
+
+```conjure
+using PlayerFeed = seq<int>
+query StreamPlayerIds() -> PlayerFeed {
+    from Player p | select p.Id
+}
+```
+
+Native modules retain their generated interface ownership: a declaration in
+`module Sampling` is accessed through `context.Module<ISampling>()`, not an
+invented `context.Sampling` property. Table-owned queries retain their actual
+generated table repository contract. Surface selection changes that contract's
+method/result shape; it does not move a query to a different owner.
+
+### Cardinality markers
+
+The compiler combines the **declared result** with its **completed cardinality
+proof**. An estimate, a runtime count parameter, or a literal that has not earned
+such a proof is not enough to remove a required marker.
+
+| Declared result | Exactly one proven | At most one proven | Many / unknown |
+|---|---|---|---|
+| Required `T` | No marker | `single` | `single`, or ordered `first` |
+| Optional `T?` | No marker | No marker | `single_or_default`, or ordered `first_or_default` |
+| Collection surface | No marker | No marker | No marker |
+
+A redundant marker is rejected. A collection cannot be turned into a scalar
+contract by appending a terminal. `single`/`single_or_default` check uniqueness;
+`first`/`first_or_default` select one row from the defined input order. Required
+markers fail on empty input; optional markers preserve absence. An optional
+numeric result does not replace absence with `default(int)`.
+
+```conjure
+query FindPlayer(id: int) -> Player? {
+    from Player p | filter p.Id == @id
+}
+query HighestScore() -> int? {
+    from Player p | sort { -p.Score, p.Id } | select p.Score | first_or_default
+}
+query HasHighScorer(minimum: int) -> bool {
+    from Player p | filter p.Score >= @minimum | any
+}
+```
+
+A primary-key equality can prove at-most-one; a global aggregate proves one
+aggregate row. Proof is tied to the actual pipeline and its available keys, not
+to a similar-looking expression in another query. `any` is an existence producer
+requiring a nonnullable `bool` result, not a marker for an optional boolean value.
+
+The old `| count` terminal is retired. Write `aggregate count()` for a row-count
+reduction returning nonnullable `long`. This is not an API-preserving alias for
+the old `int32` terminal; an existing generated contract needs migration proof.
+
+## Sampling, shuffling, and generated rows
+
+These are real query stages/sources, not RNG-capability constructors for systems.
+The following module is standalone and needs no synthetic table:
+
+```conjure
+module Sampling {
+    query Rows(count: int) -> int[] {
+        from generate(@count) i | select i.RowIndex
+    }
+    query Choose(count: int, seed: uint) -> int[] {
+        from generate(8) i
+        | sample @count (seed: @seed)
+        | select i.RowIndex
+    }
+    query Permutation(seed: uint) -> int[] {
+        from generate(8) i
+        | shuffle (seed: @seed)
+        | select i.RowIndex
+    }
+}
+```
+
+- `generate(n)` emits indices `0` through `n - 1` as `RowIndex`. Runtime
+  nonpositive counts emit no rows. There is no source `Seed` field or second
+  seed argument.
+- `sample n (seed: s)` samples without replacement; `replacement: true` permits
+  repeated rows. Optional `weight: expression` selects weighted sampling.
+- The seed is explicit, invocation-local `unity32` state. A zero seed is invalid;
+  it is not silently changed to a different seed.
+- For sampling/shuffling, the count and seed are invocation-level inputs, not
+  row-dependent expressions.
+  A weight may depend on the current row, but must meet its numeric/presence
+  contract. Negative or otherwise invalid weights are not silently clamped.
+- Without replacement, zero-weight rows are ineligible. Replacement requires a
+  positive total weight for a nonempty selection. Nonpositive requested counts
+  produce no sample rows; an empty source produces no fabricated choice.
+- `shuffle (seed: s)` permutes the input. It is not `sort` by an uncontrolled
+  random scalar. The same admitted seed and input sequence reproduce the result.
+
+For table sampling, the input sequence and its canonical ownership remain part
+of deterministic behavior; unrelated changes in physical access must not become
+a hidden second RNG input.
+
+## Current boundaries and migration
+
+The examples above are current query syntax, not a compatibility tutorial. The
+following are **rejected legacy spellings**, shown only to identify diagnostics:
+
+| Rejected form | Current direction |
+|---|---|
+| `select A, B` | `select { A, B }`, or explicit named assignments |
+| `select ... as Type` | Put the result type on the query declaration |
+| `to_list` terminal | Select `T[]`, `pooled<T>`, or another supported result surface in the signature |
+| `count(*)` | `count()` for aggregate row count |
+| Inline `select sum(...)` | An explicit `aggregate`, or framed window in `derive` |
+| `window ...` stage | Scoped `group`, `sort`, and `derive` window values |
+| `collect(from ...)` | A direct parenthesized nested pipeline in a declared collection member |
+| `semi join` / `anti join` | `exists(...)` / `!exists(...)` predicates |
+| `join ... on ...`, `inner join`, `(==Key)` | Plain/outer join with an explicit parenthesized predicate |
+| `intersect/except ... by key` | Project the comparison shape or use membership/existence |
+| `cast(value as T)` | `value as T` |
+| `and`, `or`, prefix `not`, `is null`, `between` | `&&`, `||`, `!`, `== null`, half-open range membership |
+| `with name as (...)`, `alias = Source` | Query `let` and source-following aliases |
+
+Range migration must preserve the intended endpoint: an inclusive legacy upper
+bound is not the same predicate as the V3 excluded upper bound. Likewise, changing
+a result surface can change its generated CLR API; similar rows do not establish
+API equivalence.
+
+A diagnostic fix-it is available only when the compiler can prove its exact
+replacement and source extent. Some shape/API changes require a deliberate
+rewrite; a diagnostic without an automatic edit is not permission to retain the
+retired positive form.
+
+Do not infer support from every decision in the broader RFC:
+
+- Half-open membership and `@range` metadata do **not** establish a universal
+  declared-range storage invariant. Do not assume every write path enforces an
+  annotation or that it removes overflow checks.
+- Recursive queries, a zero-copy borrowed result invalidated by later table
+  writes, and arbitrary SQL window extensions are not promised here.
+- Current query syntax does not imply that later command/system language waves
+  or proposed schema/index removals have already shipped.
+- Reactive/materialized queries have additional maintainability and lifetime
+  admission. Ordinary query examples are not a promise that every shape can be
+  incrementally maintained.
+- Zero compiler-owned execution allocation is a separate admitted execution
+  contract, not a guarantee for every array materialization or host function.
+
+## Related references
+
+- [Schema Language](/docs/schema/schema-language): declarations, relationships, modules, and query ownership.
+- [Data Types](/docs/query-language/data-types): carriers, nullability, aliases, and result types.
+- [Expressions](/docs/query-language/expressions): expression and operator details.
+- [Custom Functions](/docs/query-language/functions): native and host function declarations.
+- [Compiled Queries](/docs/query-language/compiled-queries): generated API use and execution.
+- [Getting Started](/docs/getting-started): project setup and generation.

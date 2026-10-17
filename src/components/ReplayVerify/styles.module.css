@@ -1,0 +1,455 @@
+/* Offline tap → server replay. Colour is semantics: device, log and
+   "accepted" = gold; server = steel (--cdb-server); forged / rejected =
+   the muted red of hand-written wiring (--cdb-wire); dimmed = muted. */
+
+.root {
+  --rv-gold: var(--ifm-color-primary);
+  --rv-gold-soft: rgba(236, 194, 92, 0.1);
+  --rv-red: var(--cdb-wire);
+  --rv-red-soft: rgba(224, 132, 116, 0.16);
+  --rv-server: var(--cdb-server);
+  --rv-card: var(--cdb-surface);
+  --rv-ease: var(--ease);
+
+  position: relative;
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+}
+:global([data-theme='light']) .root {
+  --rv-gold-soft: rgba(169, 117, 15, 0.08);
+  --rv-red-soft: rgba(176, 82, 66, 0.12);
+}
+
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 996px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+}
+
+/* ---- Per-phase visibility (see vis() in index.tsx) --------------------- */
+.v {
+  opacity: 0;
+}
+.isOffline .on1,
+.isReconnect .on2,
+.isReplay .on3,
+.isForged .on4 {
+  opacity: 1;
+}
+/* Keyframe names differ per phase so a phase change restarts them. */
+.isOffline .w1 {
+  animation: rv-in-1 var(--dur-fast) var(--i1, 0s) both, rv-out-1 var(--dur-fast) var(--o1, 999s) forwards;
+}
+.isReconnect .w2 {
+  animation: rv-in-2 var(--dur-fast) var(--i2, 0s) both, rv-out-2 var(--dur-fast) var(--o2, 999s) forwards;
+}
+.isReplay .w3 {
+  animation: rv-in-3 var(--dur-fast) var(--i3, 0s) both, rv-out-3 var(--dur-fast) var(--o3, 999s) forwards;
+}
+.isForged .w4 {
+  animation: rv-in-4 var(--dur-fast) var(--i4, 0s) both, rv-out-4 var(--dur-fast) var(--o4, 999s) forwards;
+}
+.isOffline .x1 {
+  opacity: 1;
+  animation: rv-out-1 var(--dur-fast) var(--o1, 999s) forwards;
+}
+.isReconnect .x2 {
+  opacity: 1;
+  animation: rv-out-2 var(--dur-fast) var(--o2, 999s) forwards;
+}
+.isReplay .x3 {
+  opacity: 1;
+  animation: rv-out-3 var(--dur-fast) var(--o3, 999s) forwards;
+}
+.isForged .x4 {
+  opacity: 1;
+  animation: rv-out-4 var(--dur-fast) var(--o4, 999s) forwards;
+}
+.isOffline .off1 {
+  animation: rv-out-1 var(--dur) both;
+}
+.isReconnect .off2 {
+  animation: rv-out-2 var(--dur) both;
+}
+.isReplay .off3 {
+  animation: rv-out-3 var(--dur) both;
+}
+.isForged .off4 {
+  animation: rv-out-4 var(--dur) both;
+}
+
+/* Step 01 is the first frame (and the poster): drawn at full opacity, no fade-in. */
+
+/* ---- The phone --------------------------------------------------------- */
+.goldLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+.goldValue {
+  font-family: var(--cdb-mono);
+  font-size: 1.15em;
+  font-weight: 600;
+  fill: var(--rv-gold);
+}
+.flash rect {
+  fill: var(--rv-red-soft);
+  stroke: var(--rv-red);
+  stroke-width: 1;
+}
+.card {
+  fill: var(--rv-card);
+  stroke: var(--cdb-line);
+  stroke-width: 1;
+}
+.icon {
+  fill: none;
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.7;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+.cardName {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.85;
+}
+.cardPrice {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  fill: var(--rv-gold);
+}
+.buy {
+  fill: var(--rv-gold);
+}
+.buyLabel {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 600;
+  fill: var(--cdb-on-accent);
+}
+.ripple {
+  fill: var(--rv-gold);
+  fill-opacity: 0.18;
+  stroke: var(--rv-gold);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.isOffline .ripple {
+  animation: rv-ripple var(--dur-slow) var(--ease) var(--i1, 0s) both;
+}
+
+.wifiArcs {
+  transition: opacity var(--dur) var(--ease);
+}
+.wifiCross {
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.isOffline .wifiArcs {
+  opacity: 0.3;
+}
+.isOffline .wifiCross {
+  opacity: 1;
+}
+
+/* ---- The log ----------------------------------------------------------- */
+.stream {
+  fill: none;
+  stroke: var(--rv-gold);
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.note {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  letter-spacing: 0.04em;
+  fill: var(--cdb-muted);
+}
+.markLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.78em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.85;
+}
+.hash {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  fill: var(--rv-gold);
+}
+
+.mk {
+  transition: transform 0s;
+}
+.isReconnect .mk,
+.isReplay .mk,
+.isForged .mk {
+  transform: translate(var(--tx), var(--ty));
+}
+.isReconnect .mk {
+  transition: transform var(--dur-slow) var(--rv-ease) var(--d, 0s);
+}
+.mkBox {
+  fill: var(--rv-gold);
+  transition: fill var(--dur-fast) var(--ease), opacity var(--dur) var(--ease);
+}
+.isForged .forgedMk .mkBox {
+  fill: var(--rv-red);
+}
+/* The queued command that needs the server: a cloud, dimmed until it runs. */
+.cloud {
+  fill: none;
+  stroke: var(--rv-server);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.onlineMk {
+  opacity: 0.55;
+  transition: opacity var(--dur) var(--ease);
+}
+.isReplay .onlineMk {
+  opacity: 1;
+}
+.isForged .onlineMk .cloud {
+  stroke: var(--rv-red);
+  stroke-dasharray: 2 2;
+}
+.dimLabel {
+  fill-opacity: 0.55;
+}
+.queuedTag {
+  font-family: var(--cdb-mono);
+  font-size: 0.72em;
+  letter-spacing: 0.03em;
+  fill: var(--rv-server);
+  fill-opacity: 0.8;
+}
+.onlineTick circle {
+  fill: var(--rv-server);
+  fill-opacity: 0.2;
+  stroke: var(--rv-server);
+  stroke-width: 1.2;
+}
+.onlineTick path {
+  fill: none;
+  stroke: var(--rv-server);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.counterLong {
+  font-size: 0.72em;
+}
+.applied {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  fill: var(--rv-server);
+}
+.applied.red {
+  fill: var(--rv-red);
+}
+
+/* ---- Match line -------------------------------------------------------- */
+.matchHalf {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-opacity: 0.45;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 4;
+  transition: stroke var(--dur-fast) var(--ease), stroke-opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.isReplay .matchHalf {
+  stroke: var(--rv-gold);
+  stroke-opacity: 1;
+  stroke-dasharray: none;
+  transition: stroke var(--dur) var(--ease) 1.3s, stroke-opacity var(--dur) var(--ease) 1.3s;
+}
+/* Phase 04, two beats: breaks red when the server lands (1.8 s), re-joins
+   muted after the device is rolled back (2.9 s). Percentages of the 5.6 s phase. */
+.isForged .matchA {
+  animation: rv-break-a 5.6s linear both;
+}
+.isForged .matchB {
+  animation: rv-break-b 5.6s linear both;
+}
+.matchLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  letter-spacing: 0.04em;
+  fill: var(--rv-gold);
+}
+
+/* ---- The server -------------------------------------------------------- */
+.server {
+  transition: opacity var(--dur) var(--ease);
+}
+.isOffline .server {
+  opacity: 0.7;
+}
+.serverHash {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  fill: var(--rv-server);
+}
+.check,
+.cross {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.check {
+  stroke: var(--rv-server);
+}
+.cross {
+  stroke: var(--rv-red);
+}
+.counter {
+  font-family: var(--cdb-mono);
+  font-size: 0.78em;
+  fill: var(--rv-server);
+}
+.forged text {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  fill: var(--rv-red);
+}
+.strike {
+  fill: none;
+  stroke: var(--rv-red);
+  stroke-width: 1.2;
+}
+.red {
+  fill: var(--rv-red);
+}
+.muted {
+  fill: var(--cdb-muted);
+}
+.rollNote rect {
+  fill: var(--cdb-surface);
+}
+.rollNote text {
+  font-family: var(--cdb-mono);
+  font-size: 0.76em;
+  fill: var(--cdb-muted);
+}
+/* Low contrast so the device stays the focus while offline. */
+.isOffline .waiting {
+  opacity: 0.6;
+}
+
+.verdict rect {
+  fill: var(--rv-gold-soft);
+  stroke: var(--rv-gold);
+  stroke-width: 1.2;
+}
+.verdict text {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  font-weight: 500;
+  fill: var(--rv-gold);
+}
+.verdict.red rect {
+  fill: var(--rv-red-soft);
+  stroke: var(--rv-red);
+}
+.verdict.red text {
+  fill: var(--rv-red);
+}
+
+.illustrative {
+  color: var(--cdb-muted);
+}
+
+/* ---- Keyframes --------------------------------------------------------- */
+@keyframes rv-in-1 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rv-in-2 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rv-in-3 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rv-in-4 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rv-out-1 { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rv-out-2 { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rv-out-3 { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rv-out-4 { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rv-break-a {
+  0%, 32% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  36%, 51% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(calc(var(--bx) * -1), calc(var(--by) * -1)); }
+  56%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+}
+@keyframes rv-break-b {
+  0%, 32% { stroke: var(--cdb-muted); stroke-opacity: 0.45; transform: translate(0, 0); }
+  36%, 51% { stroke: var(--rv-red); stroke-opacity: 1; transform: translate(var(--bx), var(--by)); }
+  56%, 100% { stroke: var(--cdb-muted); stroke-opacity: 0.8; transform: translate(0, 0); }
+}
+@keyframes rv-ripple {
+  0% { opacity: 0.9; transform: scale(0.25); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* Reduced motion: no animation; each phase shows its final frame. */
+/* Static (before the demo is live): each phase's end state, no timeline. */
+.static *,
+.static *::before {
+  transition: none !important;
+  animation: none !important;
+}
+.static.isOffline .w1,
+.static.isOffline .x1,
+.static.isReconnect .w2,
+.static.isReconnect .x2,
+.static.isReplay .w3,
+.static.isReplay .x3,
+.static.isForged .w4,
+.static.isForged .x4 {
+  opacity: 1;
+}
+.static.isOffline .o1,
+.static.isReconnect .o2,
+.static.isReplay .o3,
+.static.isForged .o4,
+.static .ripple {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before {
+    transition: none !important;
+    animation: none !important;
+  }
+  .isOffline .w1,
+  .isOffline .x1,
+  .isReconnect .w2,
+  .isReconnect .x2,
+  .isReplay .w3,
+  .isReplay .x3,
+  .isForged .w4,
+  .isForged .x4 {
+    opacity: 1;
+  }
+  .isOffline .o1,
+  .isReconnect .o2,
+  .isReplay .o3,
+  .isForged .o4,
+  .ripple {
+    opacity: 0;
+  }
+}

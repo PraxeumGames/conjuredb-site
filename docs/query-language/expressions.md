@@ -3,11 +3,21 @@
 Complete reference for value expressions, operators, type coercion rules, and built-in functions
 in the ConjureDB query language.
 
+> **Source format**: current canonical `.conjure` syntax (owning format marker `2`)
+
+Expression-only blocks illustrate syntax in an existing typed scope. Blocks
+labelled `dsl` are query-body fragments: declare their input tables, fields,
+parameters, and result signatures in the containing schema. For example,
+`Players.GuildId` and `Players.DeletedAt` below are nullable fields; `Users.Id`
+is an integer; `Sensors.Reading` is a byte and `Threshold` is numeric. Window
+examples assume `Sales` has `Region: string`, `SaleDate: datetime`, and
+`Amount: decimal`. These names are examples, not built-in tables.
+
 > **Cross-references**
 >
-> - [QueryLanguage.md](/docs/query-language/reference) — pipeline transforms (`filter`, `derive`, `select`, …)
+> - [Query Language](/docs/query-language/reference) — pipeline transforms (`filter`, `derive`, `select`, …)
 >   that *consume* expressions.
-> - [CustomFunctions.md](/docs/query-language/functions) — defining your own C# functions callable from queries.
+> - [Custom Functions](/docs/query-language/functions) — scalar built-ins, schema functions, and host C# function declarations.
 
 ---
 
@@ -17,7 +27,7 @@ in the ConjureDB query language.
 
 Identifiers name columns, table aliases, and user-defined functions.
 
-```
+```text
 Name        Age        user_id        _hidden
 ```
 
@@ -27,26 +37,16 @@ Name        Age        user_id        _hidden
 |------|--------|
 | First character | Letter (`a-z`, `A-Z`) or underscore (`_`) |
 | Subsequent | Letters, digits (`0-9`), underscores |
-| Case sensitivity | Identifiers are **case-sensitive** at the parser level; function lookup is **case-insensitive** |
+| Case sensitivity | Identifier references require exact declared spelling; case-only sibling declarations are forbidden |
 | Quoting | Not supported — there is no backtick or bracket quoting mechanism |
 
 ### 1.2  Reserved Words
 
-The following words are treated as **keywords** by the lexer and cannot be used as bare
-identifiers in most positions:
-
-```
-from    select   filter   derive   group   aggregate  sort    take    skip
-join    left     right    inner    full    semi       anti    window
-union   remove   intersect except  and     or         not     null    true
-false   in       as       switch   cast    sum        count   avg     average
-min     max      distinct asc      desc    version    like    is      by
-frame   between  let      into     with    update     delete  insert  upsert
-set     values   assert   returning
-```
-
-When a keyword is followed by `(` and is not in the *structural* set (e.g. `count`, `sum`,
-`avg`, `min`, `max`), the parser treats it as a **function call**.
+Keywords use their lowercase spelling (`from`, `filter`, `true`, `null`). Many
+words are contextual identifiers rather than a globally reserved list. Their
+admission as a field, alias, or function name depends on the grammar position.
+Write identifiers exactly as declared. A case-only mismatch is an error, not
+an alternative spelling; its diagnostic names the actual declaration.
 
 ### 1.3  Literals
 
@@ -54,11 +54,12 @@ When a keyword is followed by `(` and is not in the *structural* set (e.g. `coun
 
 | Form | Example | Notes |
 |------|---------|-------|
-| Integer | `42`, `0`, `100` | Parsed as `int` by default |
-| Long | `42L` | Suffix `L` forces `long` |
-| Float | `3.14F` | Suffix `F` forces `float` |
-| Double | `3.14`, `3.14D` | Decimal point without suffix → `double`; suffix `D` explicit |
-| Decimal | `3.14M` | Suffix `M` forces `decimal` |
+| Integer | `42`, `0`, `100` | The first of `int`, `uint`, `long`, `ulong` that holds the value |
+| Unsigned | `7u`, `7UL` | Suffix `u` → `uint` (or `ulong` when larger); `UL` → `ulong` |
+| Long | `42L` | Suffix `L` → `long` (or `ulong` when larger) |
+| Float | `3.14f` | Suffix `f` forces `float` |
+| Double | `3.14`, `3.14d` | Decimal point without suffix → `double`; suffix `d` explicit |
+| Decimal | `3.14m` | Suffix `m` forces `decimal` |
 | Scientific | `1E10`, `2.5e-3` | Exponent with optional sign |
 
 **Restrictions**
@@ -70,12 +71,13 @@ When a keyword is followed by `(` and is not in the *structural* set (e.g. `coun
 
 #### 1.3.2  String Literals
 
-Strings are delimited by single quotes (`'…'`) or double quotes (`"…"`).
+`.conjure` strings use double quotes (`"…"`). Single-quoted SQL
+strings are not schema-source literals.
 
-```
+```text
 "hello world"
-'it''s escaped'       -- SQL-style doubled quote
-"line\nbreak"         -- C-style backslash escape
+"it's escaped"       // A single quote is ordinary text inside a double-quoted string.
+"line\nbreak"        // Backslash escape.
 ```
 
 **Escape sequences**
@@ -86,57 +88,57 @@ Strings are delimited by single quotes (`'…'`) or double quotes (`"…"`).
 | `\r` | Carriage return (U+000D) |
 | `\t` | Tab (U+0009) |
 | `\\` | Backslash |
-| `\'` | Single quote |
 | `\"` | Double quote |
-| `\0` | Null character (U+0000) |
-| `\uXXXX` | Unicode code point (4 hex digits) |
 
-Both SQL-style quote doubling (`''` inside `'…'`, `""` inside `"…"`) and
-C-style backslash escapes are supported simultaneously.
+An unrecognized backslash escape produces a lexer warning and retains the
+backslash and following character; SQL-style quote doubling is not an escape.
 
 #### 1.3.3  Boolean Literals
 
-```
+```text
 true    false
 ```
 
-Case-insensitive keywords.
+Use the lowercase keywords `true` and `false`.
 
 #### 1.3.4  Null Literal
 
-```
+```text
 null
 ```
 
-Case-insensitive keyword. Represents the absence of a value; participates in
-three-valued logic (see [§8 NULL Handling](#8--null-handling)).
+Use lowercase `null`. Represents the absence of a value. `NULL` remains a
+data value; boolean expressions use the two-valued rules in [§8 NULL Handling](#8--null-handling).
 
 #### 1.3.5  Temporal Literals
 
-Temporal literals use the `@` prefix to distinguish them from parameters.
+Construct date/time values with `datetime(...)`, and write durations with their
+unit suffixes. The old `@` date/time spellings are not canonical source.
 
-| Kind | Syntax | Example |
-|------|--------|---------|
-| Date | `@YYYY-MM-DD` | `@2025-01-15` |
-| Time | `@THH:MM[:SS[.fff]]` | `@T14:30`, `@T14:30:00.500` |
-| Timestamp | `@YYYY-MM-DDTHH:MM[:SS[.fff]]` | `@2025-01-15T14:30:00` |
-| Interval | `@P…` (ISO 8601 duration) | `@P2DT3H`, `@PT30M`, `@P1Y6M` |
+```text
+datetime(2025, 1, 15)
+5s
+100ms
+1h + 30min
+```
 
-Date/time validation is strict: `@2025-02-30` produces a lexer error.
+The `@` prefix in an expression identifies a declared query parameter, not a
+date literal. See [Data Types](/docs/query-language/data-types) for temporal carriers and arithmetic.
 
 ### 1.4  Comments
 
-```
-# This is a line comment — extends to end of line
+```text
+// This is a line comment — extends to end of line
 ```
 
-The language uses `#` for line comments. Block comments (`/* … */`) are **not supported**.
+`.conjure` uses `//` for line comments. `#` and block comments
+(`/* … */`) are **not supported**.
 
 ### 1.5  Parameters
 
 External values are referenced with the `@` prefix followed by an identifier:
 
-```
+```text
 @minAge    @userName    @threshold
 ```
 
@@ -145,10 +147,9 @@ External values are referenced with the `@` prefix followed by an identifier:
 - Parameter names follow identifier rules (letter/underscore start, alphanumeric body).
 - Parameter names **cannot** start with a digit (e.g. `@1` is invalid).
 - Parameter names cannot be empty (`@` alone is invalid).
-- When the character after `@` looks like a temporal literal (digit sequence matching
-  `YYYY-MM-DD`, `T` + digit, or `P` + digit/T), it is parsed as a temporal literal
-  instead of a parameter.
-- Parameter types are inferred from usage context during binding.
+- Query parameters are declared with types in the `query Name(name: Type)` header;
+  body references use `@name`. Declaration annotations such as `@planning(...)`
+  are metadata, not expression parameters.
 
 ### 1.6  Operators (Lexical Tokens)
 
@@ -157,14 +158,15 @@ The following single- and multi-character operator tokens are recognized:
 | Token | Description |
 |-------|-------------|
 | `+` `-` `*` `/` `%` | Arithmetic |
-| `==` `!=` `<>` | Equality / inequality |
+| `==` `!=` | Equality / inequality |
 | `<` `>` `<=` `>=` | Ordering |
-| `&&` `\|\|` | Logical (symbolic form) |
+| `&&` `\|\|` `!` | Boolean operations |
 | `??` | Null coalescing |
 | `=>` | Switch arm separator |
-| `!` | Logical NOT (symbolic form) |
 | `?` `.` | Null-conditional access (`?.`) |
-| `:` | Used internally |
+| `?` `:` | Conditional expression (`condition ? yes : no`); `:` also separates typed fields |
+| `..` | Range bounds, for example `Level in 10..20` |
+| `=` | Assignment or named projection/record field; not comparison |
 
 **Invalid operator sequences** produce explicit lexer errors:
 
@@ -181,7 +183,7 @@ The following single- and multi-character operator tokens are recognized:
 
 **Simple reference** — refers to a column in the current scope:
 
-```
+```text
 Name
 Age
 user_id
@@ -189,7 +191,7 @@ user_id
 
 **Qualified reference** — disambiguates across joined tables using a table alias:
 
-```
+```text
 u.Name
 o.Total
 u.Profile.Address.City
@@ -197,7 +199,7 @@ u.Profile.Address.City
 
 **Null-conditional access** — safe navigation for nullable nested properties:
 
-```
+```text
 u.Profile?.Address?.City
 ```
 
@@ -208,17 +210,16 @@ is resolved against the schema of the preceding segment.
 
 **Unary operators** — prefix position:
 
-```
--Amount            # arithmetic negation
-not IsActive       # logical negation
-!IsActive          # logical negation (symbolic)
+```text
+-Amount            // arithmetic negation
+!IsActive       // logical negation
 ```
 
 **Binary operators** — infix position between two sub-expressions:
 
-```
+```text
 Price * Quantity
-Age >= 18 and IsActive
+Age >= 18 && IsActive
 Name ?? "Unknown"
 ```
 
@@ -226,88 +227,49 @@ See [§3 Operator Precedence](#3--operator-precedence) for full evaluation order
 
 ### 2.3  Function Calls
 
-Standard parenthesized syntax:
+Use the catalog's module-qualified scalar names:
 
-```
-length(Name)
-substring(Name, 0, 5)
-round(Price, 2)
-```
-
-**Bare-prefix syntax** — for common unary functions, parentheses may be omitted
-when the argument is a single column reference:
-
-```
-len u.Name          # equivalent to length(u.Name)
-lower u.Name        # equivalent to lower(u.Name)
-upper Status        # equivalent to upper(Status)
-trim Name           # equivalent to trim(Name)
+```text
+text.length(Name)
+text.substring(Name, 0, 5)
+math.round(Price, 2)
+text.lower(u.Name)
+text.contains(Name, "text")
 ```
 
-Supported bare-prefix functions: `len`, `length`, `lower`, `upper`, `trim`.
+Arguments may be positional or use the selected overload's parameter names.
+Function admission checks actual types and arity, not spelling alone. Scalar
+`math.min(a, b)` is not the row aggregate `min(value)`.
 
-**DISTINCT modifier** (aggregate context only):
-
-```
-count(distinct UserId)
-```
-
-In this general expression context, `distinct` is currently supported only inside
-`count(…)`. Inside `aggregate`/`group` blocks it is also accepted for `sum`, `avg`,
-`min`, and `max` (see [§11.5](#115--distinct-modifier)).
-
-**Method-call syntax** — property-style invocation on column references:
-
-```
-Name.Contains("text")
-Name.StartsWith("A")
-Name.EndsWith("son")
-```
-
-See [§10 Built-in Functions](#10--built-in-functions) for the complete catalog.
+In aggregate context, distinct counting is `count_distinct(UserId)`, not
+`count(distinct UserId)`. Collection lambdas and instance-style calls are not
+substitutes for nested pipelines. See [§10 Built-in Functions](#10--built-in-functions)
+and [Functions Reference](/docs/query-language/functions).
 
 ### 2.4  Type Casts
 
-Two syntactic forms are supported; both produce identical AST nodes.
+Write an explicit conversion as `expression as type`:
 
-**C-style cast:**
-
-```
-(int)Price
-(double)Quantity
-(string)Code
+```text
+Price as int
+Quantity as double
+Code as string
 ```
 
-**SQL-style CAST:**
-
-```
-cast(Price as int)
-cast(Quantity as double)
-cast(Code as string)
-```
-
-**Supported type names:**
-
-| Name | .NET Type | Aliases |
-|------|-----------|---------|
-| `int` | `Int32` | `int32` |
-| `long` | `Int64` | `int64` |
-| `short` | `Int16` | — |
-| `byte` | `Byte` | — |
-| `float` | `Single` | — |
-| `double` | `Double` | — |
-| `decimal` | `Decimal` | — |
-| `bool` | `Boolean` | `boolean` |
-| `string` | `String` | — |
-
-See [§9 Type Coercion](#9--type-coercion-rules) for when explicit casts are required.
+Use canonical source type names, including `int`, `long`, `float`, `double`,
+`decimal`, `bool`, `string`, `datetime`, `timespan`, `guid`, `fixed32`, and
+`fixed64`. CLR aliases such as `Int32` and `Boolean` are not source aliases.
+A syntactically valid cast still requires a supported source/target conversion.
+`cast(expression as Type)` is retired. See [§9 Type Coercion](#9--type-coercion-rules).
 
 ### 2.5  Conditional Expressions (Switch)
+
+For a two-way choice, use `condition ? whenTrue : whenFalse`.
 
 The `switch` expression is the ConjureDB equivalent of SQL `CASE`. It uses postfix
 syntax — the *scrutinee* expression precedes the `switch` keyword:
 
-```
+```text
 expr switch {
     pattern => result,
     pattern => result,
@@ -317,7 +279,7 @@ expr switch {
 
 **Relational patterns** — compare the scrutinee with a relational operator:
 
-```
+```text
 Age switch {
     >= 65 => "Senior",
     >= 18 => "Adult",
@@ -327,7 +289,7 @@ Age switch {
 
 **Value patterns** — implicitly use `==`:
 
-```
+```text
 Status switch {
     "Active"   => 1,
     "Inactive" => 0,
@@ -340,7 +302,7 @@ Status switch {
 - At least one arm is required.
 - A default arm (`_ => …`) is **mandatory**.
 - Arms are separated by commas; trailing commas are **not allowed**.
-- Both `{ }` and `( )` delimiters are accepted.
+- Switch arms use `{ }` delimiters.
 - Branch result types must be compatible; the compiler infers the common type
   using the CASE type unification rules (see [§9.4](#94--case-expression-type-inference)).
 
@@ -348,60 +310,52 @@ Status switch {
 
 Returns the left operand if it is not null, otherwise the right operand:
 
-```
+```text
 MiddleName ?? ""
 Price ?? 0.0
 u.Nickname ?? u.Name ?? "Anonymous"
 ```
 
-The `??` operator is left-associative and can be chained.
+The `??` operator is right-associative, as in C#, and can be chained: `a ?? b ?? c` is `a ?? (b ?? c)`.
 
 ### 2.7  Subquery Expressions
 
-Subqueries are pipeline expressions enclosed in parentheses:
+Subqueries are parenthesized pipelines. These expression fragments assume an
+outer alias `u`, an `Orders` table with `UserId` and `Amount`, and a `Categories`
+table with `Id` and `IsActive`:
 
-```
-# Scalar subquery
-TotalAmount > (from Orders | filter UserId == u.Id | aggregate { sum(Amount) })
-
-# EXISTS subquery
-exists(from Orders | filter UserId == u.Id)
-
-# IN subquery
-CategoryId in (from Categories | filter IsActive | select Id)
+```text
+TotalAmount > (from Orders o | filter o.UserId == u.Id | aggregate sum(o.Amount))
+exists(from Orders o | filter o.UserId == u.Id)
+CategoryId in (from Categories c | filter c.IsActive | select c.Id)
 ```
 
-**Scalar subquery** — must return exactly one row and one column. Used wherever
-a single value is expected.
-
-**EXISTS subquery** — returns `true` if the inner pipeline produces at least one row.
-Must use the `exists(…)` function syntax.
-
-**IN subquery** — tests membership against the single-column result set of the inner
-pipeline. See [§7 Set Membership](#7--set-membership).
+One unnamed aggregate supplies a scalar reduction, with the aggregate's actual
+nullable result contract. A scalar selection requires a suitable scalar terminal
+and cardinality; an arbitrary multirow selection is not implicitly one value.
+`exists(pipeline)` or `(pipeline | any)` tests whether there is a row.
+Membership consumes the selected scalar values. Correlated aliases stay local
+to the enclosing query scope. See [Query Language](/docs/query-language/reference#nested-pipelines-and-existence).
 
 ### 2.8  Collection Navigation
 
-For nested collection properties (e.g. `Orders` on a `User` entity), the language
-provides aggregate navigation syntax:
+Navigate only relationships actually declared by the schema. Use the navigation
+as a nested pipeline source, with an explicit alias for child fields:
 
-**Method-call style:**
-
-```
-u.Orders.Any(o => o.Total > 100)
-u.Orders.Count(o => o.Status == "Shipped")
-u.Orders.Sum(o => o.Total)
+```text
+exists(from u.Orders o | filter o.Total > 100)
+(from u.Orders o | filter o.Status == "Shipped" | aggregate count())
+(from u.Orders o | aggregate sum(o.Total))
 ```
 
-**Phrase style:**
+An all-rows condition can be expressed as absence of a violating row, for example
+`!exists(from u.Orders o | filter !(o.Total > 100))`. This is vacuously true
+for an empty collection. Choose the null predicate deliberately: negating a
+comparison includes its two-valued null behavior.
 
-```
-sum u.Orders (by o.Total)
-count u.Orders (where o.Status == "Active")
-avg u.Orders (by o.Total, where o.Amount > 0)
-```
-
-Supported navigation methods: `any`, `all`, `count`, `sum`, `min`, `max`, `average`/`avg`.
+Collection projections use a nested pipeline directly. Lambda navigation such
+as `Orders.Sum(o => o.Total)` and aggregate phrases such as `sum Orders (by Total)`
+are retired, not alternate forms of scalar function calls.
 
 ---
 
@@ -412,37 +366,44 @@ level associate **left-to-right** unless noted otherwise.
 
 | Level | Operator(s) | Associativity | Description |
 |------:|-------------|:-------------:|-------------|
-| 1 | `or`, `\|\|` | Left | Logical disjunction |
-| 2 | `and`, `&&` | Left | Logical conjunction |
-| 3 | `==` `!=` `<` `>` `<=` `>=` `is` `in` `like` `between` | Left | Comparison / pattern / set |
-| 4 | `??` | Left | Null coalescing |
-| 5 | `+` `-` | Left | Additive |
-| 6 | `*` `/` `%` | Left | Multiplicative |
-| 7 | `not` `!` `-` (unary) | **Right** | Unary negation |
-| 8 | `switch` (postfix) | Left | Conditional expression |
-| 9 | `(…)` `.` `func()` literals | — | Atomics |
+| 1 | `? :` | Right | Conditional expression |
+| 2 | `??` | Right | Null coalescing |
+| 3 | `\|\|` | Left | Logical disjunction |
+| 4 | `&&` | Left | Logical conjunction |
+| 5 | `==` `!=` | Not chainable | Equality |
+| 6 | `<` `>` `<=` `>=` `in` `not in` `like` | Not chainable | Ordering, pattern, membership |
+| 7 | `..` | Not chainable | Range bounds |
+| 8 | `+` `-` | Left | Additive |
+| 9 | `*` `/` `%` | Left | Multiplicative |
+| 10 | `as type` | Left | Explicit conversion |
+| 11 | `!` `-` (unary) | Right | Unary operators |
+| 12 | `switch`, calls, member/index access, `(…)`, literals | — | Primary/postfix expressions |
+
+Comparisons and ranges cannot be chained. Write `(a < b) && (b < c)`, not
+`a < b < c`. A cast applies to its operand; parenthesize a compound expression
+before casting its result.
 
 **Parentheses** override precedence at any level:
 
-```
+```text
 (a + b) * c
-(x or y) and z
+(x || y) && z
 ```
 
 ### Precedence Examples
 
-```
-# Parsed as: (a + (b * c))
+```text
+// Parsed as: (a + (b * c))
 a + b * c
 
-# Parsed as: ((a > 0) and (b < 10))
-a > 0 and b < 10
+// Parsed as: ((a > 0) && (b < 10))
+a > 0 && b < 10
 
-# Parsed as: (Name ?? ("Unknown"))
+// Parsed as: (Name ?? ("Unknown"))
 Name ?? "Unknown"
 
-# Parsed as: (((not a) and b) or c) — NOT binds tighter than AND/OR
-not a and b or c
+// Parsed as: (((!a) && b) || c) — ! binds tighter than &&/||
+!a && b || c
 ```
 
 ---
@@ -451,58 +412,56 @@ not a and b or c
 
 | Operator | Description | Example | Result Type |
 |:--------:|-------------|---------|-------------|
-| `+` | Addition | `3 + 4` → `7` | Widest numeric operand |
-| `-` | Subtraction | `10 - 3` → `7` | Widest numeric operand |
-| `*` | Multiplication | `2 * 5` → `10` | Widest numeric operand (with overflow promotion) |
-| `/` | Division | `10 / 3` → `3` (integer) | Widest numeric operand |
-| `%` | Modulo | `10 % 3` → `1` | Widest numeric operand |
+| `+` | Addition | `3 + 4` → `7` | Selected common numeric carrier |
+| `-` | Subtraction | `10 - 3` → `7` | Selected common numeric carrier |
+| `*` | Multiplication | `2 * 5` → `10` | Selected common numeric carrier |
+| `/` | Division | `10 / 3` → `3` (integer) | Selected common numeric carrier |
+| `%` | Modulo | `10 % 3` → `1` | Selected common numeric carrier |
 | `-` (unary) | Negation | `-Amount` | Same as operand |
 
-Both operands **must be numeric**. Applying arithmetic to non-numeric types produces
-a binding error.
+These are the numeric forms. Other typed operations, such as compatible
+date/time and duration addition, have their own contracts; see
+[Data Types](/docs/query-language/data-types#temporal-types). Arbitrary cross-family arithmetic is
+not admitted.
 
 ### 4.1  Numeric Promotion Rules
 
-When operands have different numeric types, the compiler promotes both to a common type
-following C# widening rules:
+Numeric promotion depends on both carriers, signedness, and the operation; it
+is not a single rank in which decimal always wins.
 
-| Rank | Type | Notes |
-|-----:|------|-------|
-| 1 | `byte`, `sbyte` | Widened to `int` for any arithmetic |
-| 2 | `short` (`Int16`), `ushort` (`UInt16`) | Widened to `int` for any arithmetic |
-| 3 | `int` (`Int32`), `uint` (`UInt32`) | Mixed `int`/`uint` → `long` |
-| 4 | `long` (`Int64`), `ulong` (`UInt64`) | — |
-| 5 | `float` (`Single`) | — |
-| 6 | `double` (`Double`) | — |
-| 7 | `decimal` (`Decimal`) | Highest rank |
+- Sub-`int` integral operands widen to `int` for binary arithmetic.
+- Mixed `int` and `uint` use `long`.
+- A signed integral operand and `ulong` have no common integral carrier.
+- Integral operands can meet a supported floating-point or decimal carrier.
+  This does not guarantee exact floating-point representation of every integer.
+- `float` can widen to `double`; decimal and binary floating point do not mix
+  implicitly.
+- `fixed32` can widen to `fixed64`; fixed-point and ordinary numeric carriers
+  do not silently mix in arithmetic.
 
-**Widening direction:** lower rank is promoted to higher rank.
-
-**Sub-int widening:** All types with rank ≤ 2 (`byte`, `sbyte`, `short`, `ushort`)
-are widened to `int` (`Int32`) before arithmetic, matching the C# specification.
-
-**Multiplication overflow promotion:** To prevent silent overflow, `int * int` promotes
-the result to `long`, and `uint * uint` promotes to `ulong`.
-
-**Mixed signed/unsigned:** `int` + `uint` promotes both to `long`.
+`int * int` remains `int`, and `uint * uint` remains `uint`: multiplication is
+not an automatic overflow-widening operation. Integral overflow follows the
+selected checked/unchecked contract. Cast an operand before multiplication when
+a wider result is intended, for example `(Quantity as long) * UnitCount`.
+See [Data Types](/docs/query-language/data-types#numeric-promotion-hierarchy).
 
 ### 4.2  Nullability Propagation
 
 If **either** operand is nullable, the result is nullable:
 
-```
-# If Price is int? and Quantity is int:
-Price * Quantity    -- result type: int? (actually long? due to multiplication promotion)
+```text
+// If Price is int? and Quantity is int:
+Price * Quantity    // nullable numeric result; the promoted type depends on both operands
 ```
 
 ### 4.3  Division Behavior
 
 Integer division truncates toward zero (C# semantics):
 
-```
-7 / 2       -- result: 3 (int)
--7 / 2      -- result: -3 (int)
-7.0 / 2.0   -- result: 3.5 (double)
+```text
+7 / 2       // result: 3 (int)
+-7 / 2      // result: -3 (int)
+7.0 / 2.0   // result: 3.5 (double)
 ```
 
 Division by zero in integer context throws at runtime; floating-point division by zero
@@ -537,25 +496,50 @@ produces `Infinity` or `NaN` per IEEE 754.
 | Collection | Collection | Element-type-compatible check |
 | Any nullable | `null` | Null test |
 
-**Ordering** (`<`, `>`, `<=`, `>=`) is supported for types that implement `IComparable`:
-numeric, string, char, temporal (same kind), guid, boolean, and enum types.
+**Ordering** (`<`, `>`, `<=`, `>=`) requires an admitted ordered pair: for example,
+compatible numerics, strings/chars, the same temporal kind, or GUIDs. A CLR type
+implementing `IComparable` does not by itself grant DSL ordering support.
+Boolean values are not a numeric ordering domain.
 
 Cross-family comparisons (e.g. `int == string`) produce a **binding error**.
 
 ### 5.2  NULL Comparison Semantics
 
-ConjureDB uses **three-valued logic** for comparisons involving `NULL`:
+Two rules govern comparisons involving `NULL`, and they must be read together.
+
+**Rule 1 — comparing against the `null` literal is a null test.**
+
+`expr == null` tests absence; `expr != null` tests presence. Each produces a
+definite `bool`, including in a projection. Use these spellings rather than the
+retired SQL-style `is null` / `is not null` forms.
+
+```conjure
+from Players | filter GuildId != null
+```
+
+```conjure
+from Players | select IsLive = (DeletedAt != null)
+```
+
+The same tests work with the literal on the left. A nonnullable present value
+is never absent.
+
+**Rule 2 — every other comparison is two-valued.** A comparison whose operands are
+values (not the `null` literal) is `false` when either operand is `NULL`, in every
+context:
 
 | Expression | Result |
 |------------|--------|
-| `NULL == NULL` | `NULL` (not `true`) |
-| `NULL != NULL` | `NULL` (not `false`) |
-| `42 == NULL` | `NULL` |
-| `42 != NULL` | `NULL` |
-| `NULL < 10` | `NULL` |
-| `NULL >= 0` | `NULL` |
+| `nullableA == nullableB` (both absent) | `false` |
+| `nullableA != nullableB` (both absent) | `false` |
+| `nullableA == nullableB` (either is `NULL`) | `false` |
+| `NULL < 10` | `false` |
+| `NULL >= 0` | `false` |
 
-To test for null, use `is null` / `is not null` (see [§8 NULL Handling](#8--null-handling)).
+`filter`, join predicates, conditional expressions, and projections therefore observe the
+same boolean result. There is no `UNKNOWN` boolean value in the DSL.
+
+See [§8 NULL Handling](#8--null-handling).
 
 ---
 
@@ -563,63 +547,62 @@ To test for null, use `is null` / `is not null` (see [§8 NULL Handling](#8--nul
 
 ### 6.1  AND
 
-Keyword form `and` or symbolic form `&&`.
+Use `&&` for logical conjunction.
 
-**Truth table** (three-valued logic):
+**Truth table** (two-valued; a nullable boolean operand is normalized to `false`):
 
-| `a` | `b` | `a and b` |
+| `a` | `b` | `a && b` |
 |:---:|:---:|:---------:|
 | `true` | `true` | `true` |
 | `true` | `false` | `false` |
-| `true` | `NULL` | `NULL` |
+| `true` | `NULL` | `false` |
 | `false` | `true` | `false` |
 | `false` | `false` | `false` |
 | `false` | `NULL` | `false` |
-| `NULL` | `true` | `NULL` |
+| `NULL` | `true` | `false` |
 | `NULL` | `false` | `false` |
-| `NULL` | `NULL` | `NULL` |
+| `NULL` | `NULL` | `false` |
 
-Key property: `false AND NULL` evaluates to `false` (short-circuit — `false` dominates).
+`NULL` is normalized to `false` before boolean composition.
 
 ### 6.2  OR
 
-Keyword form `or` or symbolic form `||`.
+Use `||` for logical disjunction.
 
-**Truth table** (three-valued logic):
+**Truth table** (two-valued; a nullable boolean operand is normalized to `false`):
 
-| `a` | `b` | `a or b` |
+| `a` | `b` | `a \|\| b` |
 |:---:|:---:|:--------:|
 | `true` | `true` | `true` |
 | `true` | `false` | `true` |
 | `true` | `NULL` | `true` |
 | `false` | `true` | `true` |
 | `false` | `false` | `false` |
-| `false` | `NULL` | `NULL` |
+| `false` | `NULL` | `false` |
 | `NULL` | `true` | `true` |
-| `NULL` | `false` | `NULL` |
-| `NULL` | `NULL` | `NULL` |
+| `NULL` | `false` | `false` |
+| `NULL` | `NULL` | `false` |
 
-Key property: `true OR NULL` evaluates to `true` (short-circuit — `true` dominates).
+`NULL` is normalized to `false` before boolean composition.
 
 ### 6.3  NOT
 
-Keyword form `not` or symbolic form `!`.
+Use `!` for logical negation.
 
-| `a` | `not a` |
+| `a` | `!a` |
 |:---:|:-------:|
 | `true` | `false` |
 | `false` | `true` |
-| `NULL` | `NULL` |
+| `NULL` | `true` |
 
-**Result type:** `bool` if operand is non-nullable `bool`; `bool?` if operand is
-nullable.
+**Result type:** `bool`.
 
 ### 6.4  Short-Circuit Evaluation
 
-In generated code, `and` and `or` use short-circuit evaluation:
+In generated code, `&&` and `||` use short-circuit evaluation:
 
-- `a and b` — `b` is not evaluated if `a` is `false`.
-- `a or b` — `b` is not evaluated if `a` is `true`.
+- `a && b` — `b` is not evaluated if `a` is `false`.
+- `a || b` — `b` is not evaluated if `a` is `true`.
 
 ---
 
@@ -629,31 +612,35 @@ In generated code, `and` and `or` use short-circuit evaluation:
 
 Tests whether a value is a member of a set:
 
-```
-# Literal list
+```text
+// Literal list
 Status in ("Active", "Pending", "Review")
 
-# Parameter list
+// Parameter list
 CategoryId in @allowedCategories
 
-# Subquery
+// Subquery
 UserId in (from Admins | select Id)
 ```
 
-**NOT IN** — negate with `not`:
+**NOT IN** is a distinct filter operator:
 
+```text
+Status not in ("Deleted", "Archived")
 ```
-not (Status in ("Deleted", "Archived"))
-```
+
+Do not replace it with `!(Status in (...))`: for a null probe or a null
+right-hand value, `not in` remains false while `!(in)` complements the
+already two-valued `in` result. See [Query Language — Nulls in membership](/docs/query-language/reference#nulls-in-membership).
 
 ### 7.2  LIKE
 
 SQL-compatible pattern matching on strings:
 
-```
-Name like "A%"           # starts with 'A'
-Email like "%@%.com"     # contains '@' and ends with '.com'
-Code like "AB_12"        # _ matches exactly one character
+```text
+Name like "A%"           // starts with 'A'
+Email like "%@%.com"     // contains '@' and ends with '.com'
+Code like "AB_12"        // _ matches exactly one character
 ```
 
 | Wildcard | Meaning |
@@ -661,56 +648,58 @@ Code like "AB_12"        # _ matches exactly one character
 | `%` | Zero or more characters |
 | `_` | Exactly one character |
 
-The `like` operator preserves nullability: if either operand is nullable, the result
-is `bool?`.
+The `like` operator is two-valued: if either operand is `NULL`, the result is `false`.
 
 ### 7.3  CONTAINS / STARTSWITH / ENDSWITH
 
-Method-call style string pattern matching:
+Use qualified scalar string predicates:
 
-```
-Name.Contains("son")
-Name.StartsWith("Dr.")
-Email.EndsWith("@example.com")
+```text
+text.contains(Name, "son")
+text.startswith(Name, "Dr.")
+text.endswith(Email, "@example.com")
 ```
 
-These are resolved as function calls through the function resolution service.
+Their selected overload determines types and null behavior; they are not
+collection navigation methods.
 
 ### 7.4  BETWEEN
 
-Range test — inclusive on both ends:
+SQL-style `between` is retired. To preserve an inclusive SQL range, write both
+comparisons explicitly:
 
-```
-Age between 18 and 65
-```
-
-Desugared by the parser into:
-
-```
-Age >= 18 and Age <= 65
+```text
+Age >= 18 && Age <= 65
 ```
 
-The `and` inside `between … and …` is a syntactic separator, not the logical `and`
-operator.
+Canonical range membership is **half-open**, not inclusive at both ends:
+
+```text
+Age in 18..65        // Age >= 18 && Age < 65
+Age not in 18..65    // negated half-open range membership
+```
+
+Do not replace an inclusive upper bound with the same half-open endpoint.
 
 ### 7.5  IS NULL / IS NOT NULL
 
-Definite null test (see also [§8 NULL Handling](#8--null-handling)):
+Use canonical literal comparisons:
 
-```
-MiddleName is null
-Email is not null
+```text
+MiddleName == null
+Email != null
 ```
 
-These always return a definite `bool` (`true` or `false`), never `NULL`.
+These are definite null tests, never an unknown Boolean. SQL-style `is null`
+and `is not null` are retired. See [§5.2](#52--null-comparison-semantics).
 
 ### 7.6  EXISTS / NOT EXISTS
 
 Tests whether a correlated subquery returns any rows:
 
-```
+```text
 exists(from Orders | filter UserId == u.Id)
-not exists(from Returns | filter OrderId == o.Id)
+!exists(from Returns | filter OrderId == o.Id)
 ```
 
 The `exists` keyword is parsed as a function call whose argument is a subquery
@@ -720,60 +709,65 @@ pipeline starting with `from`.
 
 ## 8  NULL Handling
 
-### 8.1  Three-Valued Logic
+### 8.1  Two-Valued Boolean Logic
 
-ConjureDB follows SQL's three-valued logic. Expressions involving `NULL` generally
-propagate `NULL` rather than producing `true` or `false`:
+ConjureDB keeps `NULL` as a data value but uses two-valued boolean logic. Every
+comparison, membership, pattern, and logical expression returns `true` or `false`:
 
 | Category | NULL Behavior |
 |----------|--------------|
 | Arithmetic (`+`, `-`, `*`, `/`, `%`) | Any `NULL` operand → `NULL` result |
-| Comparison (`==`, `!=`, `<`, etc.) | Any `NULL` operand → `NULL` result |
-| Logical `and` | `false and NULL` → `false`; `true and NULL` → `NULL` |
-| Logical `or` | `true or NULL` → `true`; `false or NULL` → `NULL` |
-| Logical `not` | `not NULL` → `NULL` |
-| String (`like`, `contains`, etc.) | `NULL` operand → `NULL` result |
-| `in` | `NULL` element in set → may produce `NULL` |
+| Comparison (`==`, `!=`, `<`, etc.) against a **value** | Any `NULL` operand → `false` |
+| Comparison (`==`, `!=`) against the **`null` literal** | Definite `true`/`false` — it *is* a null test, see [§5.2](#52--null-comparison-semantics) |
+| Logical `&&` | `NULL` operand is `false` |
+| Logical `\|\|` | `NULL` operand is `false` |
+| Logical `!` | `!NULL` → `true` |
+| String (`like`, `contains`, etc.) | `NULL` operand → `false` |
+| `in` | A `NULL` probe or member is a non-match, so `in` is `false` |
+| `not in` | `false` when a `NULL` takes part — **not** the negation of `in` |
+
+This is not a predicate-boundary conversion: the same two-valued result is visible in a
+`select` projection and in every predicate position.
+
+Membership is the one operator whose two rows are not symmetric: `in` and `not in` are *both*
+`false` when a `NULL` takes part, so `not in` is not the complement of `in`, and `!(x in S)` is
+a different predicate from `x not in S`. The rule is stated normatively in
+[Query Language § Set Membership](/docs/query-language/reference#nulls-in-membership).
 
 ### 8.2  IS NULL / IS NOT NULL
 
-The only operators that return definite boolean results for `NULL`:
+The canonical null tests are literal comparisons:
 
+```text
+value == null       // true exactly when absent
+value != null       // true exactly when present
 ```
-value is null       # true if value is NULL, false otherwise
-value is not null   # false if value is NULL, true otherwise
-```
+
+These return a definite Boolean. The heading retains the familiar SQL terminology;
+`is null` / `is not null` are not admitted source spellings.
 
 ### 8.3  Null Coalescing (`??`)
 
 Provides a non-null fallback:
 
-```
-MiddleName ?? ""                        # "" if MiddleName is NULL
-Price ?? DefaultPrice ?? 0              # chained coalescing
+```text
+MiddleName ?? ""                        // "" if MiddleName is NULL
+Price ?? DefaultPrice ?? 0              // chained coalescing, right-associative: Price ?? (DefaultPrice ?? 0)
 ```
 
-Bound through the `coalesce` function. The result type is the common type of both
-operands; the result is non-nullable if the right operand is non-nullable.
+A chain is one coalesce over all its operands. The result type is the common type of the
+operands; the result is non-nullable if the last operand is non-nullable.
 
-### 8.4  Coalesce Function
+### 8.4  Retired `coalesce(…)` Call
 
-Function-call equivalent of `??`:
-
-```
-coalesce(MiddleName, "Unknown")
-```
+The function-call spelling `coalesce(a, b, …)` is retired (`SCH2173`): write the operator, `(a ?? (b ?? …))`.
+The diagnostic carries a fix-it that rewrites the whole call.
 
 ### 8.5  IS_NULL / IS_NOT_NULL Functions
 
-Function-call equivalents of the `is null` / `is not null` operators:
-
-```
-is_null(value)       # equivalent to: value is null
-is_not_null(value)   # equivalent to: value is not null
-```
-
-Aliases: `isnull`, `isnotnull`.
+Write `value == null` or `value != null`, rather than the retired `is_null`,
+`is_not_null`, `isnull`, or `isnotnull` call spellings. Presence tests do not
+supply a default value; use `??` when a fallback is required.
 
 ---
 
@@ -785,65 +779,63 @@ Every type belongs to a **type family** that determines compatibility:
 
 | Family | Types |
 |--------|-------|
-| Numeric | `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `decimal` |
+| Numeric | Integral, floating-point, decimal, and fixed-point carriers, subject to their distinct promotion rules |
 | String | `string`, `char` |
 | Boolean | `bool` |
-| Temporal | `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly`, `TimeSpan` |
-| Guid | `Guid` |
-| Binary | `byte[]` (with optional fixed length) |
+| Temporal | `datetime`, `datetimeoffset`, `dateonly`, `timeonly`, `timespan` |
+| Guid | `guid` |
+| Binary | `binary` (not a synonym for every `byte[]` operation) |
 | Object | User-defined structs, classes, enums |
-| Collection | `T[]`, `List<T>`, `IReadOnlyList<T>`, etc. |
+| Collection | declared arrays and admitted query-result constructors; see [Data Types](/docs/query-language/data-types) |
 | Null | The `null` literal (compatible with any nullable type) |
-| Error | Error types (compatible with everything to prevent cascading errors) |
 
 **Cross-family compatibility:** Types in different families are generally **incompatible**,
 with these exceptions:
 
 - `Guid` ↔ `String` — bidirectional compatibility, promoted to `string`.
-- `Unknown` family — compatible with any family for propagation.
 - `Null` — compatible with any nullable type.
-- `Error` — compatible with everything.
 
 ### 9.2  Implicit Widening
 
-Implicit conversions happen automatically when the compiler can guarantee no data loss:
+Implicit conversions require an admitted source/target pair. Arithmetic common-type
+selection does not imply that every assignment or result signature accepts the same
+conversion:
 
 | Source | Target | Condition |
 |--------|--------|-----------|
-| Numeric | Numeric | Source rank ≤ target rank (see [§4.1](#41--numeric-promotion-rules)) |
-| `char` | `string` | Always |
-| `Guid` | `string` | Always |
-| Non-nullable `T` | `Nullable<T>` | Always |
+| `int` | `long` | Widening integral conversion |
+| `float` | `double` | Widening floating-point conversion |
+| `fixed32` | `fixed64` | Exact fixed-point widening |
+| Present `T` | `T?` | Where that nullable carrier is admitted |
 
 **Examples:**
 
+```conjure
+// int → long (implicit)
+from Users | derive BigId = (0 as long) + Id
 ```
-# int → long (implicit)
-from Users | derive BigId = (long)0 + Id
 
-# byte → int (implicit in arithmetic)
+```conjure
+// byte → int (implicit in arithmetic)
 from Sensors | filter Reading + 10 > Threshold
 ```
 
 ### 9.3  Explicit Casting
 
-Explicit casts are required when the conversion may lose data or change representation:
+An admitted explicit conversion uses `as`:
 
+```text
+Price as int       // a supported double → int conversion can truncate
+Quantity as double
 ```
-(int)Price          # double → int: truncation possible
-cast(Code as int)   # string → int: parse may fail
-```
 
-**Explicit conversion matrix:**
-
-| Source → Target | Allowed |
-|-----------------|:-------:|
-| Numeric → Numeric | ✓ (any direction) |
-| Enum → Numeric (underlying type) | ✓ |
-| Numeric → Enum (underlying type) | ✓ |
-| Guid → String | ✓ |
-| String → Guid | ✓ |
-| Other cross-family | ✗ |
+A numeric target is not permission to parse arbitrary text. Explicit conversions
+must exist for the selected source and target carriers, and must preserve the
+supported nullability contract. They do not authorize integer-to-enum,
+integer-to-entity-reference, or unrelated nominal-record conversions. Use
+`checked(expression)` or `unchecked(expression)` to select the supported local
+integral overflow policy; `unchecked` does not suppress division by zero.
+See [Data Types](/docs/query-language/data-types#type-coercion-and-conversion).
 
 ### 9.4  CASE Expression Type Inference
 
@@ -853,14 +845,16 @@ them using pairwise promotion:
 1. Collect concrete (non-null, non-unknown) types from all branches.
 2. Promote pairwise using `AreCompatible` (numeric promotion, temporal matching, etc.).
 3. If any branch is `null` or nullable, the result is nullable.
-4. If there is no `else` arm (default `_`), the result is nullable.
-5. If branches have incompatible families, a binding error is produced.
+4. Incompatible branch types produce a binding error.
 
-```
-# int and long branches → long result
+A `switch` requires a default `_` arm; omitting it is not a way to request an
+optional result. A conditional expression similarly has both result branches.
+
+```text
+// int and long branches → long result
 x switch {
-    > 100 => (long)1,
-    _     => 0            # promoted to long
+    > 100 => (1 as long),
+    _     => 0            // promoted to long
 }
 ```
 
@@ -868,60 +862,57 @@ x switch {
 
 | Aggregate | Input Type | Result Type |
 |-----------|-----------|-------------|
-| `count` | Any | `long` (never nullable) |
-| `sum` | Integer types | `long` (nullable if input is nullable) |
-| `sum` | `float`, `double` | `double` (nullable if input is nullable) |
-| `sum` | `decimal` | `decimal` (nullable if input is nullable) |
+| `count()`, `count(value)`, `count_distinct(value)` | Rows / values | `long` (never nullable) |
+| `sum` | Integer types | `long?` without a nonempty-input proof |
+| `sum` | `float`, `double` | Catalog-selected nullable numeric carrier without a nonempty-input proof |
+| `sum` | `decimal` | `decimal?` without a nonempty-input proof |
 | `avg` | Any numeric | `double?` |
-| `min`, `max` | Any orderable | Same as input (nullable if input is nullable) |
+| `min`, `max` | Supported numeric / fixed-point | Input carrier, nullable without a nonempty-input proof |
 
 ### 9.6  Conversion Functions
 
-For conversions that require runtime parsing or formatting, use the built-in
-conversion functions:
-
-```
-to_int("42")           # string → int?
-to_double("3.14")      # string → double?
-to_long("100000")      # string → long?
-to_string(42)          # int → string?
-```
-
-See [Functions Reference](/docs/query-language/functions#scalar-functions) for the conversion-function catalog.
+Conversion-function aliases such as `to_int`, `to_long`, `to_double`, and
+`to_string` are retired source spellings, not a runtime parsing API. Use the
+supported `expression as type` conversion. If text parsing is required, declare
+an actual schema/host function with its own failure and nullability contract;
+do not infer that a numeric cast parses a string.
+See [Functions Reference](/docs/query-language/functions#type-conversion-functions).
 
 ---
 
 ## 10  Built-in Functions
 
-> **See also:** [CustomFunctions.md](/docs/query-language/functions) for defining your own functions.
+> **See also:** [Custom Functions](/docs/query-language/functions) for the selected signatures
+> and for declaring schema or host functions.
 
-Function names are **case-insensitive**. Aliases are listed in parentheses.
+Use documented canonical module-qualified scalar names. Authored schema and host
+function references require the exact declared spelling. Builtin and keyword
+admission follows their documented vocabulary, not a generic identifier alias.
 
 ### 10.1  Scalar Function Catalog
 
-The complete signature catalog for the built-in **String**, **Math**, **Date/Time**,
-**Type Conversion**, and **Null Handling** scalar functions lives in the canonical
-functions reference: [Functions Reference](/docs/query-language/functions#scalar-functions).
+The signature catalog for `text`, `math`, `date`, and `bits` is maintained in
+[Functions Reference](/docs/query-language/functions#scalar-functions). A name alone does not
+guarantee an overload for every carrier or support on every execution target.
 
-Semantic notes specific to expression evaluation:
-
-- Type conversion functions (`to_string`, `to_int`, `to_double`, `to_long`) return
-  **nullable** types — they return `null` if the conversion fails at runtime rather
-  than throwing.
-- `date_trunc` accepts the units `"year"`, `"month"`, `"day"`, `"hour"`, `"minute"`,
-  and `"second"`.
-- For the evaluation semantics of the null-handling functions and operators
-  (`coalesce`/`??`, `is_null`, `is_not_null`), see [§8 NULL Handling](#8--null-handling);
-  for type-coercion rules see [§9 Type Coercion](#9--type-coercion-rules).
+- `date.date_trunc` accepts the supported literal units `"year"`, `"month"`,
+  `"day"`, `"hour"`, `"minute"`, and `"second"`. A dynamic unit is not admitted.
+- A function call evaluates its supplied arguments once in authored order.
+  Nullable lifting is not short-circuiting: an absent early argument does not
+  by itself skip later arguments.
+- `??` and literal null tests have their own operator semantics; retired
+  `coalesce`, `is_null`, and `is_not_null` calls are not alternatives.
+- Explicit casts and `checked`/`unchecked` select supported conversion and
+  integral overflow contracts. They do not change the overload catalog.
 
 ### 10.6  Spatial Functions
 
-Spatial functions test geometric relationships between entity coordinates and query regions. When used in `filter`, the compiler plans a spatial index scan instead of a full table scan (requires a declared `SpatialGrid` index on the referenced coordinate columns).
+Spatial functions test geometric relationships between entity coordinates and query regions. When used as supported `filter` predicates, they can enable spatial index selection when a compatible `SpatialGrid` index is declared. A call alone does not guarantee an index access path.
 
 | Function | Signature (2D) | Signature (3D) | Description |
 |----------|-----------------|-----------------|-------------|
 | `within_radius` | `(entityX, entityY, centerX, centerY, radius: float) → bool` | `(entityX, entityY, entityZ, centerX, centerY, centerZ, radius: float) → bool` | `true` if entity is within Euclidean radius of center |
-| `within_bounds` | `(entityX, entityY, minX, minY, maxX, maxY: float) → bool` | — (no 3D overload) | `true` if entity is inside axis-aligned bounding box |
+| `within_bounds` | `(entityX, entityY, minX, minY, maxX, maxY: float) → bool` | `(entityX, entityY, entityZ, minX, minY, minZ, maxX, maxY, maxZ: float) → bool` | `true` if entity is inside axis-aligned bounding box |
 | `distance` | `(x1, y1, x2, y2: float) → float` | `(x1, y1, z1, x2, y2, z2: float) → float` | Euclidean distance between two points |
 
 **Notes:**
@@ -932,22 +923,33 @@ Spatial functions test geometric relationships between entity coordinates and qu
 
 **Examples:**
 
-```
+These fragments assume `GameObjects` has `Name: string` and compatible numeric
+`PosX`, `PosY`, `PosZ` coordinates. Declare `cx`, `cy`, `cz`, `radius`, `targetX`,
+and `targetY` with the selected overload's coordinate type in the containing
+query header. The literal distances below use the float overload.
+
+```conjure
 // Radius query — entities within 100 units of a point
 from GameObjects
-| filter within_radius(PosX, PosY, @cx, @cy, 100.0)
-| select Name, PosX, PosY
+| filter within_radius(PosX, PosY, @cx, @cy, 100.0f)
+| select { Name, PosX, PosY }
+```
 
+```conjure
 // Bounding box query
 from GameObjects
-| filter within_bounds(PosX, PosY, 0.0, 0.0, 500.0, 500.0)
+| filter within_bounds(PosX, PosY, 0.0f, 0.0f, 500.0f, 500.0f)
+```
 
+```conjure
 // Distance as a computed column
 from GameObjects
 | derive Dist = distance(PosX, PosY, @targetX, @targetY)
 | sort Dist
 | take 10
+```
 
+```conjure
 // 3D radius query
 from GameObjects
 | filter within_radius(PosX, PosY, PosZ, @cx, @cy, @cz, @radius)
@@ -958,69 +960,72 @@ from GameObjects
 ## 11  Aggregate Expressions
 
 Aggregate functions operate on sets of rows and produce a single result per group.
-They are valid only inside `aggregate` transforms or in `derive`/`select` with an
-implicit group context.
+They belong in `aggregate` stages, not arbitrary per-row expressions. A group
+creates partition scope but does not by itself make scalar calls into reductions.
+Admitted aggregate window calls belong in `derive` with an explicit frame.
+Use `aggregate count()` for a scalar row reduction, or `aggregate Count = count()`
+for a named row field. The old `| count` terminal is retired; the aggregate
+returns `long`, not the old terminal's `int`.
+`count(*)` is retired. A single named assignment has no braces; multiple
+assignments use a named block.
 
 ### 11.1  Standard Aggregates
 
 | Function | Aliases | Description | DISTINCT | Result |
 |----------|---------|-------------|:--------:|--------|
-| `count()` | — | Count all rows | — | `long` (never null) |
-| `count(expr)` | — | Count non-null values | ✓ | `long` (never null) |
-| `sum(expr)` | — | Sum of values | ✓ | `long` / `double` / `decimal` |
-| `avg(expr)` | `average` | Arithmetic mean | ✓ | `double?` |
-| `min(expr)` | — | Minimum value | ✓ | Same as input |
-| `max(expr)` | — | Maximum value | ✓ | Same as input |
-| `first(expr)` | — | First value in group | — | Same as input |
-| `last(expr)` | — | Last value in group | — | Same as input |
+| `count()` | — | Count all rows inside an aggregate | — | `long` (never null) |
+| `count_distinct(expr)` | — | Count distinct present values | Dedicated call | `long` (never null) |
+| `count(expr)` | — | Count non-null values | — | `long` (never null) |
+| `sum(expr)` | — | Sum of values | — | Selected numeric carrier, nullable without a nonempty-input proof |
+| `avg(expr)` | — | Arithmetic mean | — | `double?` |
+| `min(expr)` | — | Minimum supported numeric / fixed-point value | — | Same as input |
+| `max(expr)` | — | Maximum supported numeric / fixed-point value | — | Same as input |
+| `any_value(expr)` | — | Arbitrary present representative, not a first-row guarantee | — | Nullable input carrier |
 
 ### 11.2  Boolean and Bitwise Aggregates
 
 | Function | Aliases | Description |
 |----------|---------|-------------|
-| `any()` | — | True if group is non-empty (0-arity) |
-| `any(expr)` | — | True if any value is truthy |
-| `all(expr)` | — | True if all values are truthy |
-| `bool_and(expr)` | `booland` | Logical AND across all values |
-| `bool_or(expr)` | `boolor` | Logical OR across all values |
-| `bit_and(expr)` | `bitand` | Bitwise AND across all values |
-| `bit_or(expr)` | `bitor` | Bitwise OR across all values |
+| `any()` | — | Non-null `bool`: true if group is non-empty, false if empty |
+| `any(expr)` | — | Boolean reduction on nonnullable `bool` input; nullable scalar result for empty input |
+| `bool_and(expr)` | — | Logical AND across all values |
+| `bool_or(expr)` | — | Logical OR across all values |
+| `bit_and(expr)` | — | Bitwise AND across all values |
+| `bit_or(expr)` | — | Bitwise OR across all values |
 
 ### 11.3  Statistical Aggregates
 
 | Function | Aliases | Description |
 |----------|---------|-------------|
-| `stddev(expr)` | `stdev`, `std_dev` | Sample standard deviation |
-| `stddev_pop(expr)` | `stdevpop`, `stdev_pop` | Population standard deviation |
+| `stddev(expr)` | — | Sample standard deviation |
+| `stddev_pop(expr)` | — | Population standard deviation |
 | `variance(expr)` | — | Sample variance |
-| `var_pop(expr)` | `varpop`, `variance_pop`, `variancepop` | Population variance |
+| `var_pop(expr)` | — | Population variance |
 
 ### 11.4  Collection Aggregate
 
 | Function | Aliases | Description |
 |----------|---------|-------------|
-| `array_agg(expr)` | `arrayagg` | Collect values into an array |
+| `array_agg(expr)` | — | Collect values into an array |
 
 ### 11.5  DISTINCT Modifier
 
-Use `distinct` inside `count` to count only unique values:
+Use the dedicated aggregate to count distinct present values:
 
-```
+```conjure
 from Orders
-| aggregate { UniqueCustomers = count(distinct CustomerId) }
+| aggregate UniqueCustomers = count_distinct(CustomerId)
 ```
 
-Inside `aggregate`/`group` blocks, `distinct` is supported for `count`, `sum`, `avg`,
-`min`, and `max` (not `first`/`last` or the boolean/bitwise aggregates). In a plain
-expression context (e.g. `select sum(distinct X)`), `distinct` is currently restricted
-to `count(distinct …)`.
+The `distinct` call modifier is retired. Do not assume it can be attached to
+other reductions; use only catalog-admitted aggregate functions.
 
 ### 11.6  Nested Aggregate Prohibition
 
 Aggregates **cannot** be nested:
 
-```
-# ERROR: nested aggregate
+```text
+// ERROR: nested aggregate
 avg(sum(Amount))
 ```
 
@@ -1028,15 +1033,18 @@ The compiler detects nested aggregates during binding and produces a diagnostic 
 
 **Examples:**
 
-```
+Assume `Orders` declares `CustomerId: int` and `Amount: decimal`. This returns named aggregate fields per customer;
+its containing result signature must admit their actual nullable types.
+
+```conjure
 from Orders
 | group CustomerId (
     aggregate {
         OrderCount = count(),
         TotalSpent = sum(Amount),
         AvgOrder   = avg(Amount),
-        FirstOrder = min(OrderDate),
-        LastOrder  = max(OrderDate)
+        MinAmount  = min(Amount),
+        MaxAmount  = max(Amount)
     }
 )
 ```
@@ -1050,25 +1058,22 @@ without collapsing groups.
 
 ### 12.1  Syntax
 
-```
-from Source
-| sort OrderColumn
-| window by PartitionCol1, PartitionCol2 (
-    Alias1 = func Column [n] [frame: start..end],
-    Alias2 = func Column
-)
+There is no authored `window` stage. A window call is a named `derive` output;
+partitioning comes from an enclosing scoped group and ordering from `sort` in
+that scope. Aggregate windows require an explicit frame:
+
+```conjure
+from Sales s
+| group s.Region (
+    sort s.SaleDate
+    | derive MovingAvg = avg(s.Amount) over rows(-1, 1)
+    | select { s.Region, s.SaleDate, MovingAvg }
+  )
 ```
 
-Window expressions are specified through the `window` pipeline transform. Partitioning
-is expressed with `window by <cols>` (or `window` alone for a single global partition);
-row ordering is established by a preceding `sort` transform. Each output column is
-declared inside the block as `alias = func col [n]`, with an optional per-function
-`frame:` clause (see [§12.5](#125--frame-specification)).
-
-The signatures in §12.2–12.4 use conventional `func(args)` notation to convey arity and
-argument types; in a query they are written in the block form above. For example,
-`row_number` takes no column (`Rn = row_number`), and `lag`/`lead` take a column plus an
-optional integer offset (`Prev = lag Price 1`).
+`rows(-1, 1)` includes the previous, current, and next rows. Ranking and
+navigation functions use their catalog window role without an aggregate `over`
+frame. Derive the output before reading it in a filter or projection.
 
 ### 12.2  Ranking Functions
 
@@ -1087,11 +1092,12 @@ optional integer offset (`Prev = lag Price 1`).
 | `lag(expr, offset)` | `(col, n: int) → nullable type` | ✓ | Value from n rows before |
 | `lead(expr)` | `(col) → nullable type` | ✓ | Value from next row |
 | `lead(expr, offset)` | `(col, n: int) → nullable type` | ✓ | Value from n rows after |
-| `first_value(expr)` | `(col) → nullable type` | ✓ | First value in frame |
-| `last_value(expr)` | `(col) → nullable type` | ✓ | Last value in frame |
+| `first(expr)` | `(value) over rows(start, end)` | ✓ | First value in explicit frame |
+| `last(expr)` | `(value) over rows(start, end)` | ✓ | Last value in explicit frame |
 
 `lag` and `lead` always return nullable types since there may be no row at the
-specified offset.
+specified offset. `first_value` and `last_value` are retired aliases; framed
+`first` and `last` use the actual selected window result contract.
 
 ### 12.4  Windowed Aggregates
 
@@ -1106,30 +1112,44 @@ The following aggregates can also be used as window functions:
 | `min(expr)` | `(col) → nullable type` | Minimum in frame |
 | `max(expr)` | `(col) → nullable type` | Maximum in frame |
 
+Window count uses its selected `int` window result carrier; ordinary aggregate
+count returns `long`. Do not copy the aggregate signature onto a window call.
+
 ### 12.5  Frame Specification
 
-An optional per-function `frame:` clause defines the subset of partition rows used for
-computation. Frame bounds are integer offsets relative to the current row, written as an
-inclusive `start..end` range; omit a bound to make it unbounded in that direction:
+An aggregate window must state a frame:
 
-```
-frame: -1..1      # one row before through one row after the current row
-frame: ..0        # unbounded preceding through the current row
-frame: -5..       # five rows before through the end of the partition
+```text
+over rows(start, end)
+over range(start, end)
 ```
 
-Three frame kinds are available: `frame:` (rows — the default), `frame range:` (range),
-and `frame groups:` (groups). Each uses the same `start..end` offset form.
+| Bound | Meaning |
+|-------|---------|
+| `-N` | N rows before the current row for a row frame |
+| `0` | The current row |
+| `N` | N rows after the current row for a row frame |
+| `unbounded` | Unbounded on that side |
 
-**Example — 3-row moving average:**
+Frame endpoints are **inclusive**, unlike half-open `in a..b` membership.
+Row offsets must be admitted constant integral values, with start no greater
+than end. A `range` frame measures distance along exactly one compatible numeric
+or temporal sort key, not row count; temporal bounds use durations such as
+`over range(-5s, 0s)`. SQL `GROUPS` frames are not supported.
 
+**Example — running total:**
+
+```conjure
+from Sales s
+| group s.Region (
+    sort s.SaleDate
+    | derive RunningTotal = sum(s.Amount) over rows(unbounded, 0)
+    | select { s.Region, s.SaleDate, RunningTotal }
+  )
 ```
-from Sales
-| sort SaleDate
-| window by Region (
-    MovingAvg = avg Amount frame: -1..1
-)
-```
+
+If sort keys tie, supply an admitted tie-breaker when the query requires a
+fully determined row sequence. A window does not establish an order by itself.
 
 ---
 
@@ -1139,8 +1159,8 @@ from Sales
 
 Logical operators use short-circuit evaluation in generated code:
 
-- `a and b` — if `a` is `false`, `b` is **not evaluated**.
-- `a or b` — if `a` is `true`, `b` is **not evaluated**.
+- `a && b` — if `a` is `false`, `b` is **not evaluated**.
+- `a || b` — if `a` is `true`, `b` is **not evaluated**.
 
 This means side-effect-free expressions in `b` may be skipped entirely.
 
@@ -1151,13 +1171,14 @@ Expressions are evaluated in one of two contexts:
 | Context | Description | Example |
 |---------|-------------|---------|
 | Scalar | Per-row evaluation | `filter Age > 18` |
-| Aggregate | Per-group evaluation | `aggregate { Total = sum(Amount) }` |
+| Aggregate | Per-group evaluation | `aggregate Total = sum(Amount)` |
 
-Mixing contexts is an error:
+An aggregate assignment is a call, not a scalar expression combining grouped
+and per-row values:
 
-```
-# ERROR: scalar column in aggregate context without aggregation
-from Orders | aggregate { Total = sum(Amount) + CustomerId }
+```conjure
+// ERROR: an aggregate assignment is not an arbitrary scalar expression
+from Orders | aggregate Total = sum(Amount) + CustomerId
 ```
 
 ### 13.3  Operator Evaluation
@@ -1167,7 +1188,7 @@ Within a single expression, evaluation follows:
 1. **Parentheses** — innermost first.
 2. **Precedence** — higher-precedence operators bind tighter (see [§3](#3--operator-precedence)).
 3. **Associativity** — left-to-right for most binary operators; right-to-left for unary.
-4. **Short-circuit** — for `and`/`or` only.
+4. **Short-circuit** — for `&&`/`||`; conditional choice and `??` also skip unselected operands.
 
 ### 13.4  Determinism
 
@@ -1175,11 +1196,14 @@ Function volatility affects optimization:
 
 | Category | Meaning | Examples |
 |----------|---------|---------|
-| Immutable | Same inputs always produce same output | `length()`, `round()`, `abs()` |
-| Stable | May return different values across transactions | `now()`, `utcnow()` |
+| Immutable | Same inputs always produce same output | `text.length(value)`, `math.round(value)`, `math.abs(value)` |
+| Stable | May return different values across transactions | `date.now()`, `date.utcnow()` |
+| Unknown | No effect proof supplied by the function owner | custom C# and schema `extern` functions |
 
 The compiler uses volatility information to determine whether expressions can be
-folded at compile time, cached, or reordered.
+folded at compile time, cached, or reordered. `Unknown` is the conservative
+default: an unproven function is treated as neither pure nor deterministic, so
+the compiler never folds, caches, or reorders around it.
 
 ---
 
@@ -1193,28 +1217,32 @@ folded at compile time, cached, or reordered.
 | `/` | Arithmetic | numeric, numeric | numeric | Yes |
 | `%` | Arithmetic | numeric, numeric | numeric | Yes |
 | `-` (unary) | Arithmetic | numeric | numeric | Yes |
-| `==` | Comparison | compatible | bool | Yes → NULL |
-| `!=` | Comparison | compatible | bool | Yes → NULL |
-| `<` | Comparison | orderable | bool | Yes → NULL |
-| `>` | Comparison | orderable | bool | Yes → NULL |
-| `<=` | Comparison | orderable | bool | Yes → NULL |
-| `>=` | Comparison | orderable | bool | Yes → NULL |
-| `and` / `&&` | Logical | bool, bool | bool | Partial (see truth table) |
-| `or` / `\|\|` | Logical | bool, bool | bool | Partial (see truth table) |
-| `not` / `!` | Logical | bool | bool | Yes |
+| `==` | Comparison | compatible | bool | `NULL` value operand → `false`* |
+| `!=` | Comparison | compatible | bool | `NULL` value operand → `false`* |
+| `<` | Comparison | orderable | bool | `NULL` operand → `false` |
+| `>` | Comparison | orderable | bool | `NULL` operand → `false` |
+| `<=` | Comparison | orderable | bool | `NULL` operand → `false` |
+| `>=` | Comparison | orderable | bool | `NULL` operand → `false` |
+| `&&` | Logical | bool, bool | bool | `NULL` is normalized to `false` |
+| `\|\|` | Logical | bool, bool | bool | `NULL` is normalized to `false` |
+| `!` | Logical | bool | bool | `!NULL` → `true` |
 | `??` | Null coalescing | T?, T | T | Special (returns non-null) |
-| `is null` | Null test | any | bool | Never (always definite) |
-| `is not null` | Null test | any | bool | Never (always definite) |
-| `in` | Set membership | T, set of T | bool | Yes |
-| `like` | Pattern | string, string | bool | Yes |
-| `between` | Range | orderable | bool | Desugared to `>=` and `<=` |
+| `== null` | Null test | any | bool | Never (always definite) |
+| `!= null` | Null test | any | bool | Never (always definite) |
+| `in` | Set membership | T, set of T | bool | `NULL` is a non-match, so `in` is `false` |
+| `not in` | Set membership | T, set of T | bool | `false` when a `NULL` takes part; not the negation of `in` |
+| `like` | Pattern | string, string | bool | `NULL` operand → `false` |
+| `in a..b` | Range | compatible numeric / temporal bounds | bool | Half-open: lower inclusive, upper exclusive |
+
+\* `expr == null` and `expr != null` are definite absence / presence tests.
 
 ---
 
 ## Appendix B: Numeric Type Promotion Matrix
 
-The table shows the result type when combining two numeric operands with an arithmetic
-or comparison operator. Read as: `result = promote(row, column)`.
+The table shows nonnullable result carriers for ordinary binary arithmetic on
+these operand types. It is not an assignment-conversion or comparison-result
+table; comparisons produce `bool`, and nullable arithmetic lifts the result.
 
 | | `byte` | `short` | `int` | `long` | `float` | `double` | `decimal` |
 |-----------|:------:|:-------:|:-----:|:------:|:-------:|:--------:|:---------:|
@@ -1222,14 +1250,14 @@ or comparison operator. Read as: `result = promote(row, column)`.
 | **`short`** | int | int | int | long | float | double | decimal |
 | **`int`** | int | int | int | long | float | double | decimal |
 | **`long`** | long | long | long | long | float | double | decimal |
-| **`float`** | float | float | float | float | float | double | decimal |
-| **`double`** | double | double | double | double | double | double | decimal |
-| **`decimal`** | decimal | decimal | decimal | decimal | decimal | decimal | decimal |
+| **`float`** | float | float | float | float | float | double | — |
+| **`double`** | double | double | double | double | double | double | — |
+| **`decimal`** | decimal | decimal | decimal | decimal | — | — | decimal |
 
 > **Note:** `byte` and `short` types are widened to `int` for all arithmetic
 > operations. The `int` entries in those rows reflect the post-widening result type.
-> For multiplication specifically, `int × int → long` and `uint × uint → ulong`
-> to prevent overflow.
+> Multiplication uses the same carriers as other binary arithmetic; it does not
+> automatically widen `int` or `uint`. Overflow follows the selected policy.
 
 ---
 
@@ -1247,7 +1275,10 @@ or comparison operator. Read as: `result = promote(row, column)`.
 | **Collection** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓⁴ | ✓ |
 | **Null** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-¹ Temporal types must be the **same kind** (`DateTime` ↔ `DateTime`, not `DateTime` ↔ `TimeSpan`).
-² Binary types require compatible fixed-length constraints.
-³ Object types require class hierarchy compatibility (`IsAssignableFrom`).
-⁴ Collection types require compatible element types and collection kinds.
+¹ Common temporal carriers must be the **same kind** (`datetime` with `datetime`,
+not `datetime` with `timespan`); temporal arithmetic has separate typed rules.
+² Binary values require compatible binary contracts, not merely the same CLR array carrier.
+³ Nominal records and enums retain their declared identity. A common family does
+not grant structural assignment, cross-enum equality, or an unrelated record cast.
+⁴ Collection types require compatible element types and collection kinds; selected
+query-result constructors do not create a general storage or parameter conversion.

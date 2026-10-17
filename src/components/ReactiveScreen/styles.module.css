@@ -1,0 +1,213 @@
+/* UI views that update themselves: view model vs hand-wired presenter,
+   inside the DemoStage shell. */
+
+/* Stage: a centred pair — the shop device (fixed width) and, to its right,
+   one panel holding the changes stream (or the presenter and its handlers). */
+.stage {
+  display: grid;
+  grid-template-columns: 18.75rem minmax(22.5rem, 1fr);
+  align-items: center;
+  gap: var(--gap-md) calc(var(--gap-md) + 0.5rem);
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  min-width: 0;
+  min-height: 15rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--r-md);
+  background: var(--cdb-surface-2);
+}
+@media (max-width: 760px) {
+  .stage {
+    grid-template-columns: minmax(0, 15rem);
+    justify-content: center;
+    align-items: start;
+  }
+  .panel {
+    min-height: 0;
+  }
+  .web {
+    display: none;
+  }
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.goldLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-muted);
+}
+.gold {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  font-size: 1.1em;
+  fill: var(--ifm-color-primary);
+}
+.name {
+  fill: var(--cdb-ink);
+}
+.price {
+  font-family: var(--cdb-mono);
+  fill: var(--ifm-color-primary);
+}
+.dim {
+  fill-opacity: 0.45;
+}
+.tag {
+  fill: none;
+  stroke: var(--cdb-line);
+}
+.tagText {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-muted);
+}
+.staleTag {
+  fill: color-mix(in srgb, var(--cdb-wire) 12%, transparent);
+  stroke: var(--cdb-wire);
+}
+.staleText {
+  font-family: var(--cdb-mono);
+  font-size: 0.85em;
+  fill: var(--cdb-wire);
+}
+
+/* A brief highlight on exactly the rows that changed (red: refresh-all). */
+.flash {
+  fill: var(--ifm-color-primary);
+  opacity: 0;
+  animation: rs-flash 1.3s var(--ease) both;
+}
+.flashRed {
+  fill: var(--cdb-wire);
+}
+
+.web path {
+  fill: none;
+  stroke: var(--cdb-wire);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.isWired .web path {
+  opacity: 0.7;
+}
+
+
+/* The presenter the OnChanged web runs to (hand-wired) */
+.presenter {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--cdb-wire);
+  border-radius: var(--r-md);
+  background: var(--ifm-background-color);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--cdb-ink);
+  white-space: pre;
+  overflow-x: auto;
+  contain: inline-size;
+}
+.cls {
+  color: var(--cdb-wire);
+  font-weight: 600;
+}
+.missed {
+  color: var(--cdb-wire);
+}
+
+.stream {
+  min-height: 9.5rem;
+}
+.streamTitle {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+}
+.stream ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  color: var(--cdb-muted);
+}
+.stream li {
+  overflow-wrap: anywhere;
+}
+.stream .latest {
+  color: var(--ifm-color-primary);
+  animation: rs-in var(--dur) var(--ease) both;
+}
+.isWired .stream .latest {
+  color: var(--cdb-wire);
+}
+.stream .miss {
+  color: var(--cdb-wire);
+}
+.stream .empty {
+  opacity: 0.6;
+}
+
+
+/* Code tab "what you write" */
+.write {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  --cw-locked-h: 16rem;
+}
+.write .writeSummary {
+  margin: 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+.write .red {
+  color: var(--cdb-wire);
+}
+
+@keyframes rs-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rs-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.22;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

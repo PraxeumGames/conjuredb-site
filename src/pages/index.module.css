@@ -1,9 +1,10 @@
-/* Home page hero — "Editorial" direction: centered, oversized display type,
-   single gold accent. Section bodies use .cdb-* helpers. */
+/* Home page hero — "Editorial" direction: oversized display type, single
+   gold accent. Stacked and centred below 997px; copy | visual above it.
+   Section bodies use .cdb-* helpers. */
 
 .hero {
   position: relative;
-  padding: 7rem 0 5.5rem;
+  padding: 3.5rem 0 5rem;
   overflow: hidden;
   border-bottom: 1px solid var(--cdb-line);
 }
@@ -51,12 +52,12 @@
   align-items: center;
   gap: 0.55rem;
   font-family: var(--cdb-mono);
-  font-size: 0.76rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--cdb-muted);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.42rem 0.95rem;
   margin-bottom: 1.7rem;
   background: rgba(255, 255, 255, 0.015);
@@ -72,7 +73,7 @@
 
 .title {
   font-family: var(--ifm-heading-font-family);
-  font-size: clamp(2.8rem, 7vw, 5.4rem);
+  font-size: var(--fs-h1);
   line-height: 1.02;
   letter-spacing: -0.045em;
   font-weight: 600;
@@ -87,7 +88,7 @@
 }
 
 .subtitle {
-  font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+  font-size: var(--fs-lg);
   line-height: 1.62;
   color: var(--cdb-muted);
   margin: 0 auto 2.2rem;
@@ -111,61 +112,304 @@
 }
 .chip {
   font-family: var(--cdb-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
   background: var(--cdb-surface-2);
   border: 1px solid var(--cdb-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.4rem 0.85rem;
 }
 
-.heroCode {
+/* Two-line subtitle: one sentence per line, not a paragraph. */
+.subLine {
+  display: block;
+}
+.subLine + .subLine {
+  margin-top: 0.35rem;
+  color: var(--cdb-ink);
+  opacity: 0.88;
+}
+
+/* Hero visual sits under the copy at every width. */
+.heroVisual {
   position: relative;
   width: 100%;
   max-width: 56rem;
   margin: 0 auto;
 }
-.heroCode::before {
-  content: '';
-  position: absolute;
-  inset: -20px -10px 0;
-  background: radial-gradient(58% 55% at 50% 24%, rgba(236, 194, 92, 0.18), transparent 72%);
-  filter: blur(28px);
-  z-index: -1;
-  pointer-events: none;
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 2.5rem 0 3.5rem;
+  }
+  .eyebrow {
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.08em;
+    padding: 0.4rem 0.8rem;
+  }
+  .subtitle {
+    font-size: var(--fs-md);
+  }
+  .heroGrid {
+    gap: 2.4rem;
+  }
+  .chips {
+    margin-top: 1.8rem;
+  }
 }
-.heroCodeCaption {
-  margin: 1rem 0 0;
-  font-size: 0.84rem;
+
+/* Desktop: copy on the left, the visual on the right — both in the first viewport. */
+@media (min-width: 997px) {
+  /* Both columns centred in one screen (minus the navbar), capped at 820px;
+     the step buttons keep ≥ 2.5rem from the hero's bottom edge. */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: min(calc(100vh - var(--ifm-navbar-height)), 820px);
+    padding: var(--gap-md) 0 var(--gap-lg);
+  }
+  .heroGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 47fr) minmax(0, 53fr);
+    align-items: center;
+    gap: 2.5rem;
+  }
+  .heroCopy {
+    max-width: none;
+    text-align: left;
+    align-items: flex-start;
+  }
+  .eyebrow {
+    margin-bottom: 1.3rem;
+  }
+  .title {
+    margin-bottom: 1.1rem;
+  }
+  .subtitle {
+    font-size: var(--fs-lg);
+    max-width: 36ch;
+    margin: 0 0 1.8rem;
+  }
+  .ctaRow {
+    justify-content: flex-start;
+  }
+  .chips {
+    margin-top: 1.7rem;
+    justify-content: flex-start;
+    gap: 0.2rem;
+  }
+  .chip {
+    font-size: var(--fs-2xs);
+    letter-spacing: -0.02em;
+    padding: 0.34rem 0.3rem;
+    white-space: nowrap;
+  }
+  .heroVisual {
+    max-width: none;
+  }
+}
+
+/* Claim 1: three facts with status badges under the replay demo. */
+.facts {
+  list-style: none;
+  margin: var(--gap-md) auto 0;
+  padding: 0;
+  max-width: 62rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  text-align: left;
+}
+.fact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 1rem 1.1rem;
+  background: var(--ifm-background-color);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--cdb-ink);
+}
+@media (max-width: 996px) {
+  .facts {
+    grid-template-columns: 1fr;
+    max-width: 26rem;
+  }
+}
+
+/* Claims: four full-width cards, each a header row over its visual. */
+.claims {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-top: 2.4rem;
+}
+.claim {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--gap-lg);
+  padding: var(--gap-lg);
+}
+/* Claims with a larger, interactive visual: a header row (title, badges and
+   links | the paragraph), then the visual across the whole card. */
+.claimWide {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--gap-md);
+}
+.claimWide .claimVisual {
+  max-width: none;
+}
+.claimWide:hover .claimVisual {
+  transform: none;
+}
+@media (min-width: 1180px) {
+  .claimWide .claimText {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      'title body'
+      'badges body'
+      'links body';
+    column-gap: var(--gap-lg);
+    row-gap: 0.9rem;
+    align-items: start;
+  }
+  .claimWide .claimText h3 {
+    grid-area: title;
+  }
+  .claimWide .claimText > p {
+    grid-area: body;
+    margin: 0;
+  }
+  .claimWide .claimBadges {
+    grid-area: badges;
+  }
+  .claimWide .claimLinks {
+    grid-area: links;
+  }
+}
+.claimText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+.claim h3 {
+  font-size: var(--fs-xl);
+  line-height: 1.15;
+  margin: 0;
+}
+.claimBadges {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+}
+.claimBadges li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-ink);
+}
+.claimVisual {
+  max-width: 22rem;
+  width: 100%;
+  justify-self: center;
+  transition: transform var(--dur) var(--ease);
+}
+.claim:hover .claimVisual {
+  transform: translateY(-3px);
+}
+@media (max-width: 996px) {
+  .claim {
+    grid-template-columns: 1fr;
+    gap: 1.6rem;
+    padding: 1.5rem 1.3rem;
+  }
+}
+
+/* Shipped today: the code window beside the list of what is in the docs. */
+.shipped {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+  margin-top: 2.4rem;
+  text-align: left;
+}
+.shippedCaption {
+  margin: 0.9rem 0 0;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
   text-align: center;
 }
-
-.proofCta {
-  margin-top: 2.2rem;
+.shippedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-
-/* Problem cards: muted, a warm hairline edge to read as "pain". */
-.pain {
-  border-left: 2px solid rgba(224, 122, 95, 0.45);
+.shippedList li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  padding: 0.7rem 0;
 }
-.pain p {
-  font-size: 1rem;
+.shippedList li:first-child {
+  padding-top: 0.2rem;
+}
+.shippedTitle {
+  font-weight: 600;
   color: var(--cdb-ink);
-  opacity: 0.85;
+}
+.shippedLine {
+  grid-column: 1;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--cdb-muted);
+}
+.shippedLink {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.proofLine {
+  margin: 2.2rem auto 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-ink);
+  text-align: center;
+}
+.shippedCode {
+  min-width: 0;
+}
+@media (max-width: 996px) {
+  .shipped {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-/* Benefit cards: gold accent edge + a small category tag. */
-.benefit {
-  border-left: 2px solid var(--ifm-color-primary);
+.statBand {
+  padding-top: var(--section-y-tight);
 }
-.benefitTag {
-  display: inline-block;
-  font-family: var(--cdb-mono);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ifm-color-primary);
-  margin-bottom: 0.6rem;
+.statBand::before {
+  display: none; /* the numbers sit directly under the hero */
+}
+
+.claimLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
 }

@@ -11,7 +11,7 @@ query and the `CompleteQuest` command on top of it.
 
 ## Schema
 
-```prql
+```conjure
 table QuestProgress(plural: QuestProgressRows, persistence: local, capacity: 2048, type_id: 3) {
     Id: int @id
     PlayerId: int
@@ -24,30 +24,48 @@ table QuestProgress(plural: QuestProgressRows, persistence: local, capacity: 204
 
 ## Query the player's open quests
 
-```prql
+```conjure
 query GetOpenQuests(playerId: int) -> QuestProgress[] {
-    from QuestProgressRows
-    | filter PlayerId == @playerId && Completed == false
-    | sort QuestId
+    from QuestProgress q
+    | filter q.PlayerId == @playerId && !q.Completed
+    | sort q.QuestId
 }
 ```
 
 The `lookup` index on `PlayerId` means this filter is a direct index probe, not a table
-scan — even with thousands of rows.
+scan — even with thousands of rows. The query never names the index: the planner proves
+the filter matches it and chooses the probe.
 
 ## Complete a quest with a command
 
-```prql
+```conjure
 module Quests {
-    command CompleteQuest(playerId: int, questId: int) -> CompleteQuestResult
-    kind local
-    {
-        upsert QuestProgressRows
-        | key { PlayerId: playerId, QuestId: questId }
-        | set Completed = true
-
-        return { questId: questId }
+    type CompleteQuestResult {
+        questId: int
     }
+
+    command CompleteQuest(playerId: int, questId: int) -> CompleteQuestResult
+    kind: local
+    {
+        upsert QuestProgress
+        | key { PlayerId = @playerId, QuestId = @questId }
+        | set { Completed = true }
+
+        return { questId = @questId }
+    }
+}
+```
+
+## Count what is left
+
+A scalar reduction is an `aggregate` with one unnamed aggregate, and the signature says it
+returns a non-nullable `long`:
+
+```conjure
+query OpenQuestCount(playerId: int) -> long {
+    from QuestProgress q
+    | filter q.PlayerId == @playerId && !q.Completed
+    | aggregate count()
 }
 ```
 
@@ -61,7 +79,7 @@ using var ctx = DbContextBuilder<GameDbContext>.Create()
     .WithDefaultSnapshot()
     .Build();
 
-var open = ctx.GetOpenQuests(playerId: 1);
+var open = ctx.QuestProgressRows.GetOpenQuests(playerId: 1);
 ```
 
 See [Indexing](/docs/schema/indexing) for how to choose `lookup` vs `sorted_set` / `sorted_list`

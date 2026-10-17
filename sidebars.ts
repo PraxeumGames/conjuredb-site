@@ -54,6 +54,7 @@ const sidebars: SidebarsConfig = {
       label: 'Advanced Features',
       items: [
         'advanced/reactive-queries',
+        'advanced/ephemeral-tables',
         'advanced/procedural-generation',
         'advanced/navigation-editors',
       ],
@@ -72,6 +73,7 @@ const sidebars: SidebarsConfig = {
         'examples/inventory',
         'examples/reporting',
         'examples/quests',
+        'examples/arena-ecs',
       ],
     },
     {

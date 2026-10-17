@@ -23,7 +23,7 @@
 
   background: var(--cw-bg);
   border: 1px solid var(--cw-bar-border);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, var(--cw-shadow);
   font-family: var(--cdb-mono, 'Geist Mono', ui-monospace, Menlo, Consolas, monospace);
@@ -87,14 +87,14 @@
   border: none;
   cursor: pointer;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   padding: 0 0.95rem;
   display: flex;
   align-items: center;
   color: var(--cw-tab);
   background: transparent;
   border-top: 2px solid transparent;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 .tab:hover {
   color: var(--cw-tab-active);
@@ -107,9 +107,8 @@
 
 .lang {
   margin-left: auto;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--cw-lang);
   flex-shrink: 0;
 }
@@ -118,7 +117,9 @@
   display: flex;
   padding: 1rem 0;
   overflow-x: auto;
-  font-size: 0.85rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cw-gutter) transparent;
+  font-size: var(--fs-sm);
   line-height: 1.7;
 }
 .gutter {
@@ -159,6 +160,51 @@
   .caret { animation: none; }
 }
 
+/* Capped (homepage under-the-hood): N lines over a faded edge, expandable. */
+.clipped .body {
+  max-height: calc(var(--cw-cap) * 1.7em + 1rem);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.35rem 0.9rem 0.55rem;
+  border-top: 1px solid var(--cw-bar-border);
+  background: var(--cw-bar);
+}
+.more {
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--cw-bar-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cw-tab-active);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.more:hover {
+  border-color: var(--ifm-color-primary);
+}
+.more:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+.scroll {
+  /* 1.7em per line plus the body's vertical padding */
+  max-height: calc(var(--cw-lines) * 1.7em + 2rem);
+  overflow-y: auto;
+}
+.dense .body {
+  font-size: var(--fs-xs);
+}
+/* Locked excerpt: fixed height, no scrolling, fades out at the bottom. */
+.locked .body {
+  max-height: var(--cw-locked-h, 22rem);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
 /* Token colors — theme-aware via vars */
 .kw { color: var(--cw-kw); }
 .ty { color: var(--cw-ty); }
@@ -168,3 +214,21 @@
 .com { color: var(--cw-com); font-style: italic; }
 .varname { color: var(--cw-var); }
 .attr { color: var(--cw-attr); }
+
+/* Phones: the language label pushes the title bar past the viewport. */
+@media (max-width: 480px) {
+  .lang {
+    display: none;
+  }
+}
+
+.body::-webkit-scrollbar {
+  height: 6px;
+}
+.body::-webkit-scrollbar-thumb {
+  background: var(--cw-gutter);
+  border-radius: var(--r-sm);
+}
+.body::-webkit-scrollbar-track {
+  background: transparent;
+}

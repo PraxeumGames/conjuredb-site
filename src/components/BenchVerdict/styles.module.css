@@ -5,14 +5,13 @@
 /* Log-scale comparison chart */
 .chart {
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
   padding: 1.3rem 1.4rem 1.5rem;
 }
 .chartHead {
   font-family: var(--cdb-mono);
-  font-size: 0.74rem;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   letter-spacing: 0.05em;
   color: var(--cdb-muted);
   margin-bottom: 1.1rem;
@@ -28,7 +27,7 @@
   margin-bottom: 0;
 }
 .name {
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   color: var(--cdb-ink);
   text-align: right;
 }
@@ -44,13 +43,13 @@
 }
 .bar {
   height: 2rem;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   min-width: 0.4rem;
-  transition: width 0.4s ease;
+  transition: width var(--dur) var(--ease);
 }
 .time {
   font-family: var(--cdb-mono);
-  font-size: 0.84rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--cdb-ink);
@@ -60,7 +59,7 @@
 }
 .mult {
   font-family: var(--cdb-mono);
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
   white-space: nowrap;
   min-width: 5.5rem;
@@ -89,14 +88,14 @@
 }
 .stat {
   border: 1px solid var(--cdb-line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
   padding: 1.1rem 1.2rem;
 }
 .statNum {
   display: block;
   font-family: var(--cdb-mono);
-  font-size: 1.7rem;
+  font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ifm-color-primary);
@@ -105,7 +104,7 @@
 .statLabel {
   display: block;
   margin-top: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
   line-height: 1.4;
 }
@@ -118,7 +117,7 @@
 }
 .note {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   line-height: 1.6;
   color: var(--cdb-ink);
   padding-left: 0.9rem;
@@ -128,7 +127,7 @@
   color: var(--cdb-ink);
 }
 .note code {
-  font-size: 0.85em;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 720px) {

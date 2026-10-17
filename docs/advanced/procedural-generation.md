@@ -6,16 +6,16 @@ ConjureDB supports Deterministic Procedural Generation (DPG): a set of query
 operators and runtime primitives that produce reproducible, seed-driven content
 entirely within the compiled query pipeline. DPG targets game-client scenarios
 where content must be generated on the fly — loot tables, daily offers, NPC
-populations, level layouts, reward distributions — while guaranteeing that the
-same seed always yields the same output on every platform and every run.
+populations, level layouts, reward distributions — with repeatable results when
+the seed, ordered input, and sampling contract are unchanged. `generate` itself is count-only and does not consume randomness.
 
 Key properties:
 
 | Property | Description |
 |----------|-------------|
-| **Deterministic** | Same seed + same input = identical output across platforms. The integer hashing core and `hash_float` are bit-reproducible; `hash_normal` is the one exception (see [Design Notes](#design-notes)). |
-| **Efficient** | `generate` compiles to an allocation-free counted loop. `sample`/`shuffle` currently buffer their input into managed lists (see [Design Notes](#design-notes)). |
-| **Composable** | DPG operators (`generate`, `sample`, `shuffle`, `materialize`) compose freely with all other pipeline stages (`filter`, `sort`, `join`, `derive`, `select`, etc.). |
+| **Deterministic** | Sampling uses an invocation-local Unity32 stream; the seed and input traversal order determine its sequence. Hash helpers are separate pure functions. |
+| **Execution** | `generate` streams virtual rows; current sampling plans buffer input in managed collections. Do not assume sampling is zero-allocation. |
+| **Composable** | DPG operators (`generate`, `sample`, `shuffle`, `materialize`) compose with compatible pipeline stages (`filter`, `sort`, `join`, `derive`, `select`, etc.). |
 
 ---
 
@@ -23,12 +23,12 @@ Key properties:
 
 ### Deterministic Hashing
 
-DPG is built on a runtime hashing library (`DpgHash`) based on xxHash64. Every
-hash function is **pure** — no side effects, no global state, and an integer-only
-mixing core. The integer hash functions (`hash`, `hash_int`, `hash_index`) and
-`hash_float` produce bit-identical results regardless of platform, JIT, or runtime
-version. `hash_normal` is the exception — its Box-Muller transform uses
-floating-point transcendental math (see [Design Notes](#design-notes)).
+The runtime hashing library (`DpgHash`) is based on xxHash64. It is separate
+from the Unity32 stream used by `sample` and `shuffle`. Every
+hash function is **pure** — no side effects or global state. The hash mixing
+core uses integer arithmetic. `hash_normal` additionally uses floating-point
+Box–Muller math; do not infer an arbitrary-runtime bit-exact guarantee from the
+integer mixing core alone.
 
 #### Hash Functions
 
@@ -37,7 +37,7 @@ floating-point transcendental math (see [Design Notes](#design-notes)).
 | `hash` | `hash(seed: long, key: long) → long` | `long` | Core 64-bit hash. Combines a seed with an arbitrary key. |
 | `hash_int` | `hash_int(seed: long, value: long, min: int, max: int) → int` | `int` | Uniform integer in `[min, max)`. |
 | `hash_float` | `hash_float(seed: long, value: long) → double` | `double` | Uniform double in `[0.0, 1.0)`. IEEE 754 compliant. |
-| `hash_normal` | `hash_normal(seed: long, value: long, mean: double, stddev: double) → double` | `double` | Normally distributed double (Box-Muller transform; **not** guaranteed bit-identical across platforms — see [Design Notes](#design-notes)). |
+| `hash_normal` | `hash_normal(seed: long, value: long, mean: double, stddev: double) → double` | `double` | Normally distributed double (Box-Muller, deterministic). |
 | `hash_index` | `hash_index(seed: long, value: long, count: int) → int` | `int` | Uniform index in `[0, count)`. Sugar for `hash_int(seed, value, 0, count)`. |
 
 All public DPG hash functions accept a `long` seed as the first argument and
@@ -48,62 +48,66 @@ also take an explicit `value` input that is folded into the deterministic hash.
 
 ### Virtual Row Generation
 
-The `generate(count, seed)` operator produces virtual rows without any
-underlying table or `DbSet`. Each row receives two implicit columns:
+The `generate(count)` source produces virtual rows without an underlying table
+or `DbSet`. Each row exposes `RowIndex`, an `int` in `0 .. count-1`. A
+nonpositive runtime count produces no rows. There is no implicit `Seed` column.
 
-| Column | Type | Derivation |
-|--------|------|------------|
-| `RowIndex` | `int` | Sequential `0 .. count-1`. |
-| `Seed` | `long` | `hash(baseSeed, rowIndex)` — unique per-row seed. |
+Virtual rows are created lazily during query execution. The source compiles to
+a counted loop; downstream operators determine any additional storage needs.
 
-Virtual rows are created lazily during query execution. No intermediate
-collection is allocated — the emitter produces a counted loop that feeds
-downstream operators directly.
-
+```conjure
+from generate(100) g
+| select g.RowIndex
 ```
-from generate(100, @worldSeed) g
-| select g.RowIndex, g.Seed
-```
+
+For keyed procedural values, explicitly derive a hash from your seed and
+`RowIndex`; see [Generated Inventory with Templates](#pattern-2-generated-inventory-with-templates).
 
 ---
 
 ### Sampling
 
-The `sample` operator performs deterministic subset selection:
+The `sample` operator selects rows with an invocation-local Unity32 random
+stream. The seed must be a nonzero `uint`; zero is rejected rather than
+normalized. Count and seed must be independent of the current input row.
 
+```text
+sample <count> (seed: <seed_expr> [, weight: <weight_expr>] [, replacement: true])
 ```
-sample <count> seed <seed_expr> [by <weight_expr>]
-```
 
-**Uniform sampling** (no `by` clause): each row is hashed with the provided
-seed; the top-N rows by hash priority are selected. The current implementation
-buffers the input rows and their priorities into managed lists, then performs an
-O(N·K) partial selection of the top-N (K = requested count) — it is not a
-single-pass, allocation-free scan.
+**Uniform sampling** (no `weight:` argument) uses partial Fisher–Yates without
+replacement. With `replacement: true`, each output slot draws an input index
+independently, so duplicates are possible.
 
-**Weighted sampling** (`by weight_expr`): implements the Efraimidis-Spirakis
-one-pass weighted reservoir algorithm. Each row's priority is
-derived from a deterministic uniform sample raised to `(1 / weight)`, and the
-top-N priorities win. This
-guarantees that higher-weight rows are proportionally more likely to appear.
+**Weighted sampling** uses Efraimidis–Spirakis priorities without replacement
+and cumulative weight bounds with replacement. Weights must be finite and
+nonnegative; zero-weight rows are ineligible. Without replacement the result
+contains at most the number of eligible rows. Weighted replacement requires a
+finite, positive total weight for nonempty input. Empty input produces no rows.
+A nonpositive runtime sample count produces no rows.
 
-By default, sampling is **without replacement** — each row can appear at most
-once. Append `with replacement` to allow duplicates.
-
----
+Sampling is **without replacement** by default. The current emitter buffers all
+input rows, so this is not a streaming or zero-allocation operator. Input
+traversal order is part of reproducibility: sort by a stable unique key before
+sampling when the upstream traversal order is not otherwise fixed.
 
 ### Shuffling
 
-The `shuffle` operator applies a deterministic permutation to all input rows:
+The `shuffle` operator applies a Unity32 Fisher–Yates permutation to all input
+rows, using the same seed requirements as sampling:
 
-```
-shuffle <seed_expr>
+```text
+shuffle (seed: <seed_expr>)
 ```
 
-Semantically, `shuffle seed` is sugar for
-`sample int.MaxValue seed expr` (without replacement). Every row receives a
-hash-derived priority and the output is ordered by that priority, producing a
-deterministic permutation of the entire input.
+For identical ordered input and seed, uniform sampling without replacement
+returns a prefix of that shuffle. This is not hash-priority ordering.
+
+**Sequence migration:** canonical sampling changes the random sequence from
+the retired hash-based sampling surface. Updating the spelling does not
+preserve old sampled content. Count-only generation also removes the implicit
+`Seed` output, so any generated public result types and saved procedural content
+must be reviewed explicitly; there is no automatic API or content equivalence.
 
 ---
 
@@ -112,15 +116,13 @@ deterministic permutation of the entire input.
 The `materialize` operator persists DPG results into a named table and
 controls when that table is refreshed:
 
-```
+```text
 materialize into <TableName> [refresh on(<sources>) [every(<interval>)]]
 ```
 
-The `materialize` clause records the target table and its refresh policy (the
-source tables and interval) as plan metadata on the compiled query. Note that
-automatic population of the target `DbSet` and scheduled regeneration are **not
-yet wired** — the compiled query currently returns the generated rows directly;
-treat the `refresh on(...)` / `every(...)` policy as declarative intent for now.
+Materialized results are stored as a regular `DbSet` and can be queried by
+other compiled queries. Refresh is tick-driven (game-loop model, no OS timers),
+ensuring deterministic update timing.
 
 ---
 
@@ -128,27 +130,34 @@ treat the `refresh on(...)` / `every(...)` policy as declarative intent for now.
 
 ### Pattern 1: Simple Loot Table
 
-Select 5 weighted items from a loot template table.
+Select up to 5 weighted items from a loot template table with unique `ItemId`
+values. Sampling parameters
+(`@playerSeed`, `@dailySeed`, `@spawnSeed`, and `@gameSeed` below) are nonzero
+`uint` values; seeds passed to the separate hash helpers are `long` values.
 
-```
+```conjure
 from LootTemplates t
-| sample 5 seed @playerSeed by t.DropWeight
-| select t.ItemId, t.Name, t.Rarity
+| sort t.ItemId
+| sample 5 (seed: @playerSeed, weight: t.DropWeight)
+| select { t.ItemId, t.Name, t.Rarity }
 ```
 
 ### Pattern 2: Generated Inventory with Templates
 
 Generate 100 virtual slots, join each to an item template using a hashed index,
-then derive per-slot quantity and quality.
+then derive per-slot quantity and quality. This example requires template IDs
+to be dense in `[0, 50)`; use an explicit lookup mapping for other key layouts.
+`RowSeed` is an authored derived value, not a column supplied by `generate`.
 
-```
-from generate(100, @worldSeed) g
-| join ItemTemplates t (hash_index(g.Seed, 0L, 50) == t.Id)
+```conjure
+from generate(100) g
+| derive RowSeed = hash(@worldSeed, g.RowIndex)
+| join ItemTemplates t (hash_index(RowSeed, 0L, 50) == t.Id)
 | derive {
-  Quantity = hash_int(g.Seed, 0L, 1, 10),
-  Quality = hash_float(g.Seed, 0L)
+  Quantity = hash_int(RowSeed, 1L, 1, 10),
+  Quality = hash_float(RowSeed, 2L)
 }
-| select g.RowIndex as Slot, t.Name, Quantity, Quality
+| select { Slot = g.RowIndex, Name = t.Name, Quantity = Quantity, Quality = Quality }
 ```
 
 ### Pattern 3: Daily Offers
@@ -156,42 +165,59 @@ from generate(100, @worldSeed) g
 Deterministic daily shop: 3 weighted products, materialized and refreshed on
 source change or every 24 hours.
 
-```
+```conjure
 from Products p
-| sample 3 seed @dailySeed by p.OfferWeight
-| select p.Id, p.Name, p.Price
+| sort p.Id
+| sample 3 (seed: @dailySeed, weight: p.OfferWeight)
+| select { p.Id, p.Name, p.Price }
 | materialize into DailyOffers refresh on(Products) every(86400 s)
 ```
 
 ### Pattern 4: Weighted Enemy Spawning
 
-Use `sample ... by <weight_expr>` for weighted deterministic picks. The
-standalone `hash_weighted_index` helper is not part of the current DSL surface,
+Use `sample n (seed: @seed, weight: weight_expr)` for weighted deterministic
+picks. With replacement, the same template may be chosen more than once:
+
+```conjure
+from EnemyTemplates e
+| sort e.Id
+| sample 20 (seed: @spawnSeed, weight: e.SpawnWeight, replacement: true)
+| select e.Id
+```
+
+The standalone `hash_weighted_index` helper is not part of the current DSL surface,
 so weighted selection should be expressed through `sample`, while positional
 and level variation can still come from `hash_float(seed, value)` and
 `hash_int(seed, value, min, max)`.
 
 ### Pattern 5: Shuffled Deck
 
-Deterministic shuffle of a card deck, then draw 5.
+Deterministic shuffle of a card deck, then draw 5. The example assumes each
+`(Suit, Rank)` pair identifies one card.
 
-```
+```conjure
 from Cards c
-| shuffle @gameSeed
+| sort c.Suit, c.Rank
+| shuffle (seed: @gameSeed)
 | take 5
-| select c.Suit, c.Rank, c.Value
+| select { c.Suit, c.Rank, c.Value }
 ```
 
 ### Pattern 6: Deterministic NPC Names
 
 Combine first and last name tables via independent hashed indices to generate
-unique NPC names.
+NPC names. Pass the current positive row counts explicitly; `count(fn)` is not a
+scalar table-cardinality expression inside a join predicate. The example assumes
+each name table has dense integer IDs in `[0, count)` and that the supplied
+counts match the table contents. Without that contract, a hashed index can miss
+a row, so use an explicit lookup mapping instead.
 
-```
-from generate(50, @townSeed) g
-| join FirstNames fn (hash_index(g.Seed, 0L, count(fn)) == fn.Id)
-| join LastNames ln (hash_index(hash(g.Seed, 100L), 0L, count(ln)) == ln.Id)
-| select fn.Name as First, ln.Name as Last, g.RowIndex as NpcId
+```conjure
+from generate(50) g
+| derive RowSeed = hash(@townSeed, g.RowIndex)
+| join FirstNames fn (hash_index(RowSeed, 0L, @firstNameCount) == fn.Id)
+| join LastNames ln (hash_index(RowSeed, 100L, @lastNameCount) == ln.Id)
+| select { First = fn.Name, Last = ln.Name, NpcId = g.RowIndex }
 ```
 
 ---
@@ -200,26 +226,26 @@ from generate(50, @townSeed) g
 
 ### Source-Based Refresh
 
-```
+```text
 from ... | materialize into Cache refresh on(Templates, Config)
 ```
 
-This declares that `Cache` should be regenerated when `Templates` or `Config`
-change. (The refresh policy is recorded as metadata; automatic regeneration is
-not yet wired — see [Materialization](#materialization).)
+When `Templates` or `Config` tables receive commits, `Cache` is scheduled for
+full regeneration on the next tick.
 
 ### Interval-Based Refresh
 
-```
+```text
 from ... | materialize into DailyDeals every(86400 s)
 ```
 
-Declares a 24-hour (86 400 s) regeneration interval for the materialized target.
-(Declarative today — see [Materialization](#materialization).)
+Regenerated every 86 400 seconds (24 hours) in game-loop ticks — not
+wall-clock time. The tick counter is owned by the `DbContext` and advanced
+explicitly by the game loop.
 
 ### Combined
 
-```
+```text
 from ... | materialize into Cache refresh on(Templates) every(3600 s)
 ```
 
@@ -242,31 +268,27 @@ interval timer resets.
 
 ## Design Notes
 
-- **Determinism guarantee.** The integer mixing core uses integer-only
-  arithmetic, and `hash`, `hash_int`, `hash_index`, and `hash_float` are
-  bit-reproducible across platforms. `hash_normal` is the exception: its
-  Box-Muller transform calls `System.Math` transcendental functions
-  (`log`/`sqrt`/`cos`), which are not guaranteed to be bit-identical across
-  platforms and runtimes — treat `hash_normal` as best-effort rather than
-  bit-reproducible.
+- **Determinism contracts.** Hash helpers are keyed pure functions; sampling
+  uses a separate invocation-local Unity32 stream whose consumption depends on
+  ordered input. Neither count-only generation nor a syntax migration preserves
+  the removed implicit seed/result contract. Validate saved-content expectations
+  when changing the query, input order, or sampling contract.
 
-- **Performance.** `generate` compiles to an allocation-free counted loop.
-  `sample` (and therefore `shuffle`, which desugars to it) buffers the input rows
-  and their priorities into managed `List<T>` collections and performs an O(N·K)
-  partial selection of the top-N by priority — so the sample/shuffle path does
-  allocate and is not single-pass.
+- **Performance.** `generate` compiles to a counted loop. Current `sample` and
+  `shuffle` plans buffer input in managed lists; weighted selection also needs
+  auxiliary state. Measure the complete query rather than assuming zero heap
+  use or a single-pass reservoir implementation.
 
 - **Composability.** DPG operators are regular pipeline stages. They can be
   freely combined with `filter`, `sort`, `join`, `derive`, `group`, `select`,
-  and all other operators. The optimizer handles DPG nodes like any other
-  relational operator — they participate in predicate pushdown, join reordering,
-  and emission.
+  and other operators where their contracts permit. Sampling is order-sensitive;
+  optimizer transformations must preserve the authored traversal sequence and
+  random-stream consumption rather than freely reordering rows across it.
 
-- **Materialization.** The `materialize into … refresh on(…) every(…)` clause is
-  parsed and records the target table, refresh sources, and interval as plan
-  metadata. Runtime auto-population and scheduled regeneration of the target are
-  not yet implemented (there is no game-loop tick API), so treat the refresh
-  policy as declarative today.
+- **Materialization scheduler.** Refresh is tick-driven, not timer-driven. The
+  game loop calls `DbContext.Tick()` which checks pending refresh conditions.
+  This avoids OS timer jitter and keeps regeneration deterministic with respect
+  to game state.
 
 - **Compatibility with PGO.** DPG queries benefit from
   [Profile-Guided Optimization](/docs/performance/pgo) — PGO data can size output buffers,

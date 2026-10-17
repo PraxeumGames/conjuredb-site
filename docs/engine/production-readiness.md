@@ -17,7 +17,7 @@ A release candidate is ready when all of the following are true:
 | Area | Required proof |
 |------|----------------|
 | Runtime DB | Transaction atomicity, persistence recovery, secondary-index consistency, AES/corruption handling, and durability policy tests pass. |
-| Compiler | Compiler, IR, integration, planning, emission, optimizer, measured replay, and search replay gates pass. |
+| Compiler | Compiler, IR, integration, planning, emission, optimizer, selected-plan structural replay, and search replay gates pass. |
 | Codegen | Generated-code quality and generator drift gates pass; no generated `*.g.cs` file is manually edited. |
 | Reactive | Reactive capability, correctness, fuzz, perf, signoff, and trend gates pass in release mode. |
 | Materialized views / ReactiveAutoView | The materialized-view benchmark proof lane passes and emits summary artifacts, proving indexed reads avoid source-pipeline execution while Z-set maintenance stays bounded by change count, growth, and allocation ceilings. |
@@ -32,7 +32,7 @@ bash ci/production-readiness-gate.sh
 ```
 
 The gate writes logs and a release summary under
-`TestResults/production-readiness/`. A green result from separate ad hoc commands
+the production-readiness results directory. A green result from separate ad hoc commands
 is useful for development, but it is not a production-ready signal.
 
 The same proof is available through the `Production Readiness` GitHub Actions
@@ -67,11 +67,7 @@ ConjureDB supports different durability/performance tradeoffs:
 |---------|--------------|----------|
 | `FastMobile` | Non-critical game state where low latency matters most. | Journal and snapshot policies may optimize throughput, but corruption policies must remain explicit. |
 | `CriticalState` | Purchases, currency, inventory, entitlement state. | Commit must use fail-fast recovery and durable flush semantics. |
-| `ForceFlushEveryCommit` | Explicit alias of `CriticalState` for critical flows. | Each commit waits for durable journal flush and cannot use permissive corruption handling. |
-
-`ForceFlushEveryCommit` is an explicit alias of `CriticalState` — identical
-semantics (every commit forces a durable journal flush and requires
-`JournalCorruptionPolicy.Fail`), not a stronger durability tier.
+| `ForceFlushEveryCommit` | Maximum local durability for critical flows. | Each commit waits for durable journal flush and cannot use permissive corruption handling. |
 
 Critical durability profiles must fail fast on persistence corruption. They must
 not silently stop replay, skip fsync failures, or continue with ambiguous state.

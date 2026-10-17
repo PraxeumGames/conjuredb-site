@@ -1,0 +1,245 @@
+/* Platform map: schema card in the centre on a gold "bus", four groups
+   around it. Status dots come from StatusBadge (same tokens everywhere). */
+
+.map {
+  --pm-gap: 3.5rem;
+  --pm-row-gap: 1.4rem;
+  --pm-card: var(--cdb-surface-2);
+  --pm-line: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr minmax(15rem, 17.5rem) 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    'client center server'
+    'liveops center services';
+  column-gap: var(--pm-gap);
+  row-gap: var(--pm-row-gap);
+  margin: 0 auto;
+  max-width: 64rem;
+  text-align: left;
+}
+:global([data-theme='light']) .map {
+  --pm-line: rgba(169, 117, 15, 0.45);
+}
+
+/* ---- The schema card on its bus --------------------------------------- */
+.center {
+  grid-area: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* Vertical spines on both sides, from the first row's middle to the second's. */
+.center::before,
+.center::after {
+  content: '';
+  position: absolute;
+  top: calc((100% - var(--pm-row-gap)) / 4);
+  bottom: calc((100% - var(--pm-row-gap)) / 4);
+  border-left: 1px dashed var(--pm-line);
+}
+.center::before {
+  left: 0;
+}
+.center::after {
+  right: 0;
+}
+
+.schema {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--pm-card);
+  border: 1.5px solid var(--ifm-color-primary);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 60px -14px color-mix(in srgb, var(--ifm-color-primary) 40%, transparent);
+  color: var(--cdb-ink);
+  font-family: var(--cdb-mono);
+  text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.schemaName {
+  padding: 0.8rem 1rem 0.7rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  border-bottom: 1px solid color-mix(in srgb, var(--ifm-color-primary) 28%, transparent);
+}
+.schemaLines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.8rem 1rem;
+  font-size: var(--fs-sm);
+  opacity: 0.85;
+}
+.schemaLines .indent {
+  padding-left: 2ch;
+}
+.schemaLines b {
+  font-weight: 400;
+  color: var(--ifm-color-primary);
+}
+.schemaFoot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.75rem 1rem 0.85rem;
+  list-style: none;
+  border-top: 1px solid color-mix(in srgb, var(--ifm-color-primary) 28%, transparent);
+  font-family: var(--ifm-font-family-base);
+}
+/* The schema's own parts: same pills as the groups, on the card. */
+.schemaPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+  background: var(--cdb-surface);
+  color: var(--cdb-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.schemaPill:hover {
+  color: var(--cdb-ink);
+  text-decoration: none;
+  border-color: var(--ifm-color-primary);
+}
+
+/* ---- Groups ------------------------------------------------------------- */
+.group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1.2rem 1.3rem;
+  border-radius: var(--r-lg);
+  background: var(--cdb-surface-2);
+}
+.client {
+  grid-area: client;
+}
+.server {
+  grid-area: server;
+}
+.liveops {
+  grid-area: liveops;
+}
+.services {
+  grid-area: services;
+}
+
+/* Connectors from each group to the bus. */
+.group::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: var(--pm-gap);
+  border-top: 1px dashed var(--pm-line);
+}
+.client::after,
+.liveops::after {
+  right: calc(var(--pm-gap) * -1);
+}
+.server::after,
+.services::after {
+  left: calc(var(--pm-gap) * -1);
+}
+
+/* Client and server sit on the shared silhouettes instead of a box. */
+.framed {
+  border: none;
+  background: none;
+  padding: 2.6rem 1.6rem 1.6rem;
+}
+.server.framed {
+  padding-top: 3.4rem;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.backdrop svg {
+  display: block;
+  overflow: visible;
+}
+.groupTitle,
+.pills {
+  position: relative;
+  z-index: 1;
+}
+.groupTitle {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  color: var(--cdb-muted);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.34rem 0.75rem 0.34rem 0.6rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+  background: var(--cdb-surface);
+  color: var(--cdb-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.pill:hover {
+  color: var(--cdb-ink);
+  text-decoration: none;
+  border-color: var(--ifm-color-primary);
+}
+
+/* ---- Narrow: schema on top, groups stacked ----------------------------- */
+@media (max-width: 996px) {
+  .map {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-template-areas: 'center' 'client' 'server' 'liveops' 'services';
+    row-gap: 1rem;
+    max-width: 26rem;
+  }
+  .center::before,
+  .center::after,
+  .group::after {
+    display: none;
+  }
+}
+
+:global([data-theme='light']) .schema {
+  box-shadow: 0 0 50px -16px rgba(169, 117, 15, 0.25);
+}

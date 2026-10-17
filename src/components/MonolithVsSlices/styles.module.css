@@ -1,0 +1,232 @@
+/* Monolith vs slices. Monolith: muted feature tints smeared across layers,
+   wire-red cross calls. Slices: lit columns, gold modules and floor,
+   dotted declared references only. */
+
+.root {
+  --mvs-shop: #b8a370;
+  --mvs-inv: #7fa58c;
+  --mvs-quests: #7f97b3;
+  --mvs-bp: #a387b3;
+  margin: var(--gap-lg) auto 0;
+  max-width: 64rem;
+  text-align: left;
+}
+
+
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 760px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+}
+
+/* The two states crossfade. */
+.mono,
+.slices {
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease),
+    visibility 0s linear 0s;
+}
+/* The inactive state fades out, then leaves the render entirely. */
+.isMono .slices,
+.isSlices .mono {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease),
+    visibility 0s linear var(--dur-slow);
+}
+.isMono .slices {
+  transform: translateY(10px);
+}
+
+/* Monolith */
+.band {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-line);
+}
+.layerName {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-muted);
+}
+.frag {
+  fill-opacity: 0.16;
+  stroke-opacity: 0.6;
+}
+.frag.shop {
+  stroke: var(--mvs-shop);
+  fill: var(--mvs-shop);
+}
+.frag.inv {
+  stroke: var(--mvs-inv);
+  fill: var(--mvs-inv);
+}
+.frag.quests {
+  stroke: var(--mvs-quests);
+  fill: var(--mvs-quests);
+}
+.frag.bp {
+  stroke: var(--mvs-bp);
+  fill: var(--mvs-bp);
+}
+.fragText {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.82;
+}
+.wire {
+  fill: none;
+  stroke: var(--cdb-wire);
+  stroke-width: 1.3;
+  stroke-opacity: 0.85;
+}
+.wireEnd {
+  fill: var(--cdb-wire);
+}
+.caption {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-wire);
+}
+
+/* Slices */
+.project,
+.projectB,
+.lift {
+  transform-box: view-box;
+  transition: transform var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease);
+}
+.project {
+  transform-origin: 0 0;
+}
+.shrunk {
+  transform: translate(0, 46px) scale(0.74);
+}
+.lifted {
+  transform: translateY(-28px);
+  opacity: 0;
+}
+.aside {
+  opacity: 0;
+}
+.projectB {
+  opacity: 0;
+  transform: translateX(16px);
+  pointer-events: none;
+}
+.projectB.shown {
+  opacity: 1;
+  transform: none;
+}
+.frameB {
+  fill: var(--ifm-background-color);
+  stroke: var(--cdb-muted);
+  stroke-dasharray: 4 4;
+}
+.frameTitle {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--cdb-ink);
+}
+.rowLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+.colName {
+  font-weight: 600;
+  fill: var(--cdb-ink);
+}
+.screen {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.35;
+}
+.newArt {
+  stroke: var(--cdb-server);
+  stroke-opacity: 0.9;
+  fill: var(--cdb-server-soft);
+}
+.screenName {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-ink);
+}
+.small {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+.module {
+  fill: color-mix(in srgb, var(--ifm-color-primary) 7%, transparent);
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.3;
+}
+.code {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-ink);
+}
+.kw {
+  fill: var(--ifm-color-primary);
+}
+.override {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-server);
+}
+.systems {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-dasharray: 4 3;
+}
+.floor {
+  fill: color-mix(in srgb, var(--ifm-color-primary) 16%, transparent);
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.6;
+}
+.floorText {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--ifm-color-primary);
+}
+.ref {
+  fill: none;
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+}
+.refPill {
+  fill: var(--ifm-background-color);
+  stroke: var(--cdb-line);
+}
+.refText {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

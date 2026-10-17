@@ -1,8 +1,8 @@
 # Navigation Editors
 
 Navigation Editors provide a **zero-allocation-by-default, type-safe API** for
-navigating and mutating parent-child entity relationships. They are generated
-at build time from parent-side `@@navigation` declarations in your `.conjure`
+navigating and mutating parent-child entity relationships. The manual compiler emits
+them from parent-side `@@navigation` declarations in your `.conjure`
 schema or from legacy inferred child-side metadata, producing `ref struct`
 types that live entirely on the stack.
 
@@ -40,7 +40,7 @@ path stays allocation-free and boxing-free. Explicit snapshot helpers such as
 
 ### 1. Define Entities with Relationships
 
-```text
+```conjure
 table Customer(persistence: local, capacity: 10000) {
     Id: int @id
     Name: string
@@ -81,7 +81,8 @@ table OrderItem(persistence: local, capacity: 200000) {
 ### 2. Generate Code
 
 ```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- MyProject MyProject/Generated
+dotnet run --project ConjureDB.Compiler -- generate MyProject/MyProject.csproj \
+  --output MyProject/Generated
 ```
 
 This produces:
@@ -151,12 +152,9 @@ Context.Customer[1]
 
 ### Parent Reference Navigation
 
-Parent-reference navigation is generated only on the editors of entities that
-are themselves aggregate roots (they own their own child collections). When such
-an entity also has a FK to another entity, its Editor exposes a navigation
-property that returns the parent's Editor. A pure leaf entity gets no generated
-Editor at all, so it exposes no parent navigation. The property name is derived
-from the FK (e.g., `CustomerId` -> `Customer`):
+When an entity has a FK to another entity, the Editor exposes a navigation
+property that returns the parent's Editor. The property name is derived from
+the FK (e.g., `CustomerId` -> `Customer`):
 
 ```csharp
 // Navigate: Order -> Customer
@@ -187,12 +185,6 @@ var orders = Context.Customer[1].Orders;
 | `Count` | `int` | Number of children belonging to this parent |
 | `Any` | `bool` | `true` if at least one child exists |
 | `IsEmpty` | `bool` | `true` if no children exist |
-
-Only the enumeration surface (`Count`, `Any`, `IsEmpty`, `GetAll`, `foreach`,
-`RemoveAll`, `ModifyAll`) is scoped to this parent's FK. The id-based
-operations — `this[childId]`, `TryGet`, `Update`, `Remove`, `Modify`, and
-`Transfer` — resolve by the child's **global primary key** and do not verify
-that the child actually belongs to this parent.
 
 ### CRUD Methods
 
@@ -298,7 +290,7 @@ Context.Customer[1].RemoveCascade();
 
 ### Example: Multi-Level Cascade
 
-```
+```text
 Customer 1
 ├── Order 10
 │   ├── OrderItem 100
@@ -350,9 +342,8 @@ int removed = Context.Customer[1].Orders.RemoveAll();
 Console.WriteLine($"Removed {removed} orders");
 ```
 
-Returns the count of removed entities. The temporary id buffer is
-stack-allocated only when the child count is ≤ 256 (`StackAllocThreshold`);
-above that it allocates a transient `int[]`.
+Returns the count of removed entities. Uses stack-allocated spans for
+zero-GC batching.
 
 ---
 
@@ -371,8 +362,8 @@ Context.Customer[1].Orders.Transfer(orderId: 5, newParentId: 2);
 |--------|----------|
 | FK update | Sets the child's FK to `newParentId` |
 | Children of transferred entity | Unaffected (they reference the child's PK, not the grandparent) |
-| Old parent subscription | Notified via a `ChangeType.Update` (the child's FK moved off this parent) |
-| New parent subscription | Notified via a `ChangeType.Update` (the child's FK moved onto this parent) |
+| Old parent subscription | Notified of removal |
+| New parent subscription | Notified of addition |
 | Transaction required | Yes |
 
 ### Example: Transfer with Notification
@@ -388,8 +379,8 @@ Context.BeginTransaction();
 Context.Customer[1].Orders.Transfer(orderId: 5, newParentId: 2);
 Context.Commit();
 // Output:
-// Customer 1 orders: Update
-// Customer 2 orders: Update
+// Customer 1 orders: Remove
+// Customer 2 orders: Add
 ```
 
 ---
@@ -399,7 +390,7 @@ Context.Commit();
 When a child entity has FK references to multiple parents, handles are
 disambiguated with the parent name:
 
-```text
+```conjure
 table Review(persistence: local) {
     Id: int @id
     CustomerId: int @relation(references: Customer.Id)
@@ -416,16 +407,14 @@ This generates:
 | `ReviewByCustomerCollectionHandle` | Sets `CustomerId` | Queries `ReviewCustomerIndex` |
 | `ReviewByProductCollectionHandle` | Sets `ProductId` | Queries `ReviewProductIndex` |
 
-Disambiguation applies to the generated handle **type** only. The navigation
-**property** keeps the child table name (`Reviews`) on both editors unless an
-explicit `@@navigation(name: ...)` overrides it:
+Access:
 
 ```csharp
-// All reviews by Customer 1 (returns a ReviewByCustomerCollectionHandle)
-var customerReviews = Context.Customer[1].Reviews;
+// All reviews by Customer 1
+var customerReviews = Context.Customer[1].ReviewsByCustomer;
 
-// All reviews for Product 42 (returns a ReviewByProductCollectionHandle)
-var productReviews = Context.Product[42].Reviews;
+// All reviews for Product 42
+var productReviews = Context.Product[42].ReviewsByProduct;
 ```
 
 Single-FK children keep the simpler name: `OrderCollectionHandle`.
@@ -556,10 +545,7 @@ Uses `EqualityComparer<T>.Default.Equals` (leveraging record value equality).
 - **Main-thread delivery** — handlers fire synchronously during `Commit()`.
 - **Transfer notifications** — both old and new parent subscribers are notified.
 - **Constraint** — do not `Subscribe` or `Dispose` from within a handler
-  callback. `ChangeRouter<T>` invokes handlers while iterating its subscriber
-  list (under a reentrant lock), so subscribing or disposing mid-dispatch
-  reentrantly mutates the list being iterated. The hazard is that reentrant
-  modification, not a deadlock.
+  callback (deadlock risk — EventDispatcher dispatches under lock).
 
 ---
 
@@ -618,19 +604,19 @@ See [Transactions](/docs/engine/transactions) for full transaction semantics.
 | `Editor.Value` (read entity) | O(1) | Zero (returns by value) |
 | `Editor.Update(value)` | O(1) | Zero |
 | `Editor.Remove()` | O(1) | Zero |
-| `Editor.RemoveCascade()` | O(children) | Zero for ≤ 256 children (stack span); transient `int[]` above |
+| `Editor.RemoveCascade()` | O(children) | Zero |
 | `Editor.Modify(func)` | O(1) | 1 delegate (if not cached) |
 | `Handle.Add(item)` | O(1) amortized | Zero |
 | `Handle.AddRange(items)` | O(N) | Zero |
-| `Handle[childId]` | O(1) | Zero (primary-key index) |
+| `Handle[childId]` | O(1) | Zero (lookup index) |
 | `Handle.Count` | O(1) | Zero (index-maintained) |
 | `Handle.GetAll()` | O(1) | Zero |
 | `Handle.First()` / `Handle.TryGetFirst()` | O(1) | Zero |
 | `Handle.Last()` / `Handle.TryGetLast()` | O(children) | Zero |
 | `Handle.ToArray()` | O(children) | Array allocation |
 | `Handle.ToList()` | O(children) | List allocation |
-| `Handle.RemoveAll()` | O(children) | Zero for ≤ 256 children (stack span); transient `int[]` above |
-| `Handle.ModifyAll(func)` | O(children) | 1 delegate; id buffer stack-allocated for ≤ 256 children, transient `int[]` above |
+| `Handle.RemoveAll()` | O(children) | Zero (stack span) |
+| `Handle.ModifyAll(func)` | O(children) | 1 delegate |
 | `Handle.Transfer(id, newParent)` | O(1) | Zero |
 | `foreach (var x in handle)` | O(children) | Zero (struct enumerator) |
 
@@ -640,8 +626,8 @@ See [Transactions](/docs/engine/transactions) for full transaction semantics.
 
 | Error Condition | Exception | When |
 |----------------|-----------|------|
-| Entity not found | `ArgumentOutOfRangeException` | `Editor.Value` on non-existent entity |
-| Child not found | `ArgumentOutOfRangeException` | `Handle[childId]` on non-existent child |
+| Entity not found | `KeyNotFoundException` | `Editor.Value` on non-existent entity |
+| Child not found | `KeyNotFoundException` | `Handle[childId]` on non-existent child |
 | No active transaction | `InvalidOperationException` | Any mutation without `BeginTransaction()` |
 | Empty collection | `InvalidOperationException` | `Handle.First()` or `Handle.Last()` on empty collection |
 

@@ -12,7 +12,7 @@ encrypted storage with cloud sync.
 
 ## Architecture Overview
 
-```
+```text
                     ┌─────────────────────────────────────────────┐
                     │              DbContext                       │
                     │  Commit() ─────────┬───────────────────────  │
@@ -20,7 +20,7 @@ encrypted storage with cloud sync.
                                          │
                                          ▼
                     ┌─────────────────────────────────────────────┐
-                    │          Background Worker Thread            │
+                    │         Serialized Background Worker Lane    │
                     │                                             │
                     │  1. Sync secondary indices                  │
                     │  2. Write journal entry (ChangeRecord)      │
@@ -36,8 +36,7 @@ encrypted storage with cloud sync.
                                │                  │
                     ┌──────────▼──────────────────▼───────────────┐
                     │        Optional Encryption Layer             │
-                    │  Journals: AES-GCM 4 KB chunks               │
-                    │  Snapshots/deltas: whole-file AES-GCM        │
+                    │   AES-GCM (4 KB chunks, per-chunk auth)     │
                     └──────────────┬──────────────────────────────┘
                                    │
                     ┌──────────────▼──────────────────────────────┐
@@ -71,13 +70,13 @@ Serialization uses an `ArrayBufferWriter<byte>` with a default capacity of
 
 ### Binary Format (V5)
 
-```
+```text
 ┌──────────────────────────────────────┐
 │ Magic Header     (8 bytes)           │  "UMDBV2\0\0" (0x554D_4442_5632_0000)
 ├──────────────────────────────────────┤
 │ Format Version   (2 bytes)           │  ushort: 5 (supports v2+)
 ├──────────────────────────────────────┤
-│ Version          (8 bytes)           │  ulong: transaction/snapshot version
+│ Epoch            (8 bytes)           │  ulong: monotonic snapshot version
 ├──────────────────────────────────────┤
 │ Schema Length    (4 bytes)           │  uint: byte length of schema section
 ├──────────────────────────────────────┤
@@ -102,10 +101,30 @@ Serialization uses an `ArrayBufferWriter<byte>` with a default capacity of
 ```
 
 V5 snapshots fail fast when the schema checksum or any DbSet section checksum
-does not match. Encrypted snapshots are also authenticated by whole-file
-AES-GCM — a single GCM blob with one random 12-byte nonce (subject to a 256 MB
-per-file limit), not per-chunk; the V5 CRC framing protects plaintext snapshots
-and catches accidental corruption before data is applied to live collections.
+does not match. Encrypted snapshots are also authenticated by AES-GCM per
+chunk; the V5 CRC framing protects plaintext snapshots and catches accidental
+corruption before data is applied to live collections.
+
+### Durable Publication Contract
+
+Full and incremental snapshots are published through the same fail-closed
+sequence: write a `*.tmp` file, flush its payload to storage, atomically rename
+it to `*.dat`, then sync the parent directory. A full snapshot is additionally
+read and validated after publication; delta snapshots are decoded and validated
+before their dirty-tracking cursor advances. A failure after rename removes the
+final file and syncs that deletion before the operation can be retried.
+Normal retention and superseded-delta cleanup delete the complete eligible
+batch first, then issue one parent-directory sync if at least one file was
+removed. A failure of either maintenance sync is logged but does not invalidate
+an already published and validated full snapshot; publication rollback failures
+remain part of the failing write attempt.
+
+Files ending in `*.tmp` are never recovery candidates. They model a process
+interruption before publication and are ignored rather than promoted. On
+platforms where directory fsync is supported, the directory sync is the
+durability barrier for file creation, rename, and deletion metadata. Windows
+uses the platform-specific supported persistence contract and does not issue a
+directory fsync.
 
 ### File Naming and Retention
 
@@ -144,7 +163,7 @@ A snapshot is **skipped** if:
 When enabled, delta snapshots serialize only entities modified since the last
 snapshot, dramatically reducing I/O for large databases with localized writes.
 
-```
+```text
 ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌──────────────┐
 │ Full Snap  │───▶│  Delta 1   │───▶│  Delta 2   │───▶│  Delta 3     │
 │ (epoch 0)  │    │ (epoch 1)  │    │ (epoch 2)  │    │ (epoch 3)    │
@@ -164,9 +183,23 @@ snapshot, dramatically reducing I/O for large databases with localized writes.
 When the chain length or dirty ratio exceeds the threshold, the next snapshot
 is automatically a full snapshot, resetting the chain.
 
-**Delta snapshot format** uses `DeltaSnapshotFormat` with base epoch and new
-epoch tracking. The `DeltaChainManager` tracks dirty entities between
-snapshots and replays deltas on recovery.
+**Delta snapshot format** preserves its compact header: magic, base epoch, new
+epoch, transaction version, and DbSet-section count. Epochs describe dirty
+tracking, but the **transaction version in the decoded header** is the durable
+recovery identity. Recovery does not trust delta filenames for ordering.
+
+Before applying any delta, recovery reads each typed header and ignores a delta
+whose transaction version is less than or equal to the loaded full snapshot;
+its obsolete body is not decoded. It fully parses every newer candidate before
+mutation and rejects negative section/entity/removal counts, duplicate type
+sections, and trailing bytes. A finalized delta must declare at least one DbSet
+section, and every declared section must contain at least one added, updated, or
+removed entity; the writer never publishes empty deltas or empty sections.
+Remaining candidates are sorted by transaction
+version and duplicate versions are rejected. Parsing or validation failure fails
+startup before delta state is mutated; it never silently falls back to a partial
+chain. Valid deltas are then applied as one transaction and advance the
+effective durable version to the highest accepted delta header.
 
 ---
 
@@ -178,21 +211,30 @@ missing transactions.
 
 ### Pipeline Architecture
 
-```
- Commit()                     JournalWriter                 JournalBackgroundProcessor
+```text
+ worker lane (commit)          JournalRecordQueue            "ConjureDB journal" thread
     │                              │                                 │
-    │  ChangeRecord + version      │                                 │
-    │─────────────────────────────>│  BoundedChannel<T>             │
-    │                              │  (capacity: 1024)              │
-    │                              │─────────────────────────────-->│
-    │                              │                                │ Batch serialize
-    │                              │                                │ via JournalBufferManager
-    │                              │                                │ (64 KB write buffer)
-    │                              │                                │
-    │                              │                                │ Write to disk
-    │                              │                                │ Adaptive flush
-    │                              │                                │ File rotation
+    │  ChangeRecord per change,    │  bounded ring                   │
+    │  TransactionEnd marker       │  (ChannelCapacity: 1024)        │
+    │─────────────────────────────>│  woken at each transaction end  │
+    │                              │  and at half capacity           │
+    │                              │────────────────────────────────>│ serialize + frame
+    │                              │                                 │ via JournalBufferManager (64 KB)
+    │                              │                                 │ write + OS flush per transaction
+    │                              │                                 │ file rotation
+ Commit() with a forced flush ──── drains the queue and syncs the file itself (no lane, no ThreadPool)
 ```
+
+- **Batched (`FastMobile`)**: the journal thread persists each committed transaction to the OS promptly after
+  its transaction-end marker (no physical sync), coalescing whatever is queued into one drain.
+- **Flush per commit (`CriticalState`, `ForceFlushEveryCommit`, `CommitAsync(forceFlush: true)`)**: the committing
+  thread drains the queue and syncs the journal file (`FlushFileBuffers` / `fsync`) before the commit returns.
+- **Backpressure**: a producer that finds the queue full blocks on a monitor until a drain frees a slot (timeout
+  `StateChangeEnqueueTimeout`, 5 s); a terminal journal fault wakes it at once and it rethrows the fault.
+- **`WorkerExecutionMode.Inline`**: no journal thread; the committing thread writes the transaction through after
+  the commit, and a producer that finds the queue full drains it itself.
+- No journal path uses the ThreadPool, a `Task` or a timer; see
+  [Concurrency Control — Journal thread](/docs/engine/concurrency#journal-thread).
 
 ### ChangeRecord Structure
 
@@ -201,7 +243,7 @@ Each journal record is MessagePack-serialized:
 | Field | Type | Description |
 |-------|------|-------------|
 | `EntityTypeId` | `ushort` | The schema `type_id` value |
-| `OperationType` | `ChangeType` | `Add`, `Update`, or `Remove` |
+| `OperationType` | `ChangeType` | `Insert`, `Update`, or `Delete` |
 | `ChangesCount` | `uint` | Number of entities in this batch |
 | `SerializedChange` | `byte[]` | MessagePack-serialized entity data |
 | `DataLength` | `int` | Length of `SerializedChange` |
@@ -216,7 +258,7 @@ marker are considered incomplete and discarded during recovery.**
 
 Each entry on disk uses magic-prefixed framing with CRC-32 integrity:
 
-```
+```text
 ┌─────────────────────────────────┐
 │ Magic          (4 bytes)        │  "UMJE" (0x554D4A45)
 ├─────────────────────────────────┤
@@ -242,11 +284,20 @@ checksum validates payload integrity during recovery.
 
 ### Adaptive Flush Interval
 
-The background processor dynamically adjusts flush timing based on write
-throughput and device state:
+Committed transactions never wait for an interval: each transaction-end marker wakes the journal thread. The
+interval governs only records of a transaction still in progress (a large transaction's records the thread has
+already framed into its buffer): while such a partial buffer or queued records exist, the thread parks for the
+adaptive interval and then writes them out.
 
-| Condition | Behavior |
+| Condition | Interval |
 |-----------|----------|
+| Base | `FlushInterval` (100 ms) |
+| Write ops/sec ≥ `HighWriteOpsPerSecond` (100) | half, not below `MinFlushIntervalMs` (100 ms) |
+| Battery low (`IBatteryStatusProvider`) | double, not above `MaxFlushIntervalMs` (5000 ms) |
+
+With nothing pending the thread parks without a timeout: an idle game does not wake it.
+
+-----------|----------|
 | Write ops/sec ≥ `HighWriteOpsPerSecond` (100) | Accelerate toward `MinFlushIntervalMs` (100 ms) |
 | Write ops/sec < threshold | Decelerate toward `MaxFlushIntervalMs` (5000 ms) |
 | Battery low (`IBatteryStatusProvider`) | Decelerate to `MaxFlushIntervalMs` (5000 ms) |
@@ -266,7 +317,7 @@ multi-phase recovery sequence. No manual intervention is required.
 
 ### Recovery Flow
 
-```
+```text
             ┌──────────────────────────┐
             │ Phase 1: Remote Snapshot │
             │ (if IRemoteSnapshotHandler│
@@ -315,31 +366,44 @@ version and compares it with the local snapshot version:
 | `ForceRemote` | Always download and use the remote snapshot |
 | `ForceLocal` | Always use the local snapshot; ignore remote |
 
+The remote version returned by `GetRemoteVersionAsync()` is used only to select
+the winning source. It is not a journal-replay fence. After a remote source wins,
+the durable fence is the maximum of the local full-snapshot header and the
+`DbContext.Version` actually established by `LoadSnapshotAsync()`. A provider
+that advertises a newer version but performs no load cannot suppress journal
+transactions in that gap.
+
 ### Phase 2 — Local Snapshot Load
 
 1. Scan `<DataDirectory>/snapshots/` for `snapshot_*.dat` files.
 2. Select the most recent file (by filename).
-3. Deserialize according to the binary format (magic → version → data).
+3. Deserialize according to the binary format (magic → version → epoch → data).
 4. Apply schema migrations if the schema has changed
    (`MigrationOrchestrator`).
 
 ### Phase 2a — Delta Replay (if incremental enabled)
 
-1. Load delta snapshots in chain order via `DeltaChainManager`.
-2. Apply each delta to reconstruct the full state.
-3. If a delta is corrupt, the in-memory state is rolled back and the exception
-   is re-thrown, failing startup recovery — there is no silent fall-back to the
-   full snapshot. Missing mid-chain deltas are not gap-detected. (Graceful
-   fallback to the last full snapshot would be a code change, not current
-   behavior.)
+1. Discover only finalized `delta_*.dat` files; ignore `*.tmp` files.
+2. Read every typed header before mutation; ignore a delta whose header
+   transaction version is less than or equal to the loaded full-snapshot
+   version.
+3. Fully parse every newer candidate before mutation and validate its complete
+   payload, including the non-zero section count and non-empty section shape.
+4. Sort newer deltas by header transaction version and reject duplicate
+   versions.
+5. Apply the validated chain atomically. Any malformed or unreadable candidate
+   fails recovery without partially applying the chain.
 
 ### Phase 3 — Journal Replay
 
 1. Discover all journal files in `<DataDirectory>/journal/`.
 2. Sort **oldest-first** by filename (ticks-based naming ensures correct order).
-3. Capture `baseSnapshotVersion` from the loaded snapshot.
+3. Capture the effective durable version: the maximum of the loaded full
+   snapshot and the highest applied delta. When remote state wins, use the
+   version actually established by the remote load, never its advertised
+   selection version, and still retain the local full-header lower bound.
 4. Read entries sequentially:
-   - **Skip** entries with `Version ≤ baseSnapshotVersion`.
+   - **Skip** entries with `Version ≤ effective durable version`.
    - **Group** entries by `Version`.
    - **Apply** only groups that have a `TransactionEnd` marker.
    - **Discard** the last group if `TransactionEnd` is missing (incomplete
@@ -363,7 +427,7 @@ on the next startup.
 |-----------|-------------|
 | **Atomicity** | Only fully committed transactions (with `TransactionEnd`) are replayed |
 | **Ordering** | Journal entries are replayed in version order |
-| **Idempotency** | Replaying already-applied entries (version ≤ snapshot) is skipped |
+| **Idempotency** | Replaying already-applied entries (version ≤ effective durable version) is skipped |
 | **Integrity** | CRC-32 validates each journal entry; corrupt entries are handled per policy |
 
 ---
@@ -379,25 +443,19 @@ For the explicit security boundary and operational assumptions, see
 
 Encryption uses AES-GCM with PBKDF2 (SHA-256, **100,000 iterations**) key
 derivation; see [Encryption Configuration](/docs/engine/configuration#encryption-configuration)
-for algorithm, key-size, and chunk parameters. Journal files are chunk-encrypted;
-their persistence-specific on-disk nonce layout is 12 bytes:
-`[fileNonceSalt(8)][chunkIndex(4)]`, where `fileNonceSalt` is generated randomly
-for every encrypted file write. Snapshot and delta files instead use non-chunked
-whole-file AES-GCM: a single random 12-byte nonce written at the start of the
-file followed by one GCM blob, subject to a 256 MB per-file limit.
+for algorithm, key-size, and chunk parameters. The persistence-specific on-disk
+nonce layout is 12 bytes: `[fileNonceSalt(4)][chunkIndex(8)]`, where
+`fileNonceSalt` is generated randomly for every encrypted file write.
 
-### Chunk-Based Encryption Format (Journal Files)
+### Chunk-Based Encryption Format
 
-The chunk-based layout below applies to **journal files**. Encrypted snapshots
-and delta snapshots use the non-chunked whole-file format described above.
-
-```
+```text
 File Layout:
 ┌────────────────────┐
-│ Salt    (8 bytes)   │  Random per-file nonce salt
+│ Salt    (4 bytes)   │  Random per-file nonce salt
 ├────────────────────┤
 │ ┌────────────────┐ │
-│ │ Nonce (12 B)   │ │  [fileNonceSalt(8)][chunkIndex(4)]
+│ │ Nonce (12 B)   │ │  [fileNonceSalt(4)][chunkIndex(8)]
 │ │ Length (4 B)    │ │  Plaintext length
 │ │ Ciphertext (N) │ │  Encrypted payload
 │ │ Tag   (16 B)   │ │  GCM authentication tag
@@ -410,10 +468,10 @@ GCM mode provides both **confidentiality** (encryption) and **integrity**
 (authentication). Any tampering with the ciphertext is detected during
 decryption and causes an authentication failure.
 
-The 8-byte `fileNonceSalt` is stored in the encrypted file header and is
+The 4-byte `fileNonceSalt` is stored in the encrypted file header and is
 independent from the PBKDF2 `EncryptionOptions.Salt`. It is generated fresh for
 each encrypted chunked file write, including rewrites of the same path. The
-4-byte uint32 chunk counter is monotonic within a file and fails before reuse.
+8-byte chunk counter is monotonic within a file and fails before reuse.
 
 ### Key Management
 
@@ -476,14 +534,13 @@ custom key management), implement `IProtectedFileStreamFactory`:
 ```csharp
 public interface IProtectedFileStreamFactory
 {
-    Stream CreateReadStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
-    Stream CreateWriteStream(string path, EncryptionOptions options, int bufferSize = 4096, bool chunked = false);
+    Stream CreateReadStream(string filePath);
+    Stream CreateWriteStream(string filePath);
 }
 ```
 
 Register via `EncryptionOptions.CustomProtectedFileStreamFactory` to replace
-the default `DefaultProtectedFileStreamFactory` (which produces
-`AesProtectedFileStream`).
+the default `ChunkedAesGcmStreamWriter/Reader` implementation.
 
 ---
 
@@ -500,16 +557,16 @@ public interface IRemoteSnapshotHandler : IAsyncDisposable
     Task<ulong?> GetRemoteVersionAsync();
     Task LoadSnapshotAsync(DbContext context);
     Task UploadSnapshotAsync(DbContext context, ulong version);
+    ValueTask DisposeAsync();
 }
 ```
 
-Implementers must also provide `DisposeAsync()` (inherited from
-`IAsyncDisposable`). Implement this interface to integrate with any cloud storage provider
+Implement this interface to integrate with any cloud storage provider
 (S3, Azure Blob, Firebase, Google Cloud Storage, custom backend).
 
 ### RemoteSnapshotOptions Reference
 
-For the full `RemoteSnapshotOptions` parameter table (`RemoteHandler`, `RequestTimeout`, `MaxRetryAttempts`, `ResolutionStrategy`), see [Remote Sync Parameters Summary](/docs/engine/configuration#remote-sync-parameters-summary). `StateResolutionStrategy` conflict handling is described in [Recovery Phase 1](#phase-1--remote-snapshot-if-configured) above.
+For the full `RemoteSnapshotOptions` parameter table (`OwnedByContext`, `BorrowedByCaller`, `RequestTimeout`, `MaxRetryAttempts`, `ResolutionStrategy`), see [Remote Sync Parameters Summary](/docs/engine/configuration#remote-sync-parameters-summary). `StateResolutionStrategy` conflict handling is described in [Recovery Phase 1](#phase-1--remote-snapshot-if-configured) above.
 
 ### Conflict Resolution Strategies
 
@@ -529,7 +586,7 @@ For the full `RemoteSnapshotOptions` parameter table (`RemoteHandler`, `RequestT
 var context = DbContextBuilder<GameDbContext>.Create()
     .WithDataDirectory("./data")
     .WithRemoteSnapshot(rem => rem
-        .RemoteHandler(new FirebaseSnapshotHandler(firebaseConfig))
+        .OwnedByContext(new FirebaseSnapshotHandler(firebaseConfig))
         .ResolutionStrategy(StateResolutionStrategy.LocalFirst)
         .MaxRetryAttempts(5)
         .RequestTimeout(TimeSpan.FromSeconds(30)))
@@ -671,7 +728,7 @@ var db = await DbContextBuilder<GameDb>.Create()
 
     // Remote sync
     .WithRemoteSnapshot(rem => rem
-        .RemoteHandler(new CloudSnapshotHandler())
+        .OwnedByContext(new CloudSnapshotHandler())
         .ResolutionStrategy(StateResolutionStrategy.LocalFirst)
         .MaxRetryAttempts(5))
 

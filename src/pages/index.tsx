@@ -2,6 +2,13 @@ import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
+import TangleToSchema from '@site/src/components/TangleToSchema';
+import ReplayVerify from '@site/src/components/ReplayVerify';
+import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
+import ReactiveScreen from '@site/src/components/ReactiveScreen';
+import {DemoDefaults} from '@site/src/components/DemoStage';
+import MetaCore from '@site/src/components/MetaCore';
+import FeatureSlice from '@site/src/components/FeatureSlice';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -11,56 +18,81 @@ function Hero(): ReactNode {
       <div className={`container ${styles.heroGrid}`}>
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>
-            <span className={styles.eyebrowDot} /> In-memory database · Unity &amp; .NET game clients
+            <span className={styles.eyebrowDot} /> Compiled game platform · Unity &amp; .NET
           </span>
           <h1 className={styles.title}>
-            Stop fighting
+            One schema.
             <br />
-            <span className={styles.grad}>your own game data.</span>
+            <span className={styles.grad}>Client, server, liveops.</span>
           </h1>
           <p className={styles.subtitle}>
-            Right now it's hand-wired across managers, ScriptableObjects and OnChanged events until a
-            simple shop or inventory owns your week — and a year later it's a tangle you're scared to
-            touch. ConjureDB lets you describe your data once and generates the fast C# instead: clean
-            systems you build once and reuse, with no spaghetti and no GC spikes from your data layer.
+            <span className={styles.subLine}>
+              You describe your game&apos;s state and rules once. Conjure runs that description on the
+              device and on the server, and adds replay verification and liveops.
+            </span>
+            <span className={styles.subLine}>
+              Play offline, verify on the server, ship features in days — with a three-person team.
+            </span>
           </p>
           <div className={styles.ctaRow}>
             <Link className="button button--primary button--lg" to="/docs/getting-started">
-              Get started
+              Read the docs
             </Link>
-            <Link className="button button--secondary button--lg" to="/why">
-              Why ConjureDB
+            <Link className="button button--secondary button--lg" to="/how-it-works#declarative">
+              How it works
             </Link>
           </div>
           <div className={styles.chips}>
-            <span className={styles.chip}>Unity 2021.3+ · IL2CPP &amp; Mono</span>
-            <span className={styles.chip}>.NET 8 · .NET Standard 2.1</span>
-            <span className={styles.chip}>Index-aware optimizer</span>
-            <span className={styles.chip}>Reactive views · IVM</span>
+            <span className={styles.chip}>Offline-first</span>
+            <span className={styles.chip}>Replay-verified</span>
+            <span className={styles.chip}>Zero-alloc</span>
+            <span className={styles.chip}>Features are schema</span>
+            <span className={styles.chip}>Self-hosted</span>
           </div>
         </div>
-        <div className={styles.heroCode}>
-          <CodeWindow tabs={HERO_TABS} />
-          <p className={styles.heroCodeCaption}>
-            You write the schema &amp; query. ConjureDB emits the C# — switch the tab and read it.
-          </p>
+        <div className={styles.heroVisual}>
+          <TangleToSchema />
         </div>
       </div>
     </header>
   );
 }
 
+type Fact = {text: string; status: Status};
+const REPLAY_FACTS: Fact[] = [
+  {text: 'Deterministic by construction — fixed-point math (Fixed64) instead of floats, seeded random in the schema', status: 'shipped'},
+  {text: 'Replay verification on the server', status: 'prototype'},
+  {text: 'Microseconds per command, device and server', status: 'prototype'},
+];
+
+/** Claim 1's visual: the replay story and the three facts. */
+function ReplayClaim(): ReactNode {
+  return (
+    <>
+      <ReplayVerify />
+      <ul className={styles.facts}>
+        {REPLAY_FACTS.map((f) => (
+          <li key={f.text} className={styles.fact}>
+            <span>{f.text}</span>
+            <StatusBadge status={f.status} />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 type Stat = {n: string; l: string};
 const STATS: Stat[] = [
-  {n: '50×+', l: 'faster than SQLite*'},
-  {n: 'O(1)', l: 'indexed lookups'},
-  {n: 'AOT', l: 'IL2CPP-safe'},
-  {n: '1', l: 'build step · no runtime parser'},
+  {n: '1 schema', l: 'client, server, liveops'},
+  {n: '0 B', l: 'on the query hot path'},
+  {n: 'µs', l: 'per command, device and server'},
+  {n: '0', l: 'trust required in the client'},
 ];
 
 function StatBand(): ReactNode {
   return (
-    <section className="cdb-section cdb-section--tight">
+    <section className={`cdb-section cdb-section--tight cdb-surface ${styles.statBand}`}>
       <div className="container">
         <div className="cdb-stats">
           {STATS.map((s) => (
@@ -70,151 +102,177 @@ function StatBand(): ReactNode {
             </div>
           ))}
         </div>
-        <p style={{textAlign: 'center', marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--cdb-muted)'}}>
-          * 57-query game-workload benchmark vs SQLite (50,000 players).{' '}
-          <Link to="/performance">See the methodology →</Link>
-        </p>
       </div>
     </section>
   );
 }
 
-const PAINS: string[] = [
-  "A shop or inventory that should've taken a day takes a week.",
-  'The same systems — inventory, quests, progression — rewritten from scratch in every new project.',
-  'Game data spread across managers, ScriptableObjects and singletons — impossible to follow.',
-  'OnChanged events wired by hand; miss one subscription and the UI shows the wrong thing.',
-  'Touch one feature and three others break — and nobody is sure why.',
-  'Lists you loop over every frame, until the GC starts spiking.',
+type Claim = {
+  title: string;
+  body: string;
+  badges: {label: string; status: Status}[];
+  link: {label: string; to: string};
+  link2?: {label: string; to: string};
+  visual: ReactNode;
+  wide?: boolean; // header row + full-width visual
+};
+
+const CLAIMS: Claim[] = [
+  {
+    title: 'Play offline. The server still checks.',
+    body: "The device runs the game with no connection and writes down what the player did; when the network is back, the server replays that journal with the same compiled logic and compares the state. Commands that need the server — real-money purchases, clans — travel with the journal and run against the verified state.",
+    badges: [
+      {label: 'replay verification', status: 'prototype'},
+      {label: 'determinism', status: 'shipped'},
+    ],
+    link: {label: 'See the mechanism →', to: '/how-it-works#replay'},
+    visual: <ReplayClaim />,
+    wide: true,
+  },
+  {
+    title: 'UI views update themselves.',
+    body: "Declare what a UI view shows and the compiler keeps that view model current by applying only the change. No OnChanged wiring, no refresh-order bugs, no stale UI.",
+    badges: [
+      {label: 'view models · IVM', status: 'shipped'},
+      {label: 'reactive queries', status: 'shipped'},
+    ],
+    link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
+    link2: {label: 'How IVM works →', to: '/how-it-works#ivm'},
+    visual: <ReactiveScreen />,
+    wide: true,
+  },
+  {
+    title: 'Meta and core in one architecture.',
+    body: "Inventory and progression live in persistent tables; units, projectiles and hit events live in per-frame tables, in the same schema with the same compiler. The weapon in the inventory is the weapon in the fight, without a second data model.",
+    badges: [
+      {label: 'frame state', status: 'shipped'},
+      {label: 'persistent + frame joins', status: 'shipped'},
+    ],
+    link: {label: 'Ephemeral tables →', to: '/docs/advanced/ephemeral-tables'},
+    visual: <MetaCore />,
+    wide: true,
+  },
+  {
+    title: 'A feature is a schema, not a sprint.',
+    body: "A battle pass or a store is a module of the schema: tables, commands and queries in one place, for both sides. Carry it to the next game and point its declarations at that game's items and currencies — the compiler re-derives what depends on them. Change rules through liveops without a release, and let an assistant draft the first version — the compiler rejects what is wrong.",
+    badges: [
+      {label: 'modules & overrides', status: 'shipped'},
+      {label: 'liveops', status: 'prototype'},
+      {label: 'ready-made modules', status: 'planned'},
+    ],
+    link: {label: 'Every part and its status →', to: '/platform'},
+    link2: {label: 'Vertical slices →', to: '/architecture'},
+    visual: <FeatureSlice />,
+    wide: true,
+  },
 ];
 
-function Problems(): ReactNode {
+// Homepage demos cap their under-the-hood code at 7 visible lines.
+const HOOD = {hoodLines: 7};
+
+function Claims(): ReactNode {
   return (
     <section className="cdb-section">
       <div className="container">
-        <span className="cdb-kicker">Sound familiar?</span>
-        <h2 className="cdb-h2">The features that quietly eat your sprints</h2>
+        <span className="cdb-kicker">Why this is new</span>
+        <h2 className="cdb-h2">Four things that change.</h2>
+        <DemoDefaults.Provider value={HOOD}>
+          <div className={styles.claims}>
+            {CLAIMS.map((c) => (
+              <article key={c.title} className={`cdb-card ${styles.claim} ${c.wide ? styles.claimWide : ''}`}>
+                <div className={styles.claimText}>
+                  <h3>{c.title}</h3>
+                  <p>{c.body}</p>
+                  <ul className={styles.claimBadges}>
+                    {c.badges.map((b) => (
+                      <li key={b.label}>
+                        <span>{b.label}</span>
+                        <StatusBadge status={b.status} />
+                      </li>
+                    ))}
+                  </ul>
+                  <div className={styles.claimLinks}>
+                    <Link to={c.link.to}>{c.link.label}</Link>
+                    {c.link2 && <Link to={c.link2.to}>{c.link2.label}</Link>}
+                  </div>
+                </div>
+                <div className={styles.claimVisual}>{c.visual}</div>
+              </article>
+            ))}
+          </div>
+        </DemoDefaults.Provider>
+      </div>
+    </section>
+  );
+}
+
+type Shipped = {title: string; line: string; to?: string};
+const SHIPPED: Shipped[] = [
+  {
+    title: 'Compiled queries, commands and mutations',
+    line: 'Declared once, planned by a cost-based optimizer, emitted as plain C#.',
+    to: '/docs/getting-started',
+  },
+  {
+    title: 'UI views that update themselves',
+    line: 'View models maintained by applying only what changed.',
+    to: '/docs/advanced/reactive-queries',
+  },
+  {
+    title: 'Frame state and systems',
+    line: 'Per-frame tables and systems scheduled per phase, 0 B per frame.',
+    to: '/docs/advanced/ephemeral-tables',
+  },
+  {
+    title: 'Portable interpreter',
+    line: 'A no-JIT lane for queries that arrive after the build, bit-identical to compiled code.',
+    to: '/docs/query-language/portable-interpreter',
+  },
+  {
+    title: 'Determinism',
+    line: 'Fixed-point math (Fixed64) and seeded random declared in the schema, held by tests.',
+  },
+];
+
+function ShippedToday(): ReactNode {
+  return (
+    <section className="cdb-section cdb-surface">
+      <div className="container">
+        <span className="cdb-kicker">Shipped</span>
+        <h2 className="cdb-h2">What you can use today</h2>
         <p className="cdb-lead">
-          It always starts simple. Then the data spreads across scripts, the edge cases pile up, and
-          the "quick" feature owns your week — the same way, every project:
+          The data layer, frame state, determinism and the interpreter are in the docs now. The
+          server and liveops are validated prototypes; the services are designed. The platform page
+          keeps the whole list honest.
         </p>
-        <div className="cdb-grid" style={{marginTop: '2rem'}}>
-          {PAINS.map((p) => (
-            <div className={`cdb-card ${styles.pain}`} key={p}>
-              <p>{p}</p>
-            </div>
-          ))}
+        <div className={styles.shipped}>
+          <div className={styles.shippedCode}>
+            <CodeWindow tabs={HERO_TABS} />
+            <p className={styles.shippedCaption}>
+              You write the schema. Conjure emits the C# — switch the tab and read it.
+            </p>
+          </div>
+          <ul className={styles.shippedList}>
+            {SHIPPED.map((s) => (
+              <li key={s.title}>
+                <span className={styles.shippedTitle}>{s.title}</span>
+                <span className={styles.shippedLine}>{s.line}</span>
+                {s.to && (
+                  <Link className={styles.shippedLink} to={s.to}>
+                    Docs →
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function OneIdea(): ReactNode {
-  return (
-    <section className="cdb-section cdb-surface">
-      <div className="container cdb-center">
-        <span className="cdb-kicker">There's a calmer way</span>
-        <h2 className="cdb-h2" style={{maxWidth: '20ch', margin: '0.5rem auto 0.9rem'}}>
-          Describe your data — don't wire it by hand
-        </h2>
-        <p className="cdb-lead" style={{margin: '0 auto'}}>
-          Underneath, every one of those is the same thing: game data hand-wired across your scripts.
-          ConjureDB lets you describe your data and the queries you need — players, items, scores — in
-          one place, and generates the fast C# that used to sprawl across a dozen MonoBehaviours. You
-          get clean, reusable systems, and the speed comes for free.
+        <p className={styles.proofLine}>
+          57-query game workload · 50 000 players · 519× vs hand-written LINQ · 0 B allocated on 26
+          of 57 cases <Link to="/data-layer#benchmarks">benchmarks →</Link>
         </p>
-      </div>
-    </section>
-  );
-}
-
-type Benefit = {tag: string; title: string; body: string; link: string; cta: string};
-const BENEFITS: Benefit[] = [
-  {
-    tag: 'Architecture & reuse',
-    title: 'Features that travel between games',
-    body: "Behind a declarative schema, a feature owns its data on its own terms — not welded into one game's managers and presenters. Build a shop or inventory once and carry it into the next project.",
-    link: '/why',
-    cta: 'Why it matters →',
-  },
-  {
-    tag: 'Performance',
-    title: 'Fast lookups, not per-frame loops',
-    body: "ConjureDB indexes your data and picks the fast path for every query, so the lookups you'd otherwise write as loops over lists don't cost you frames. You say what you want; it finds the quickest way there.",
-    link: '/how-it-works',
-    cta: 'How it works →',
-  },
-  {
-    tag: 'Reactivity · IVM',
-    title: 'Views that stay fresh by themselves',
-    body: 'Incremental view maintenance keeps leaderboards and inventories current by applying only what changed — no manual invalidation, no refresh-order bugs, cost that scales with edits not data size.',
-    link: '/docs/advanced/reactive-queries',
-    cta: 'Reactive queries →',
-  },
-  {
-    tag: 'Frame budget',
-    title: 'AOT-safe, allocation-lean C#',
-    body: 'It compiles to plain C# — no runtime codegen, no reflection on the query path — so it survives IL2CPP and a tight mobile frame. The query hot path is allocation-free; if you do not trust it, read the generated code.',
-    link: '/performance',
-    cta: 'See performance →',
-  },
-];
-
-function Benefits(): ReactNode {
-  return (
-    <section className="cdb-section">
-      <div className="container">
-        <span className="cdb-kicker">What that one move buys you</span>
-        <h2 className="cdb-h2">Four wins from the same decision</h2>
-        <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '2rem'}}>
-          {BENEFITS.map((b) => (
-            <div className={`cdb-card ${styles.benefit}`} key={b.title}>
-              <span className={styles.benefitTag}>{b.tag}</span>
-              <h3>{b.title}</h3>
-              <p style={{marginBottom: '1rem'}}>{b.body}</p>
-              <Link to={b.link}>{b.cta}</Link>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Cost(): ReactNode {
-  return (
-    <section className="cdb-section cdb-surface">
-      <div className="container cdb-center">
-        <span className="cdb-kicker">The bottom line</span>
-        <h2 className="cdb-h2" style={{maxWidth: '24ch', margin: '0.5rem auto 0.9rem'}}>
-          Less to reinvent. Less to untangle.
-        </h2>
-        <p className="cdb-lead" style={{margin: '0 auto'}}>
-          Features stop being from-scratch rebuilds and become things you declare once and reuse
-          across titles. The coupling that makes a growing game unmanageable goes away — so your team
-          spends its time on the game, not on rebuilding its plumbing. Better architecture that costs
-          you neither frames nor the same feature twice.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function Proof(): ReactNode {
-  return (
-    <section className="cdb-section cdb-center">
-      <div className="container">
-        <span className="cdb-kicker">Measured, not asserted</span>
-        <h2 className="cdb-h2">Fast — and willing to show its work</h2>
-        <p className="cdb-lead" style={{margin: '0 auto'}}>
-          In a 57-query game-workload benchmark against SQLite (50,000 players), all 56 production
-          queries ran <strong>50× or faster</strong>, none slower. Numbers depend on your workload and
-          hardware — so we publish the methodology and tell you to benchmark your own scenario.
-        </p>
-        <div className={styles.proofCta}>
-          <Link className="button button--primary button--lg" to="/performance">
-            See the benchmarks &amp; methodology
+        <div className={styles.ctaRow} style={{justifyContent: 'center', marginTop: '1.6rem'}}>
+          <Link className="button button--secondary button--lg" to="/platform">
+            Platform: every part and its status
           </Link>
         </div>
       </div>
@@ -225,16 +283,16 @@ function Proof(): ReactNode {
 type Role = {who: string; gets: string};
 const ROLES: Role[] = [
   {
-    who: 'CEOs & Producers',
-    gets: 'Build a system once and reuse it across every title, instead of paying to rebuild the same features for each new game.',
+    who: 'Small studios',
+    gets: 'The infrastructure a platform team would build — client data layer, server, verification, liveops — compiled from one schema, without the platform team.',
   },
   {
-    who: 'CTOs & Tech Leads',
-    gets: 'A cost-based optimizer and incremental view maintenance, with explicit, honest limits and inspectable, generated code you can read.',
+    who: 'Tech leads',
+    gets: 'A deterministic, compiled model with explainable plans, generated code you can read, and limits stated out loud.',
   },
   {
-    who: 'Senior Developers',
-    gets: 'A schema-first DSL, compiled queries and mutations, indexing you control, and zero-allocation editors — with examples to copy from.',
+    who: 'Gameplay programmers',
+    gets: 'Declare state and commands. UI views update themselves, the frame stays flat, and the same feature runs on the server without a second implementation.',
   },
 ];
 
@@ -243,7 +301,7 @@ function Roles(): ReactNode {
     <section className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">Who it's for</span>
-        <h2 className="cdb-h2">One project, read at every altitude</h2>
+        <h2 className="cdb-h2">Built for a team of three. Readable by a team of thirty.</h2>
         <div className="cdb-grid" style={{marginTop: '2rem'}}>
           {ROLES.map((r) => (
             <div className="cdb-card" key={r.who}>
@@ -259,19 +317,19 @@ function Roles(): ReactNode {
 
 function FinalCta(): ReactNode {
   return (
-    <section className="cdb-section cdb-center">
+    <section className="cdb-section cdb-center cdb-surface">
       <div className="container">
-        <h2 className="cdb-h2">Read the full argument</h2>
+        <h2 className="cdb-h2">See every part and its real status</h2>
         <p className="cdb-lead" style={{margin: '0 auto 2rem'}}>
-          From the shop screen that depends on everything to a compiled data layer — the case for
-          ConjureDB, and the honest limits, in one read.
+          The platform page lists what is shipped, what has been proven in a prototype and what is
+          only designed.
         </p>
         <div className={styles.ctaRow} style={{justifyContent: 'center'}}>
-          <Link className="button button--primary button--lg" to="/why">
-            Why ConjureDB
+          <Link className="button button--primary button--lg" to="/platform">
+            Platform
           </Link>
           <Link className="button button--secondary button--lg" to="/docs/getting-started">
-            Get started
+            Read the docs
           </Link>
         </div>
       </div>
@@ -282,16 +340,13 @@ function FinalCta(): ReactNode {
 export default function Home(): ReactNode {
   return (
     <Layout
-      title="ConjureDB — an in-memory data layer for game clients"
-      description="ConjureDB is an in-memory database for game clients. Describe your data and queries declaratively and compile them into fast, reactive, reusable C#. Better architecture, index-driven performance, reactive views, and lower development cost — for Unity & .NET.">
+      title="Conjure — one schema, compiled for client and server"
+      description="Conjure compiles one declarative description of your game into the client data layer, the server, replay verification and liveops. Play offline, verify on the server by replay, ship features in days — for Unity & .NET.">
       <Hero />
       <main>
         <StatBand />
-        <Problems />
-        <OneIdea />
-        <Benefits />
-        <Cost />
-        <Proof />
+        <Claims />
+        <ShippedToday />
         <Roles />
         <FinalCta />
       </main>

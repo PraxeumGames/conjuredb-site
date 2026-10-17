@@ -7,122 +7,120 @@
 
 ## 1  CLI Reference
 
-### 1.1  `ConjureDB.Schema.Cli` — Validation + Metadata Generation
+### 1.1  `ConjureDB.Compiler` — Project-Aware Validation And Generation
 
-> **Supported path after wave one:** `ConjureDB.Schema.Cli` validates `.conjure` files and emits **metadata C#**. To get an executable `DbContext` and runnable queries, include the emitted C# in a project that also runs `ConjureDB.CodeGen` (or `ConjureDB.CodeGen.Manual`).
+`ConjureDB.Compiler.dll` is the single manual compiler assembly. Its CLI evaluates the
+target SDK-style project through MSBuild/Roslyn, compiles the `.conjure`/DSL frontend,
+and emits the complete executable generated pack. It is not installed as an analyzer
+and does not run during normal `dotnet build`.
+
+The compiler admits only normalized source format 2. The owning project must
+declare `<ConjureDBSyntaxVersion>2</ConjureDBSyntaxVersion>` in its project
+file only after all effective schema inputs owned by that project have been migrated; missing or unsupported versions are rejected rather than inferred. A
+standalone stored schema owner uses `conjure.project.json` with exactly
+`{"syntaxVersion": 2}`.
+
+Projects that reference `ConjureDB.Compiler` inherit its complete CLI, Roslyn Workspace,
+and MSBuild runtime dependency closure. Runtime and Unity projects that do not reference
+the compiler remain free of that closure and compile only the committed generated C# pack.
 
 **Usage:**
 
 ```bash
-dotnet run --project ConjureDB.Schema.Cli -- <schema-dir> <output-dir> [options]
+dotnet run --project ConjureDB.Compiler -- generate <project.csproj> [options]
+dotnet run --project ConjureDB.Compiler -- verify <project.csproj> [options]
 ```
 
 **Positional arguments:**
 
 | Argument | Description |
 |----------|-------------|
-| `<schema-dir>` | Directory containing `.conjure` files (searched recursively) |
-| `<output-dir>` | Directory where generated `.g.cs` files are written (created if not exists) |
+| `<project.csproj>` | Authoritative SDK-style C# project and semantic/reference closure |
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--context=<Name>` | `AppDbContext` | Name of the generated `DbContext` subclass |
-| `--namespace=<Name>` | `Generated` | C# namespace for all generated code |
-| `--validate` | off | Run parse/import/merge/bind validation without writing `.g.cs` output |
+| `--schema-root <dir>` | `<project-dir>/schema` | Override the recursively searched schema directory |
+| `--output <dir>` | `<project-dir>/Generated` | Override the generated-pack directory |
+| `--context <Name>` | project-derived | Override the generated `DbContext` subclass name |
+| `--namespace <Name>` | project-derived | Override the generated C# namespace |
+| `--framework <TFM>` | project-derived | Select a target framework for a multi-target project |
+| `--strict` | off | Treat compiler warnings as errors |
 
 **Example:**
 
 ```bash
-dotnet run --project ConjureDB.Schema.Cli -- \
-    ./schemas ./Generated \
-    --context=GameDbContext \
-    --namespace=Game.Data
+dotnet run --project ConjureDB.Compiler -- generate ./Game.Data.csproj \
+    --schema-root ./schemas --output ./Generated \
+    --context GameDbContext --namespace Game.Data
 ```
 
 ### 1.2  Pipeline Stages and Output
 
-The CLI is fail-fast. It processes files in stages, prints progress to stdout and diagnostics to stderr, and stops before emission if any stage reports errors:
+The CLI is fail-closed. It stops before publication when project loading, schema
+processing, binding, planning, validation, or emission reports an error. `generate`
+publishes a complete pack atomically; `verify` performs the same compilation without
+publishing files.
 
-```
-Found 3 .conjure file(s)
-Emitting to ./Generated...
-  → PlayerStatus.g.cs
-  → Player.g.cs
-  → Guild.g.cs
-  → IPlayerQueries.cs
-  → IPlayerMutations.cs
-  → GameDbContext.g.cs
-Done. 6 file(s) generated.
-```
+One manual generation session holds the project and generated-pack locks through
+MSBuild evaluation, candidate validation, diagnostics, and publication. Publication is
+journaled before filesystem mutation and records exact paths, lengths, and SHA-256 hashes.
+After an interrupted process, the next session either completes the already committed
+directory rename or restores the exact previous pack; changed, linked, corrupt, or
+otherwise ambiguous artifacts fail closed instead of being deleted. Cancellation before
+the commit rename restores the previous pack.
 
 ### 1.3  Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success — all files generated |
-| `1` | Error — parse, import, merge, bind, or I/O errors |
-| `2` | Unexpected internal error (unhandled exception) |
+| `0` | Compilation succeeded |
+| non-zero | Command, project-load, schema, binding, planning, emission, or I/O error |
 
 ### 1.4  Generated File Types
 
 | File Pattern | Source Declaration | Content |
 |-------------|-------------------|---------|
-| `<EnumName>.g.cs` | `enum` | C# enum type |
-| `<TableName>.g.cs` | `table` / `struct table` | Entity `record` / `record struct` with attributes |
-| `<TypeName>.g.cs` | `type` / `struct type` | Plain `record` / `record struct` |
-| `I<Entity>Queries.cs` | `query` / `reactive query` | Repository interface with `query` methods |
-| `I<Entity>Mutations.cs` | `mutation` | Repository interface with `mutation` methods |
-| `<ModuleInterfaceName>.g.cs` | `module` | Module interface containing query/mutation members |
-| `<ContextName>.g.cs` | *(all tables)* | executable `partial class <ContextName> : DbContext` with schema descriptor registration |
+| `Schema.<EnumName>.g.cs` | `enum` | C# enum type |
+| `Schema.<TableName>.g.cs` | `table` / `struct table` | Entity `record` / `record struct` with attributes |
+| `Schema.<TypeName>.g.cs` | `type` / `struct type` | Plain `record` / `record struct` |
+| `Schema.I<Entity>Queries.g.cs` | `query` / `reactive query` | Repository interface with `query` methods |
+| `Schema.I<Entity>Mutations.g.cs` | `mutation` | Repository interface with `mutation` methods |
+| `Schema.<ModuleInterfaceName>.g.cs` | `module` | Module interface containing query/mutation members |
+| `Schema.<ContextName>.g.cs` | *(all tables)* | executable `partial class <ContextName> : DbContext` with schema descriptor registration |
 
 ### 1.5  Generated DbContext
 
-The generated `DbContext` exposes a typed set for each table — a generated concrete `<Plural>Set` (a `DbSet<T>` subclass) — and registers it via `AddSet` inside `Build()`:
+The generated `DbContext` registers a typed `DbSet<T>` for each table using the schema descriptor:
 
 ```csharp
 using System;
-using System.Collections.Generic;
 using ConjureDB;
 
 namespace Game.Data;
 
 public partial class GameDbContext : DbContext
 {
-    public PlayersSet Players { get; private set; } = null!;
-    public GuildsSet Guilds { get; private set; } = null!;
-    public InventoriesSet Inventories { get; private set; } = null!;
-
     public GameDbContext(DbConfiguration config) : base(config)
     {
     }
 
     protected override void Build()
     {
-        var relResolversPlayer = new List<IRelationResolver<Player>>(0);
-        Players = new PlayersSet(this, static (Player x) => x.Id,
-            static (Player x, int id) => x.Id = id, relResolversPlayer, 16384);
-        AddSet(Players);
-
-        var relResolversGuild = new List<IRelationResolver<Guild>>(0);
-        Guilds = new GuildsSet(this, static (Guild x) => x.Id,
-            static (Guild x, int id) => x.Id = id, relResolversGuild, 256);
-        AddSet(Guilds);
-
-        var relResolversInventory = new List<IRelationResolver<Inventory>>(0);
-        Inventories = new InventoriesSet(this, static (Inventory x) => x.Id,
-            static (Inventory x, int id) => x.Id = id, relResolversInventory, 16);
-        AddSet(Inventories);
+        RegisterSet(new DbSet<Player>(this, PlayerDescriptor));
+        RegisterSet(new DbSet<Guild>(this, GuildDescriptor));
+        RegisterSet(new DbSet<Inventory>(this, InventoryDescriptor));
     }
 }
 ```
 
 The supported full pipeline is:
 
-1. Add `.conjure` files as schema AdditionalFiles.
-2. Let the source generator run the shared `SchemaPipelineRunner` path.
-3. Use `ConjureDB.CodeGen.Manual` only when intentionally regenerating checked-in generated packs.
+1. Keep `.conjure` sources under the target project's schema root.
+2. Run `ConjureDB.Compiler verify` or `generate` explicitly against that project.
+3. Commit the complete generated pack; ordinary builds compile it as C# and never load
+   compiler assemblies.
 
 **Pluralization rules:**
 - Names ending in `s`, `x`, `z`, `ch`, `sh` → append `es` (e.g., `Match` → `Matches`)
@@ -137,12 +135,12 @@ The `ConjureDB.Schema.Lsp` project provides a Language Server Protocol server fo
 
 ### 2.1  Editor Integration
 
-The LSP server is launched by the `vscode-conjure` VSCode extension. It communicates via stdin/stdout using the standard LSP protocol.
+The LSP server is launched by the `vscode-conjuredb` VSCode extension. It communicates via stdin/stdout using the standard LSP protocol.
 
 **To install:**
 
 ```bash
-cd vscode-conjure
+cd vscode-conjuredb
 npm ci && npm run compile && npm run package:vsix && npm run install:vsix
 ```
 
@@ -195,7 +193,7 @@ Imported files are loaded from disk on demand, even if not currently open in the
 
 Use `schema_version` and `type_id` table options to enable migration tracking:
 
-```
+```conjure
 table Player(persistence: local, type_id: 1, schema_version: 3) {
   id    : int  @id
   name  : string
@@ -229,20 +227,14 @@ When loading persisted snapshots, ConjureDB compares the stored schema fingerpri
 | `SCH1xxx` | Parser | Unexpected tokens, invalid options, empty bodies |
 | `SCH2xxx` | Binder | Duplicate names, unknown types, FK validation, PK validation |
 | `SCH3xxx` | Import graph | Missing imports, cycles, duplicate file identities |
-| `SCH4xxx` | Single-file import resolution | Circular imports, missing/unreadable imported files, invalid import paths |
 | `SCH5xxx` | Semantic validator | Structural invariants (pre-bind) |
 
-### 4.2  Common Diagnostics
-
-This lists the most frequently encountered codes; it is not exhaustive (each phase defines additional codes — see the ranges above).
+### 4.2  Complete Diagnostic List
 
 | Code | Phase | Severity | Description |
 |------|-------|----------|-------------|
-| `SCH0001` | Lexer | Error | Unterminated string literal |
-| `SCH0002` | Lexer | Warning | Unknown escape sequence in a string literal |
-| `SCH0003` | Lexer | Error | Unexpected character that cannot start any valid token |
-| `SCH1001` | Parser | Error | Expected token not found (type name, default value, body delimiter) |
-| `SCH1002` | Parser | Error | Expected a specific keyword after another (e.g. `type` after `extern`, `query` after `reactive`) |
+| `SCH1001` | Parser | Error | Expected token not found (type name, `@default` constant, body delimiter) |
+| `SCH1002` | Parser | Error | Unexpected token (expected declaration or field) |
 | `SCH1003` | Parser | Error | Invalid table option (unknown key or invalid persistence value) |
 | `SCH1004` | Parser | Error | Invalid index kind |
 | `SCH1005` | Parser | Error | Invalid annotation (`@` or `@@` with unknown keyword) |
@@ -279,14 +271,18 @@ This lists the most frequently encountered codes; it is not exhaustive (each pha
 
 ### 5.1  Complete Game Schema
 
-```
+```conjure
 // game.conjure — Full game schema example
 
 // ═══════════════════════════════════
 // Enums
 // ═══════════════════════════════════
 
-enum PlayerStatus { Active = 0, Banned = 1, Inactive = 2 }
+enum PlayerStatus {
+    Active = 0,
+    Banned = 1,
+    Inactive = 2,
+}
 
 enum Rank : byte {
     Recruit = 0,
@@ -338,7 +334,7 @@ table Guild(persistence: local, capacity: 256) {
 
 table Player(persistence: local, capacity: 16384) {
     id        : int          @id
-    guild_id  : int?         @relation(references: Guild.id, onDelete: SetNull)
+    guild_id  : int?         @relation(references: Guild.id, on_delete: set_null)
     name      : string
     rank      : Rank
     level     : int
@@ -353,15 +349,15 @@ table Player(persistence: local, capacity: 16384) {
     @@index(fields: [level],    name: "Player_ByLevel",      kind: sorted_set)
     @@index(fields: [score],    name: "Player_ByScore",      kind: sorted_set,
             is_pgo_recommended: true)
-    @@index(fields: [guild_id, level], name: "Player_ByGuildLevel",
-            kind: sorted_set, order: [asc, desc])
-    @@index(fields: [guild_id, score], name: "Player_ByGuildScore",
-            kind: sorted_set, order: [asc, desc])
+    @@index(fields: [guild_id asc, level desc], name: "Player_ByGuildLevel",
+            kind: sorted_set)
+    @@index(fields: [guild_id asc, score desc], name: "Player_ByGuildScore",
+            kind: sorted_set)
 }
 
 table Item {
     id       : int    @id
-    owner_id : int    @relation(references: Player.id, onDelete: Cascade)
+    owner_id : int    @relation(references: Player.id, on_delete: cascade)
     name     : string
     rarity   : int
 
@@ -377,7 +373,7 @@ struct table Position {
 
 table Inventory(type_id: 10, schema_version: 2) {
     id        : int          @id
-    player_id : int          @relation(references: Player.id, onDelete: Cascade)
+    player_id : int          @relation(references: Player.id, on_delete: cascade)
     data      : binary
     tags      : list<string>
     position  : Vector3
@@ -389,108 +385,132 @@ table Inventory(type_id: 10, schema_version: 2) {
 
 fragment high_level_players(min_level: int) =
     from Player
-    | where level >= @min_level
+    | filter level >= @min_level
 
 fragment players_in_guild(gid: int) =
     from Player
-    | where guild_id == @gid
+    | filter guild_id == @gid
 
 // ═══════════════════════════════════
 // Queries
 // ═══════════════════════════════════
 
-query ListGuilds() -> Guild[] =
+query ListGuilds() -> Guild[] {
     from Guild
     | sort title
+}
 
-query GetGuildById(id: int) -> Guild =
+query GetGuildById(id: int) -> Guild {
     from Guild
-    | where id == @id
-    | sort id
-    | take 1
-    | require found
+    | filter id == @id
+    | single
+}
 
-query ListHighLevelPlayers(min_level: int) -> Player[] =
+query ListHighLevelPlayers(min_level: int) -> Player[] {
     @high_level_players(@min_level)
     | sort -score
     | take 100
+}
 
-query ListGuildPlayers(gid: int) -> Player[] =
+query ListGuildPlayers(gid: int) -> Player[] {
     @players_in_guild(@gid)
     | sort -level
     | take 50
+}
 
-query ListPlayerNames(min_level: int) -> string[] =
+query ListPlayerNames(min_level: int) -> string[] {
     from Player
-    | where level >= @min_level
+    | filter level >= @min_level
     | sort name
     | select name
+}
 
-query PlayerTagBuckets() -> list<string>[] =
+query PlayerTagBuckets() -> list<string>[] {
     from Player
     | select tags
+}
 
-query TopPlayersDto(min_level: int) -> PlayerDto[] =
+query TopPlayersDto(min_level: int) -> PlayerDto[] {
     from Player
-    | where level >= @min_level
+    | filter level >= @min_level
     | sort -score
     | take 100
-    | select { id, name, rank, level, score, guild_id } as PlayerDto
+    | select {
+        id = id,
+        name = name,
+        rank = rank,
+        level = level,
+        score = score,
+        guild_id = guild_id
+      }
+}
 
-query GuildDtos() -> GuildDto[] =
+query GuildDtos() -> GuildDto[] {
     from Guild
     | sort title
-    | select { id, title, rank } as GuildDto
+    | select { id = id, title = title, rank = rank }
+}
 
-query GuildViewsClr() -> GuildView[] =
+query GuildViewsClr() -> GuildView[] {
     from Guild
     | sort title
-    | select { id -> Id, title -> Title, rank -> Rank } as extern GuildView
+    | select { Id = id, Title = title, Rank = rank }
+}
 
 // ═══════════════════════════════════
 // Reactive Queries
 // ═══════════════════════════════════
 
-reactive query WatchTopPlayers(min_level: int) -> Player[] =
+reactive query WatchTopPlayers(min_level: int) -> Player[] {
     from Player
-    | where level >= @min_level
+    | filter level >= @min_level
     | sort -score
     | take 10
+}
 
 // ═══════════════════════════════════
 // Mutations
 // ═══════════════════════════════════
 
-mutation ResetGuildTitles() -> int =
+mutation ResetGuildTitles() -> int {
     update Guild
-    | set title = "reset"
+    | set { title = "reset" }
     | require confirm_full_table
+}
 
-mutation BanPlayer(player_id: int) =
+mutation BanPlayer(player_id: int) {
     update Player
-    | where id == @player_id
-    | set status = 1
+    | filter id == @player_id
+    | set { status = 1 }
+}
 
-mutation DeleteInactivePlayers() -> int =
+mutation DeleteInactivePlayers() -> int {
     delete Player
-    | where status == 2
+    | filter status == 2
+}
 
-mutation CreatePlayer(name: string, level: int) -> Player =
+mutation CreatePlayer(name: string, level: int) -> Player {
     insert Player
     | values { name = @name, level = @level, score = 0, status = 0 }
+}
 
-mutation PromotePlayers(min_level: int) -> int =
+mutation PromotePlayers(min_level: int) -> int {
     update Player
-    | where level >= @min_level
-    | set rank = Rank.Elite
+    | filter level >= @min_level
+    | set { rank = Rank.Elite }
+}
 ```
 
 ### 5.2  Multi-File Project
 
 **`schema/core/types.conjure`:**
 
-```
-enum Rank : byte { Bronze = 0, Silver = 1, Gold = 2 }
+```conjure
+enum Rank : byte {
+    Bronze = 0,
+    Silver = 1,
+    Gold = 2,
+}
 
 type Currency {
     code   : string
@@ -502,7 +522,7 @@ extern type Vector3 = UnityEngine.Vector3
 
 **`schema/entities/guild.conjure`:**
 
-```
+```conjure
 import "../core/types.conjure"
 
 table Guild(persistence: local, capacity: 256) {
@@ -516,13 +536,13 @@ table Guild(persistence: local, capacity: 256) {
 
 **`schema/entities/player.conjure`:**
 
-```
+```conjure
 import "../core/types.conjure"
 import "guild.conjure"
 
 table Player(persistence: local, capacity: 16384) {
     id       : int    @id
-    guild_id : int?   @relation(references: Guild.id, onDelete: SetNull)
+    guild_id : int?   @relation(references: Guild.id, on_delete: set_null)
     name     : string
     rank     : Rank
     balance  : Currency
@@ -533,26 +553,26 @@ table Player(persistence: local, capacity: 16384) {
 
 fragment active_players() =
     from Player
-    | where rank != Rank.Bronze
+    | filter rank != Rank.Bronze
 
-query TopPlayers() -> Player[] =
+query TopPlayers() -> Player[] {
     @active_players()
     | sort -rank
     | take 100
+}
 ```
 
 **Generate:**
 
 ```bash
-dotnet run --project ConjureDB.Schema.Cli -- \
-    ./schema ./Generated \
-    --context=GameDbContext \
-    --namespace=Game.Data
+dotnet run --project ConjureDB.Compiler -- generate ./Game.Data.csproj \
+    --schema-root ./schema --output ./Generated \
+    --context GameDbContext --namespace Game.Data
 ```
 
 ### 5.3  Complex Index Configurations
 
-```
+```conjure
 table Analytics(persistence: local, capacity: 65536) {
     id          : int    @id
     user_id     : int
@@ -568,10 +588,9 @@ table Analytics(persistence: local, capacity: 65536) {
     @@index(fields: [timestamp], name: "Analytics_ByTime", kind: sorted_set)
 
     // Composite sorted index with direction control
-    @@index(fields: [event_type, timestamp],
+    @@index(fields: [event_type asc, timestamp desc],
             name: "Analytics_ByEventTime",
-            kind: sorted_set,
-            order: [asc, desc])
+            kind: sorted_set)
 
     // Aggregation index for sum/count queries
     @@index(fields: [event_type],
@@ -580,12 +599,11 @@ table Analytics(persistence: local, capacity: 65536) {
             value: value,
             aggregation_variant: sum_count)
 
-    // Filtered index for active regions only
+    // Partial index for event type 1; this is a typed .conjure expression
     @@index(fields: [region],
-            name: "Analytics_ActiveRegion",
+            name: "Analytics_EventType1",
             kind: lookup,
-            filter: "EventType > 0",
-            filter_columns: [event_type])
+            filter: event_type == 1)
 
     // Index with covering columns
     @@index(fields: [user_id],
@@ -601,12 +619,22 @@ table Analytics(persistence: local, capacity: 65536) {
 }
 ```
 
+`Analytics_EventType1` indexes only rows whose `event_type` is exactly `1`.
+It is not equivalent to indexing every positive event type: partial-index
+maintenance does not admit `event_type > 0`. Use an explicitly maintained
+boolean field if that broader membership is required.
+
 ### 5.4  Schema with All Type Variants
 
-```
+```conjure
 extern type CustomData = MyApp.Types.CustomData
 
-enum Priority { Low = 0, Medium = 1, High = 2, Critical = 3 }
+enum Priority {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+    Critical = 3,
+}
 
 type Metadata {
     created_by : string
@@ -632,15 +660,22 @@ table Task(persistence: local, capacity: 4096) {
     deadline    : datetime?
     duration    : timespan
     ref_id      : guid
-    is_active   : bool            = true
-    weight      : float           = 1.0
-    counter     : long            = 0
+    is_active   : bool
+    weight      : float
+    counter     : long
 
     @@index(fields: [priority], name: "Task_ByPriority", kind: sorted_set)
-    @@index(fields: [is_active, priority], name: "Task_ActivePriority",
-            kind: sorted_set, order: [asc, desc])
+    @@index(fields: [is_active asc, priority desc], name: "Task_ActivePriority",
+            kind: sorted_set)
 }
 ```
+
+The fields of this persistent table declare no defaults: a field default is
+`@default(constant)`, and it is admitted only on plain ephemeral tables, where
+it completes an `insert`/`upsert` payload that omits the field
+(see [Schema Language §8.3](/docs/schema/schema-language)). Initialize `is_active`,
+`weight` and `counter` explicitly when creating a `Task`. The retired
+`field: T = value` suffix is rejected with `SCH2173`.
 
 ---
 
@@ -658,7 +693,7 @@ table Task(persistence: local, capacity: 4096) {
 
 ### 6.2  Index Strategy
 
-- **Start with lookup indexes** on fields used in `where` equality filters.
+- **Start with lookup indexes** on fields used in `filter` equality expressions.
 - **Use sorted_set indexes** on fields used in range predicates or `sort` clauses.
 - **Add composite indexes** when queries frequently filter/sort on field combinations.
 - **Use `included` columns** to create covering indexes and avoid table lookups.
@@ -671,7 +706,7 @@ table Task(persistence: local, capacity: 4096) {
 - **Extract shared types** into a `core/` or `shared/` directory and use imports.
 - **Use extern type aliases** for frequently referenced CLR types.
 - **Use fragments** to avoid duplicating common filter/sort pipelines.
-- **Keep query bodies concise** — use `=` expression bodies for single-pipeline queries.
+- **Keep query bodies concise** — use a braced pipeline body for a single-pipeline query.
 
 ### 6.4  Version Management
 
@@ -683,59 +718,51 @@ table Task(persistence: local, capacity: 4096) {
 
 ---
 
-## 7  Appendix: Grammar Summary
+## 7  Appendix: Normalized Syntax Summary
+
+Project-aware compilation admits .conjure source format 2 only. The full
+reference is [Schema Language](/docs/schema/schema-language); the forms below summarize
+the declaration and expression distinctions most often needed when authoring:
 
 ```ebnf
-file            = { import | extern_type | enum | type | table | query
-                  | reactive_decl | mutation | fragment } ;
+(* Selected normalized format-2 forms; the full grammar is in the Schema Language reference. *)
+parameters          = "(", [ parameter, { ",", parameter } ], ")" ;
+parameter           = IDENT, ":", type ;
+parameter_reference = "@", IDENT ;
 
-import          = "import" STRING ;
-extern_type     = "extern" "type" IDENT "=" qualified_name ;
+query               = [ "reactive" ], "query", IDENT, parameters, "->", type,
+                      [ query_hints ], "{", query_body, "}" ;
+mutation            = "mutation", IDENT, parameters, [ "->", type ],
+                      "{", mutation_body, "}" ;
+command             = "command", IDENT, parameters, [ "->", type ],
+                      [ command_metadata ], "{", command_statements, "}" ;
+system              = "system", IDENT, "(", system_options, ")",
+                      "{", system_body, "}" ;
+fragment            = "fragment", IDENT, parameters,
+                      ( "=", pipeline | "{", pipeline, "}" ) ;
+view                = "view", IDENT, "{", { field }, "}", "=", pipeline ;
 
-enum            = "enum" IDENT [ ":" backing_type ] "{" enum_members "}" ;
-enum_members    = enum_member { "," enum_member } [ "," ] ;
-enum_member     = IDENT [ "=" [ "-" ] INT ] ;
+field               = IDENT, ":", type, { field_annotation } ;
+metadata_entry      = IDENT, ":", metadata_value ;
+projection_field    = IDENT, "=", expression ;
+value_field         = IDENT, "=", expression ;
 
-type            = [ "struct" ] "type" IDENT "{" { type_field } "}" ;
-type_field      = IDENT ":" type_ref ;
-
-table           = [ "struct" ] "table" IDENT [ table_options ] "{" { field | table_ann } "}" ;
-table_options   = "(" option { "," option } ")" ;
-option          = ( "persistence" | "capacity" | "schema_version" | "type_id" | "plural" )
-                  ( ":" | "=" ) value ;
-
-field           = IDENT ":" type_ref { field_ann } [ "=" default_value ] ;
-field_ann       = "@" ( "id" | "unique" | "default" "(" value ")"
-                      | "index" [ "(" index_params ")" ]
-                      | "relation" [ "(" relation_params ")" ] ) ;
-
-table_ann       = "@@" ( "index" | "unique" ) "(" composite_params ")" ;
-
-type_ref        = [ "extern" ] ( scalar_type | IDENT | "list" "<" type_ref ">" )
-                  [ "?" ] [ "[]" ] ;
-
-query           = "query" IDENT "(" params ")" "->" type_ref ( "=" body | "{" body "}" ) ;
-reactive_decl   = "reactive" query ;
-mutation        = "mutation" IDENT "(" params ")" [ "->" type_ref ]
-                  ( "=" body | "{" body "}" ) ;
-fragment        = "fragment" IDENT "(" params ")" ( "=" body | "{" body "}" ) ;
-
-body            = source_clause { "|" pipeline_step } ;
-source_clause   = "from" IDENT [ IDENT ]
-                | ( "update" | "delete" | "insert" | "upsert" ) IDENT
-                | "@" IDENT "(" args ")" ;
-
-pipeline_step   = "where" expr | "filter" expr | "sort" sort_fields
-                | "take" expr | "limit" expr | "skip" expr
-                | "select" select_items | "distinct"
-                | [ modifier ] "join" IDENT [ IDENT ] [ "on" expr ]
-                | "group" expr | "set" expr | "values" "{" expr "}"
-                | "assert" expr | "returning" expr
-                | "require" ( "found" | "confirm_full_table" )
-                | ( "union" | "intersect" | "except" ) expr ;
+pipeline            = source, { "|", transform } ;
+source              = "from", qualified_name, [ IDENT ]
+                    | "@", IDENT, "(", [ argument_list ], ")" ;
+transform           = "filter", expression | "sort", sort_list
+                    | "take", expression | "skip", expression
+                    | "select", projection_list | "join", join_source
+                    | "group", group_expression
+                    | "aggregate", "{", aggregate_list, "}" ;
 ```
 
----
+Schema fields and named metadata use :; record values and named projection
+fields use =. Operation parameters are referenced as @name. Query, mutation,
+command, and system bodies are braced; fragments and views keep their
+declaration-specific forms. Query pipeline filtering is spelled filter.
+
+
 
 *For additional documentation see:*
 - [Schema Language Reference](/docs/schema/schema-language)
@@ -744,3 +771,33 @@ pipeline_step   = "where" expr | "filter" expr | "sort" sort_fields
 - [Getting Started](/docs/getting-started)
 - [Profile-Guided Optimization](/docs/performance/pgo)
 - VSCode Extension README
+
+## Named scalar constants
+
+Named constants are evaluated when the schema is compiled and become typed literals in generated
+execution. They do not add runtime parameters or tables:
+
+```conjure
+const Tau: float = 6.2831855f
+const MissingLimit: int? = null
+const DefaultLimit: int = MissingLimit ?? 42
+
+module Combat {
+    const DefaultLimit: int = 100
+    const DoubleLimit: int = DefaultLimit * 2
+}
+```
+
+Definitions may refer to later constants. Their dependency graph must be acyclic. Inside a module,
+exact local names shadow global exact names; another module's value uses its qualified name, such
+as `Combat.DoubleLimit`. Case-only spelling changes are not constant-name aliases.
+
+The declared scalar or enum type, including nullability, is preserved. Null requires a nullable
+declared carrier. Implicit nullable-to-nonnullable assignments are refused. Integral constant
+narrowing is range-checked; arithmetic is checked unless the expression explicitly uses
+`unchecked`. Every branch must be compile-time closed, even if evaluation will not select it.
+An unselected arithmetic fault is not executed.
+
+Function calls, runtime parameters, tables, collections, records, entity references, and object or
+binary payloads are not named scalar constants. Floating constant values must be finite. These
+rules do not introduce or change const-table content providers.

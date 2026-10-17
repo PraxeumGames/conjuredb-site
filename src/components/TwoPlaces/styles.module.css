@@ -1,0 +1,214 @@
+/* One command, two places. Device = gold, server = steel, the shared
+   result = gold equals sign. */
+
+.root {
+  --tp-gap: 2.5rem;
+  --tp-line: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
+  margin: 2.6rem auto 0;
+  max-width: 60rem;
+  text-align: left;
+  scroll-margin-top: 5rem;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: var(--frame-w) minmax(7rem, 9rem) var(--frame-w);
+  justify-content: center;
+  column-gap: 1.5rem;
+  align-items: start;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  width: var(--frame-w);
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.where {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--ifm-color-primary);
+}
+.whereServer {
+  fill: var(--cdb-server);
+}
+.cmd {
+  font-family: var(--cdb-mono);
+  font-size: 0.8em;
+  fill: var(--cdb-muted);
+}
+.track {
+  fill: var(--cdb-line);
+}
+.fill {
+  fill: var(--ifm-color-primary);
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.serverSide .fill {
+  fill: var(--cdb-server);
+}
+.fillOn {
+  transform: scaleX(1);
+}
+.running .fillOn {
+  animation: tp-fill 1.4s linear both;
+}
+.tick {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+.serverSide .tick {
+  stroke: var(--cdb-server);
+}
+.tickOn {
+  opacity: 1;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+
+.rows {
+  margin: 0.9rem 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+}
+.rows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.22rem 0;
+}
+.rows dt {
+  color: var(--cdb-muted);
+  font-weight: 400;
+}
+.rows dd {
+  margin: 0;
+  color: var(--cdb-ink);
+  font-variant-numeric: tabular-nums;
+}
+.rows .timing {
+  margin-top: 0.3rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--cdb-line);
+}
+.resolved {
+  animation: tp-resolve var(--dur) var(--ease) both;
+}
+.device .resolved {
+  color: var(--ifm-color-primary);
+}
+.server .resolved {
+  color: var(--cdb-server);
+}
+
+.equals {
+  /* The sign sits exactly at the progress bars' height, centred between the frames. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: calc(var(--bar-y) - 6px);
+}
+.equalsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.equalsLine {
+  flex: 1;
+  border-top: 1px dashed var(--tp-line);
+}
+.equalsSign {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 12px;
+}
+.equalsSign::before,
+.equalsSign::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: var(--r-sm);
+  background: var(--cdb-line);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.equalsSign::before {
+  top: 1px;
+}
+.equalsSign::after {
+  bottom: 1px;
+}
+.done .equalsSign::before,
+.done .equalsSign::after {
+  background: var(--ifm-color-primary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ifm-color-primary) 60%, transparent);
+}
+.equalsLabel {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  color: var(--cdb-muted);
+}
+.done .equalsLabel {
+  color: var(--ifm-color-primary);
+}
+
+
+
+
+@keyframes tp-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes tp-resolve {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Narrow: device above server, the sign between them. */
+@media (max-width: 760px) {
+  .stage {
+    grid-template-columns: minmax(0, var(--frame-w));
+    row-gap: var(--gap-sm);
+  }
+  .side {
+    width: 100%;
+  }
+  .equals {
+    margin-top: 0;
+  }
+  .equalsRow {
+    width: 8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

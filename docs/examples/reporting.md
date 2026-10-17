@@ -6,39 +6,73 @@ placement at build time.
 
 ## Group and aggregate
 
-Count players per level and report their average score:
+`group key (pipeline)` opens a scope: the inner pipeline runs once per key, and it is not
+itself a reduction — it may filter, sort, limit, project or aggregate.
 
-```prql
-type LevelStat { Level: int, Players: int, AvgScore: float }
+Counting players per level is a keyed reduction, so the natural result surface is a map:
+the group key supplies `K`, the child pipeline supplies `V`.
 
-query LevelStats() -> LevelStat[] {
-    from Players
-    | group Level (
-        aggregate {
-            Players = count(),
-            AvgScore = avg(Score)
-        }
-    )
-    | sort Level
+```conjure
+query PlayerCountsByLevel() -> map<int, long> {
+    from Player p | group p.Level (aggregate count())
 }
 ```
 
-## Top-K per group with a window function
+A row-shaped reduction names its outputs:
 
-The "top 3 players per level" shape — a windowed ranking — is one query, not a manual
-loop-and-sort:
+```conjure
+type LevelStat {
+    Players: long
+    AvgScore: double?
+}
 
-```prql
-type PlayerRank { Level: int, Name: string, Score: int, Rank: int }
+query LevelStats() -> map<int, LevelStat> {
+    from Player p
+    | group p.Level (
+        aggregate { Players = count(), AvgScore = avg(p.Score) }
+    )
+}
+```
+
+`count()` is a non-nullable `long` and is zero on empty input. `avg`, `sum`, `min` and `max`
+are absent on empty input — `double?` here — and the declared type has to admit that rather
+than inventing a zero. A whole-table reduction drops the group and the name:
+
+```conjure
+query TotalScore() -> long? {
+    from Player p | aggregate sum(p.Score)
+}
+```
+
+Aggregate calls are legal only inside `aggregate` or an admitted window invocation. For a
+HAVING-style query, reduce first and then filter the named output.
+
+## Top-K per group with a window
+
+There is no `window` stage. A ranking is a named `derive` value inside a scoped group,
+ordered by that scope's `sort`:
+
+```conjure
+type PlayerRank {
+    Level: int
+    Name: string
+    Score: int
+    Rank: long
+}
 
 query Top3PerLevel() -> PlayerRank[] {
-    from Players
-    | sort -Score
-    | window by Level (Rank = row_number)
-    | filter Rank <= 3
-    | select { Level, Name, Score, Rank }
+    from Player p
+    | group p.Level (
+        sort { -p.Score, p.Id }
+        | derive Rank = row_number()
+        | filter Rank <= 3
+        | select { Level = p.Level, Name = p.Name, Score = p.Score, Rank }
+    )
 }
 ```
+
+`row_number`, `rank`, `dense_rank`, `lag` and `lead` carry their own window role and take no
+frame. An aggregate used as a window value does need one — `avg(p.Score) over rows(-2, 0)`.
 
 ## Call it from C#
 
@@ -49,7 +83,7 @@ using var ctx = DbContextBuilder<GameDbContext>.Create()
     .WithNoPersistence()
     .Build();
 
-var perLevel = ctx.LevelStats();
+var perLevel = ctx.LevelStats();        // map<int, LevelStat>
 var podium = ctx.Top3PerLevel();
 ```
 

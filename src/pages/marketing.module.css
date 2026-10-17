@@ -37,14 +37,14 @@
 }
 
 .pageTitle {
-  font-size: clamp(2.1rem, 4.6vw, 3.1rem);
+  font-size: var(--fs-h1);
   line-height: 1.06;
   letter-spacing: -0.02em;
   font-weight: 850;
   margin: 0.4rem 0 1rem;
 }
 .pageLead {
-  font-size: clamp(1.05rem, 2vw, 1.2rem);
+  font-size: var(--fs-lg);
   line-height: 1.65;
   color: var(--cdb-muted);
   max-width: 48rem;
@@ -58,7 +58,7 @@
 
 .codeCaption {
   margin: 0.9rem 0 0;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   color: var(--cdb-muted);
 }
 
@@ -67,13 +67,14 @@
   margin-top: 1.6rem;
   overflow-x: auto;
   border: 1px solid var(--cdb-line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }
 .benchTable {
+  display: table; /* Infima makes tables display: block, which stops them filling the wrap */
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
 }
 .benchTable th,
 .benchTable td {
@@ -84,9 +85,8 @@
 .benchTable th {
   font-family: var(--cdb-mono);
   color: var(--cdb-muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .benchTable tbody tr:last-child td {
@@ -105,14 +105,229 @@
 .caveat {
   margin-top: 1rem;
   color: var(--cdb-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .dictCard {
   margin-top: 1.4rem;
-  border: 1px solid var(--cdb-line);
-  border-left: 3px solid var(--cdb-accent);
-  border-radius: 14px;
-  background: var(--cdb-surface);
+  border-radius: var(--r-lg);
+  background: var(--ifm-background-color);
   padding: 1.3rem 1.4rem;
+}
+
+/* Two-up card grid (How it works: honest limits). */
+.grid2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 996px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.visualCaption {
+  margin: var(--gap-md) auto 0;
+  max-width: 44rem;
+  font-size: var(--fs-md);
+  color: var(--cdb-ink);
+  opacity: 0.85;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Sections that the mechanism chain links to land below the navbar. */
+:global(section[id]) {
+  scroll-margin-top: 4rem;
+}
+
+/* Data layer page */
+.kickerRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.footnote {
+  margin: 0.9rem auto 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
+  text-align: center;
+}
+.sideNote {
+  max-width: 44rem;
+  margin: 0.6rem auto 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
+  color: var(--cdb-muted);
+}
+.compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.8rem;
+  text-align: left;
+}
+.compareCell {
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--r-lg);
+  background: var(--ifm-background-color);
+}
+.compareLabel {
+  display: block;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--cdb-muted);
+  margin-bottom: 0.7rem;
+}
+.compareCell dl {
+  margin: 0;
+}
+.compareCell dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+}
+.compareCell dt {
+  font-weight: 400;
+  color: var(--cdb-muted);
+  font-size: var(--fs-md);
+}
+.compareCell dd {
+  margin: 0;
+  font-family: var(--cdb-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--cdb-ink);
+}
+.compareCdb dt {
+  color: var(--cdb-ink);
+}
+.compareCdb dd {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+@media (max-width: 996px) {
+  .compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Architecture page */
+.plainCards {
+  margin-top: 0;
+}
+.sliceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--gap-md);
+  align-items: start;
+  margin-top: 3rem;
+  text-align: left;
+}
+.sliceModule {
+  margin-top: var(--gap-md);
+  text-align: left;
+  contain: inline-size;
+}
+@media (max-width: 996px) {
+  .sliceGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.tree {
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--r-lg);
+  background: var(--ifm-background-color);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 2;
+  color: var(--cdb-ink);
+  white-space: pre;
+  overflow-x: auto;
+}
+.treeRow {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  column-gap: 0.8rem;
+}
+.treeRoot {
+  color: var(--ifm-color-primary);
+}
+.treeNote {
+  color: var(--cdb-muted);
+  white-space: normal;
+}
+@media (max-width: 560px) {
+  .treeRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .treeNote {
+    padding-left: 1.2rem;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+  }
+  .treeNote:empty {
+    display: none;
+  }
+}
+.treeCaption {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
+  line-height: 1.55;
+}
+.sliceCode {
+  display: grid;
+  gap: var(--gap-sm);
+  min-width: 0;
+}
+.sliceCode .codeCaption {
+  margin-top: 0.2rem;
+}
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.cardHead h3 {
+  margin: 0 0 0.5rem;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-sm);
+  margin: 3rem 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+@media (max-width: 996px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.stepNum {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+.steps p {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--cdb-ink);
+}
+.honest {
+  max-width: 44rem;
+  margin: var(--gap-md) auto 0;
+  font-size: var(--fs-md);
+  color: var(--cdb-muted);
+  text-align: center;
+  text-wrap: balance;
 }

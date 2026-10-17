@@ -1,0 +1,262 @@
+/* One event, three mechanisms. IVM = gold, travelling box to box;
+   Rx and rebuild = wire red, all at once. Nothing blinks: rebuild is a
+   slow sweep and a faint band moving down the list. */
+
+.wrap {
+  max-width: 64rem;
+  margin: var(--gap-lg) auto 0;
+}
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 24rem);
+  justify-content: center;
+  align-items: center;
+  gap: var(--gap-md) calc(var(--gap-md) + 0.5rem);
+}
+@media (max-width: 640px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .device {
+    max-width: 15rem;
+  }
+}
+.device {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  min-width: 0;
+  width: 100%;
+}
+
+/* The leaderboard UI view */
+.screenTitle {
+  font-weight: 600;
+  fill: var(--cdb-ink);
+}
+.rank,
+.lvl {
+  font-family: var(--cdb-mono);
+  fill: var(--cdb-muted);
+}
+.name {
+  fill: var(--cdb-ink);
+}
+.guild {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-muted);
+}
+.rank.gold {
+  fill: var(--ifm-color-primary);
+  font-weight: 600;
+}
+.flash {
+  fill: var(--ifm-color-primary);
+  fill-opacity: 0.12;
+}
+.live .flash {
+  animation: ivm-mark 1.2s var(--ease) 0.9s both;
+}
+.flashRed {
+  fill: var(--cdb-wire);
+  fill-opacity: 0;
+}
+.live .flashRed {
+  animation: ivm-red 1.4s var(--ease) both;
+}
+.shimmer {
+  fill: var(--cdb-wire);
+  fill-opacity: 0.07;
+  animation: ivm-shimmer 2.4s linear infinite;
+}
+
+/* The chain: source → maintainers → result (or five operators) */
+.chain {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+  background: var(--ifm-background-color);
+}
+.box + .box::before {
+  content: '';
+  position: absolute;
+  left: 1.4rem;
+  top: calc(-0.9rem - 1px);
+  height: 0.9rem;
+  border-left: 1px dashed var(--cdb-line);
+}
+.boxHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
+}
+.boxName {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-sm);
+  color: var(--cdb-ink);
+}
+.boxSub {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+}
+.boxStatus {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+/* IVM: the delta reaches each box in turn (once the demo is live). */
+.live.ivm .box {
+  animation: ivm-reach var(--dur) var(--ease) calc(var(--i) * 0.28s) both;
+}
+.live.ivm .boxStatus {
+  animation: ivm-in var(--dur) var(--ease) calc(var(--i) * 0.28s + 0.1s) both;
+}
+/* Rx and rebuild: every box works, every time. */
+.chainRed .box {
+  border-color: color-mix(in srgb, var(--cdb-wire) 55%, transparent);
+}
+.chainRed .boxStatus {
+  color: var(--cdb-wire);
+}
+.toggle {
+  align-self: flex-start;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--cdb-muted);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.toggle:hover {
+  color: var(--cdb-ink);
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+/* Cost line: the frame budget, linear in rows evaluated */
+.budget {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 40rem;
+}
+.track {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--cdb-line);
+}
+.track span {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--ifm-color-primary);
+  transition: width var(--dur-slow) var(--ease);
+}
+.red .track span {
+  background: var(--cdb-wire);
+}
+/* Over budget: the bar runs past the frame and is torn off at the edge. */
+.trackOver span {
+  width: calc(100% + 0.6rem);
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 25%, 100% 50%, calc(100% - 4px) 75%, 100% 100%, 0 100%);
+}
+.budgetText {
+  color: var(--cdb-ink);
+}
+.overTag {
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--cdb-wire);
+  color: var(--cdb-on-accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@keyframes ivm-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes ivm-reach {
+  0% {
+    border-color: var(--cdb-line);
+  }
+  40% {
+    border-color: var(--ifm-color-primary);
+    background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+  }
+  100% {
+    border-color: color-mix(in srgb, var(--ifm-color-primary) 50%, transparent);
+  }
+}
+@keyframes ivm-mark {
+  from {
+    fill-opacity: 0;
+  }
+  30% {
+    fill-opacity: 0.3;
+  }
+  to {
+    fill-opacity: 0.12;
+  }
+}
+@keyframes ivm-red {
+  from {
+    fill-opacity: 0.3;
+  }
+  to {
+    fill-opacity: 0;
+  }
+}
+@keyframes ivm-shimmer {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(300px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .shimmer {
+    display: none;
+  }
+}

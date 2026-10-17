@@ -50,7 +50,7 @@ diagnostic before emission.
 
 One-shot query execution evaluates the source pipeline on each call:
 
-```
+```text
 Commit() -> Query executes source pipeline -> Result
 ```
 
@@ -62,7 +62,7 @@ changed.
 
 Reactive queries subscribe to data changes and apply **incremental deltas**:
 
-```
+```text
 Commit() → Z-set maintenance → O(changes) updates → Result (always current)
 ```
 
@@ -71,7 +71,7 @@ this drops to 300 evaluations per second — a **2000x reduction**.
 
 ### Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    Compile-Time (Code Generation)                     │
 │                                                                      │
@@ -97,27 +97,25 @@ this drops to 300 evaluations per second — a **2000x reduction**.
 
 ### 1. Define a Reactive Query
 
-```text
-reactive query TopPlayersByGuild(guild_id: int) -> Player[] =
+```conjure
+type PlayerView {
+    Name: string
+    Level: int
+}
+
+reactive query TopPlayersByGuild(guild_id: int) -> PlayerView[] {
     from Players
     | filter GuildId == @guild_id
     | sort -Level
     | take 10
     | select { Name = Name, Level = Level }
+}
 ```
 
 ### 2. Access the Materialized View
 
-Reactive queries are reached through generated accessors. Context-level queries
-(projections, aggregates, or multi-table joins) live on the per-context query
-host, reached via `context.QueryHost<...>()`; simple single-table reactive
-queries are generated on the corresponding `DbSet`. The query-host interface is
-generated per context (e.g. `IGameDbContextQueries`).
-
 ```csharp
-// Context-level reactive query — reached via the generated per-context query host.
-var queries = context.QueryHost<IGameDbContextQueries>();
-var view = queries.TopPlayersByGuild(guildId: 5);
+var view = context.TopPlayersByGuild(guildId: 5);
 
 // Read current results (zero-copy span)
 ReadOnlySpan<PlayerView> topPlayers = view.Current;
@@ -214,18 +212,35 @@ view.SubscribeChanged(changes =>
 **Use when:** You need to know what specifically changed (e.g., animate
 additions/removals in a list view).
 
-**Lifetime:** The `ReactiveQueryChangedEventArgs<T>` is a stack-only `ref struct`;
-its `Current` and `Changes` spans are valid only during the callback and reference
-live worker buffers. Copy out any data you need to retain before returning — the
-payload cannot be stored or passed to another thread.
-
 ### Subscription Comparison
 
 | Mode | Allocation | Thread Safety | Change Details | Best For |
 |------|-----------|---------------|---------------|----------|
 | `Subscribe` | 1 copy (Memory) | ✅ Cross-thread | ❌ Snapshot only | Multi-threaded consumers |
 | `SubscribeSpan` | Zero | ❌ Main thread only | ❌ Snapshot only | Game loop (60 fps) |
-| `SubscribeChanged` | Zero | ❌ Main thread only | ✅ Delta + snapshot | Animated UI |
+| `SubscribeChanged` | 1 copy (Memory) | ✅ Cross-thread | ✅ Delta + snapshot | Animated UI |
+
+"Cross-thread" describes the *payload*: the snapshot handed to the callback may be stored and read
+from another thread. It does not mean the callback itself runs off the commit path.
+
+### Callback contract
+
+Notification callbacks are dispatched inside the commit that produced the change — the commit
+completes only after every callback returns (see
+[Concurrency Control § Commit completion boundary](/docs/engine/concurrency#commit-completion-boundary)).
+Three rules follow:
+
+1. **Do not block on the triggering commit.** Awaiting the `CommitAsync()` task, or any handle the
+   committing thread only sets after that commit returns, deadlocks by construction.
+2. **Do not commit from a callback.** Nested commits are rejected with reason code
+   `reactive-commit-from-notification-callback`. Queue the mutation and commit after the callback
+   returns.
+3. **Keep callbacks short.** Their cost is paid by the committing thread — on a client that is your
+   frame thread.
+
+A callback that throws does not corrupt the cycle: the failure is isolated, the remaining queries are
+still notified, and the aggregated failures surface on `DbContext.SynchronizationException` as a
+`ReactiveNotificationDispatchException`. The commit itself still succeeds.
 
 ---
 
@@ -310,7 +325,7 @@ at runtime (see [Diagnostics](#diagnostics-and-observability)).
 | `filter Predicate` | Stateless conditional |
 | `select Projection` | Stateless transform |
 | `sort ...` + bounded `take N` | TopK with maintained ordered state |
-| bounded `row_number` window | Partitioned TopK state for `sort | window(row_number) | filter row_number <= K | select` |
+| bounded `row_number` window | Partitioned TopK state for scoped-group `sort`, `derive` with `row_number()`, and a bounded filter |
 | `distinct` | Refcount-based |
 | scalar `count`, `sum`, `avg`, `min`, `max` | Singleton materialized aggregate state |
 | grouped `count`, `sum`, `avg`, `min`, `max` | Per-group accumulator fields plus counted ordered extrema state |
@@ -351,7 +366,7 @@ compile time** with an `EmissionException`. This ensures that all reactive
 queries in the application are guaranteed to be maintained through Z-set
 materialized state.
 
-```
+```text
 // Compilation error in strict mode:
 // error UM6011: Reactive query 'RankedPlayers' is not supported by the
 // current Z-set reactive maintainer matrix.
@@ -445,7 +460,7 @@ public class ReactiveQuery<T>
 | `Normal` | Within frame budget | Visible but not primary |
 | `Background` | Deferred | Off-screen or analytics |
 
-Priority can be driven by PGO hints — see [PGO — Reactive Query PGO Hints](/docs/performance/pgo#reactive-query-pgo-hints).
+Priority can be driven by PGO hints — see [PGO — Reactive Query PGO Hints](/docs/performance/pgo#what-admitted-pgo-can-influence).
 
 ---
 
@@ -453,18 +468,18 @@ Priority can be driven by PGO hints — see [PGO — Reactive Query PGO Hints](/
 
 ### Example 1: Live Inventory View
 
-```text
-reactive query PlayerInventory(player_id: int) -> InventoryRow[] =
+```conjure
+reactive query PlayerInventory(player_id: int) -> InventoryRow[] {
     from Items
     | filter OwnerId == @player_id
     | select { Name = Name, Quantity = Quantity, Rarity = Rarity }
-    | sort -Rarity, Name
+    | sort { -Rarity, Name }
     | take 50
+}
 ```
 
 ```csharp
-// Single-table reactive query — generated on the corresponding DbSet.
-var inventory = context.Items.PlayerInventory(playerId: currentPlayer.Id);
+var inventory = context.PlayerInventory(playerId: currentPlayer.Id);
 
 // Initial render
 RenderInventoryGrid(inventory.Current);
@@ -492,19 +507,19 @@ context.Commit();
 
 ### Example 2: Dashboard Counters
 
-```text
-reactive query GuildStats() -> GuildStatsRow[] =
-    from Players
-    | group (GuildId) (aggregate {
+```conjure
+reactive query GuildStats() -> GuildStatsRow[] {
+    from Players p
+    | group p.GuildId (aggregate {
         MemberCount = count(),
-        AverageLevel = avg(Level)
+        AverageLevel = avg(p.Level)
     })
+    | select { GuildId = GuildId, MemberCount = MemberCount, AverageLevel = AverageLevel }
+}
 ```
 
 ```csharp
-// Grouped-aggregate reactive query — reached via the generated query host.
-var queries = context.QueryHost<IGameDbContextQueries>();
-var guildStats = queries.GuildStats();
+var guildStats = context.GuildStats();
 
 guildStats.Subscribe(_ =>
 {
@@ -518,19 +533,18 @@ guildStats.Subscribe(_ =>
 
 ### Example 3: Real-Time Leaderboard
 
-```text
-reactive query TopPlayers() -> LeaderboardRow[] =
+```conjure
+reactive query TopPlayers() -> LeaderboardRow[] {
     from Players
     | join Guilds g (GuildId == g.Id)
-    | sort -Level, Name
+    | sort { -Level, Name }
     | take 100
     | select { Name = Name, Level = Level, GuildName = g.Name }
+}
 ```
 
 ```csharp
-// Multi-table (join) reactive query — reached via the generated query host.
-var queries = context.QueryHost<IGameDbContextQueries>();
-var leaderboard = queries.TopPlayers();
+var leaderboard = context.TopPlayers();
 
 leaderboard.SubscribeChanged(changes =>
 {
@@ -561,19 +575,19 @@ leaderboard.SubscribeChanged(changes =>
 
 ### Example 4: Parameterized Bounded Reactive Query
 
-```text
-reactive query ActiveQuestsWithRewards(player_id: int) -> QuestRow[] =
+```conjure
+reactive query ActiveQuestsWithRewards(player_id: int) -> QuestRow[] {
     from Quests
     | filter PlayerId == @player_id
     | filter IsActive
     | select { QuestName = QuestName, Progress = Progress, TargetProgress = TargetProgress }
     | sort -Progress
     | take 20
+}
 ```
 
 ```csharp
-// Single-table reactive query — generated on the corresponding DbSet.
-var activeQuests = context.Quests.ActiveQuestsWithRewards(playerId);
+var activeQuests = context.ActiveQuestsWithRewards(playerId);
 
 // The hidden ReactiveAutoView stores the non-parameterized source shape.
 // The player filter, order, and limit are applied through the materialized
@@ -614,7 +628,7 @@ runs synchronously as part of the commit sequence. See [Transactions](/docs/engi
 ### PGO
 
 PGO profiles drive reactive query buffer pre-allocation and priority
-suggestions. See [PGO — Reactive Query PGO Hints](/docs/performance/pgo#reactive-query-pgo-hints).
+suggestions. See [PGO — Reactive Query PGO Hints](/docs/performance/pgo#what-admitted-pgo-can-influence).
 
 ### Navigation Editors
 

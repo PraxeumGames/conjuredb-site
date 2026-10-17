@@ -121,7 +121,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 Snapshots are stored under `<DataDirectory>/snapshots/`:
 
-```
+```text
 save/
 └── snapshots/
     ├── snapshot_1718000000000.dat   ← oldest
@@ -156,7 +156,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 **How delta chains work:**
 
-```
+```text
 Full snapshot (epoch 100)
   └─ Delta 1 (epoch 101) — 12 modified entities
       └─ Delta 2 (epoch 102) — 3 modified entities
@@ -165,7 +165,8 @@ Full snapshot (epoch 100)
                   └─ Full snapshot (epoch 110) — chain resets
 ```
 
-Recovery loads the base full snapshot, then applies each delta in epoch order.
+Recovery loads the base full snapshot, orders deltas by their authoritative transaction versions,
+validates that their epoch transitions form a continuous chain, and only then applies the chain.
 
 **When a full snapshot is forced:**
 
@@ -181,7 +182,7 @@ snapshot size, lower the threshold.
 
 **Full snapshots (V5 format):**
 
-```
+```text
 ┌──────────────────────────────────────────────────┐
 │ Magic (8 bytes)  0x554D_4442_5632_0000 "UMDBV2"  │
 │ Format Version (2 bytes)  ushort = 5             │
@@ -208,7 +209,7 @@ partially corrupted state.
 
 **Delta snapshots:**
 
-```
+```text
 ┌──────────────────────────────────────────────────┐
 │ Magic (4 bytes)  0x55_4D_44_53 "UMDS"            │
 │ Base Epoch (8 bytes)  ulong                      │
@@ -234,18 +235,18 @@ per 4 KB chunk for authentication tags.
 The write-ahead journal records every committed transaction between snapshots.
 Each journal entry is a framed record:
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │ Magic (4 bytes)  0x554D_4A45 "UMJE"     │
 │ Length (4 bytes)                         │
-│ CRC-32 checksum (4 bytes)               │
 │ MessagePack payload (variable)          │
+│ CRC-32 checksum (4 bytes)               │
 └─────────────────────────────────────────┘
 ```
 
 Journal files are stored under `<DataDirectory>/journal/`:
 
-```
+```text
 save/
 └── journal/
     ├── journal_638550000000000000.dat
@@ -279,15 +280,22 @@ var db = DbContextBuilder<GameDb>.Create()
 | `FlushInterval` | 100 ms | Lower = less data at risk; higher = better throughput |
 | `MaxJournalFileSize` | 2 MB | Controls rotation; larger files = fewer fsyncs |
 | `MaxStateChangesBeforeSnapshot` | 100 | Auto-triggers snapshot after N journal entries |
-| `CorruptionPolicy` | `StopAtCorruption` | Recovery behavior on a corrupt journal entry; configurable via `.WithJournaling(j => j.CorruptionPolicy(JournalCorruptionPolicy.Fail))` |
+| Recovery corruption policy | `StopAtCorruption` | Lower-level `JournalOptions` recovery behavior; not part of the fluent builder |
 
 **Corruption policies:**
 
 | Policy | Behavior | Use when |
 |--------|----------|----------|
 | `StopAtCorruption` | Stop replay at first corrupt entry; recover what is valid | Default — safe, predictable |
-| `SkipCorrupted` | Scan forward for next valid magic marker; skip corrupt entries | Maximize recovery at the cost of potential gaps |
+| `SkipCorrupted` | Resynchronize at a later frame, drop every pending transaction across the unprovable gap, and use the first valid post-gap transaction end as a fence | Conservatively recover only transactions that start after a provable clean boundary |
 | `Fail` | Throw `JournalCorruptionException` immediately | Strict environments; fail-fast |
+
+`SkipCorrupted` never combines pre-gap and post-gap records into a transaction. Recovery discards
+all pending changes when corruption is detected, ignores changes until the first valid
+`TransactionEnd`, and drops that entire end-delimited transaction as well. Replay resumes only for
+later transaction versions. The tainted state persists across journal-file boundaries, including
+schema sentinel frames; if no clean boundary can be established, the remaining records are not
+applied.
 
 **Forced flush for critical commits:**
 
@@ -329,7 +337,7 @@ minutes of changes is acceptable.
 **Example — settings database:**
 
 ```csharp
-// SettingsDb is generated from `.conjure` schema AdditionalFiles.
+// SettingsDb comes from the committed pack produced by `ConjureDB.Compiler generate`.
 // Its schema declares UserPreference and GraphicsSettings tables with explicit type_id values.
 
 // Configure with snapshot-only, long interval
@@ -371,7 +379,7 @@ where losing even one transaction is unacceptable.
 **Example — player progress database:**
 
 ```csharp
-// PlayerDb is generated from `.conjure` schema AdditionalFiles.
+// PlayerDb comes from the committed pack produced by `ConjureDB.Compiler generate`.
 // Its schema declares PlayerProfile, InventoryItem, PurchaseRecord, and QuestProgress tables.
 
 var playerDb = DbContextBuilder<PlayerDb>.Create()
@@ -398,7 +406,7 @@ var db = DbContextBuilder<GameDb>.Create()
         .AutomaticSnapshotInterval(TimeSpan.FromMinutes(5))
         .WithJournaling())
     .WithRemoteSnapshot(remote => remote
-        .RemoteHandler(new MyCloudSaveHandler())
+        .OwnedByContext(new MyCloudSaveHandler())
         .ResolutionStrategy(StateResolutionStrategy.RemoteFirst)
         .MaxRetryAttempts(3)
         .RequestTimeout(TimeSpan.FromSeconds(10)))
@@ -441,7 +449,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 **Recovery sequence:**
 
-```
+```text
 Build() / BuildAsync()
   │
     └─ InitializeAsync()
@@ -452,12 +460,12 @@ Build() / BuildAsync()
             │     ├─ Check remote snapshot (if IRemoteSnapshotHandler configured)
             │     ├─ Apply StateResolutionStrategy (remote vs. local)
             │     ├─ Load latest full snapshot
-            │     ├─ Apply delta snapshots in epoch order (if incremental enabled)
+            │     ├─ Order deltas by transaction version and validate epoch continuity
             │     └─ Replay journal entries with version > snapshot version
             │
             ├─ 3. InitializeJournal()  — start journal writer
             │
-            └─ 4. TakePostMigrationSnapshotIfNeededAsync()  — if schema changed
+            └─ 4. TakePostMigrationSnapshotIfNeeded()  — if schema changed
 ```
 
 No manual intervention is required. After `Build()` or `BuildAsync()` returns, the database
@@ -470,7 +478,7 @@ directory before re-opening the context:
 
 ```csharp
 // 1. Stop the database (if running)
-db.Dispose();
+await db.DisposeAsync();
 
 // 2. Clear the current data directory
 Directory.Delete("save/snapshots", recursive: true);
@@ -574,9 +582,9 @@ var oldDb = DbContextBuilder<GameDb>.Create()
     .Build();
 
 // 2. Export data (in-memory — no files involved)
-var profiles = oldDb.Set<PlayerProfile>().All().ToArray();
+var profiles = oldDb.Set<PlayerProfile>().ToArray();
 
-oldDb.Dispose();
+await oldDb.DisposeAsync();
 
 // 3. Clear old files and re-create with new key
 Directory.Delete("save/", recursive: true);
@@ -617,7 +625,7 @@ public interface IRemoteSnapshotHandler : IAsyncDisposable
 }
 ```
 
-ConjureDB provides `RemoteSnapshotHandlerBase` as a base class for remote handlers. Override
+ConjureDB provides `RemoteSnapshotHandlerBase` with built-in retry logic. Override
 three protected methods:
 
 ```csharp
@@ -668,6 +676,27 @@ public class SnapshotData // Nested inside RemoteSnapshotHandlerBase
 
 Inside a class that inherits from `RemoteSnapshotHandlerBase`, you can use `SnapshotData` directly in method signatures. Outside that inheritance scope, use `RemoteSnapshotHandlerBase.SnapshotData`.
 
+### Handler Lifetime Ownership
+
+Remote handlers are `IAsyncDisposable`, so registration names the disposal owner.
+Use `OwnedByContext` for a handler created exclusively for this database; the context
+disposes it after all admitted snapshot uploads and joiners finish. Use
+`BorrowedByCaller` only when another lifecycle owns the handler. Dispose a borrowed
+handler after its context is fully disposed, and never let both lifecycles dispose it.
+
+```csharp
+var sharedCloudHandler = new MyCloudSaveHandler();
+var db = DbContextBuilder<GameDb>.Create()
+    .WithDataDirectory("save/")
+    .WithRemoteSnapshot(remote => remote
+        .BorrowedByCaller(sharedCloudHandler)
+        .ResolutionStrategy(StateResolutionStrategy.RemoteFirst))
+    .Build();
+
+db.Dispose();
+await sharedCloudHandler.DisposeAsync();
+```
+
 ### Conflict Resolution
 
 When both local and remote snapshots exist, `StateResolutionStrategy` controls
@@ -687,7 +716,7 @@ which one wins:
 
 **Resolution flow during `InitializeAsync()`:**
 
-```
+```text
 GetRemoteVersionAsync()
   │
   ├─ Remote available?
@@ -707,16 +736,13 @@ GetRemoteVersionAsync()
 
 ```csharp
 .WithRemoteSnapshot(remote => remote
-    .RemoteHandler(new MyCloudSaveHandler())
+    .OwnedByContext(new MyCloudSaveHandler())
     .MaxRetryAttempts(3)                       // Default: 3
     .RequestTimeout(TimeSpan.FromSeconds(10))) // Per-request timeout
 ```
 
-`RemoteSnapshotHandlerBase` exposes `RequestTimeout` and `MaxRetryAttempts` as
-protected fields (populated from `RemoteSnapshotOptions`). The base class does not
-itself retry or enforce the timeout — your derived handler is responsible for honoring
-them inside its own `GetSnapshotDataAsync` / `UploadSnapshotDataAsync` /
-`GetRemoteVersionInternalAsync` implementations.
+`RemoteSnapshotHandlerBase` retries failed remote operations up to
+`MaxRetryAttempts` times. Each individual request is bounded by `RequestTimeout`.
 
 ### Platform Integration Examples
 
@@ -824,7 +850,7 @@ var db = DbContextBuilder<MobileGameDb>.Create()
             .FlushInterval(TimeSpan.FromMilliseconds(200))
             .MaxStateChangesBeforeSnapshot(50)))
     .WithRemoteSnapshot(remote => remote
-        .RemoteHandler(cloudHandler)
+        .BorrowedByCaller(cloudHandler)
         .ResolutionStrategy(StateResolutionStrategy.RemoteFirst))
     .Build();
 ```
@@ -932,7 +958,7 @@ public async Task QuickSave(DbContext db)
 // Quick-load: dispose, restore, rebuild
 public async Task<GameDb> QuickLoad(GameDb db, DbContextBuilder<GameDb> builder)
 {
-    db.Dispose();
+    await db.DisposeAsync();
     // Build() loads the latest snapshot automatically
     return builder.Build();
 }
@@ -955,7 +981,7 @@ var db = DbContextBuilder<LiveGameDb>.Create()
             .FlushInterval(TimeSpan.FromMilliseconds(50))
             .MaxStateChangesBeforeSnapshot(30)))
     .WithRemoteSnapshot(remote => remote
-        .RemoteHandler(cloudHandler)
+        .BorrowedByCaller(cloudHandler)
         .ResolutionStrategy(StateResolutionStrategy.RemoteFirst)
         .MaxRetryAttempts(5)
         .RequestTimeout(TimeSpan.FromSeconds(15)))

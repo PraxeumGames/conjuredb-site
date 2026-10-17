@@ -8,26 +8,18 @@ extern functions. Generated MessagePack attributes are compiler output.
 
 ```bash
 dotnet add package ConjureDB
-dotnet add package ConjureDB.CodeGen
 dotnet add package MessagePack
 ```
 
-Add schema files under `schema/` or mark individual MSBuild `AdditionalFiles`
-with `ConjureDBSchema=true`.
-
-```xml
-<PropertyGroup>
-  <ConjureDBSchemaRoot>$(MSBuildProjectDirectory)/schema</ConjureDBSchemaRoot>
-  <ConjureDBSchemaNamespace>$(RootNamespace)</ConjureDBSchemaNamespace>
-  <ConjureDBSchemaContextName>$(MSBuildProjectName)DbContext</ConjureDBSchemaContextName>
-</PropertyGroup>
-```
+Add schema files under `schema/` beside the target project. The manual compiler uses
+that directory and `Generated/` by default; `--schema-root` and `--output` provide
+explicit overrides.
 
 ## Define Tables
 
 Create `schema/game.conjure`:
 
-```prql
+```conjure
 table Player(plural: Players, persistence: local, capacity: 1000, type_id: 1) {
     Id: int @id
     Name: string
@@ -54,7 +46,7 @@ that is never used for durable snapshot identity.
 
 ## Add Queries
 
-```prql
+```conjure
 query GetHighLevelPlayers(minLevel: int) -> Player[] {
     from Players
     | filter Level > @minLevel
@@ -69,8 +61,9 @@ query GetTopScorers(minScore: int, count: int) -> Player[] {
 }
 ```
 
-Queries compile at build time into generated C# methods. There is no runtime
-query parser on the hot path.
+Queries compile ahead of time into generated C# methods during the explicit manual
+compiler step. There is no runtime query parser on the hot path, and normal
+`dotnet build` only compiles the committed generated pack.
 
 > Note: This is the minimal teaching version of the top-N query and `Player`
 > table. For the indexed, reactive version that stays current as scores change,
@@ -78,10 +71,14 @@ query parser on the hot path.
 
 ## Add Mutations
 
-```prql
-mutation GrantItem(playerId: int, itemType: string, quantity: int) -> int {
-    insert Item
-    | values ( OwnerId = @playerId, ItemType = @itemType, Quantity = @quantity )
+```conjure
+mutation GrantItem(playerId: int, itemType: string, quantity: int) {
+    insert Items
+    | values {
+        OwnerId = @playerId,
+        ItemType = @itemType,
+        Quantity = @quantity
+    }
 }
 ```
 
@@ -95,7 +92,7 @@ validation failures should be modeled as typed command outcomes.
 
 ## Create a Context
 
-The source generator emits the context named by `ConjureDBSchemaContextName`.
+The manual compiler emits the requested context name.
 
 ```csharp
 using ConjureDB;
@@ -112,8 +109,23 @@ players.Add(new Player { Id = 1, Name = "Hero", Level = 10, Score = 500 });
 context.Commit();
 ```
 
-For ephemeral tests or tools that should not touch disk, disable persistence at
-the context boundary:
+`Update()` takes the row that replaces the stored one — it does not take a mutation of it:
+
+```csharp
+context.BeginTransaction();
+var hero = players.FindById(1);
+players.Update(hero with { Score = hero.Score + 250 });   // a NEW row carrying the new values
+context.Commit();
+```
+
+If a `class` row is mutated in place and passed back, the update carries the same instance as its old
+row and its new row, the previous values no longer exist, and every index and materialized view would
+retract under the new key. The runtime refuses that change with an `InvalidOperationException`; see
+[Transactions](/docs/engine/transactions#updating-a-row-pass-a-new-instance) for the rule and the correct
+patterns. A `struct` or `record struct` row is copied on read and is never affected.
+
+For temporary persistent-table tests or tools that should not touch disk, disable
+persistence at the context boundary:
 
 ```csharp
 var context = DbContextBuilder<GameDbContext>.Create()
@@ -121,13 +133,19 @@ var context = DbContextBuilder<GameDbContext>.Create()
     .Build();
 ```
 
+`WithNoPersistence()` does not turn persistent tables into the frame-local ephemeral
+storage kind. For ECS-style non-transactional frame state, declare `ephemeral table`,
+`event table`, or `singleton table` and follow
+[Ephemeral Tables and Frame Systems](/docs/advanced/ephemeral-tables).
+
 ## Manual Generation
 
 For deterministic local generation, CI diagnostics, or PGO-driven codegen:
 
 ```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- schema Generated
-dotnet run --project ConjureDB.CodeGen.Manual -- schema --verify-only
+dotnet run --project ConjureDB.Compiler -- generate MyGame.csproj \
+  --context GameDbContext --namespace MyGame --output Generated
+dotnet run --project ConjureDB.Compiler -- verify MyGame.csproj
 ```
 
 Generated files are compiler output. If generated C# is wrong, fix the schema
@@ -137,7 +155,7 @@ parser, binder, planner, or emitter and regenerate.
 
 | Symptom | Check |
 |---------|-------|
-| No generated context | Schema files are included as `AdditionalFiles` with `ConjureDBSchema=true`. |
+| No generated context | Run `ConjureDB.Compiler generate` against the authoritative project and commit the complete `Generated/` pack. |
 | Missing persisted table id | Add `type_id` to every `persistence: local` or `persistence: remote` table. |
 | Slow filtered query | Declare a matching schema `@@index` and rerun generation. |
 | Snapshot compatibility error | Keep `type_id`, field ordinals, and schema versions stable across releases. |

@@ -1,0 +1,157 @@
+/* Meta and core in one schema, on the DemoStage. Persistent = gold;
+   per-frame = steel; the connection in use carries a travelling pulse. */
+
+.root {
+  width: 100%;
+  text-align: left;
+}
+.stage {
+  display: flex;
+  justify-content: center;
+}
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.wide {
+  max-width: 46rem;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 640px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+    max-width: 24rem;
+  }
+}
+
+/* The inventory UI view */
+.screenTitle {
+  font-family: var(--cdb-mono);
+  fill: var(--cdb-muted);
+}
+.item {
+  fill: var(--cdb-ink);
+}
+.equipped {
+  fill: var(--ifm-color-primary);
+}
+.xp {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--ifm-color-primary);
+}
+.rowLit {
+  fill: var(--ifm-color-primary);
+  fill-opacity: 0.14;
+  animation: mc-lit var(--dur-slow) var(--ease) both;
+}
+
+/* The battlefield */
+.field {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-server);
+  stroke-opacity: 0.5;
+  stroke-dasharray: 3 4;
+}
+.unit,
+.unitB {
+  animation: mc-wander ease-in-out infinite alternate;
+}
+.unit {
+  fill: var(--cdb-server);
+}
+.unitB {
+  fill: var(--cdb-wire);
+}
+.hero {
+  fill: var(--cdb-server);
+  transition: fill var(--dur) var(--ease);
+}
+.heroOn {
+  fill: var(--ifm-color-primary);
+}
+.heroRing {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.2;
+  stroke-opacity: 0.6;
+}
+
+/* Connections */
+.track {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.25;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 4;
+  transition: stroke-opacity var(--dur) var(--ease);
+}
+.trackOn {
+  stroke-opacity: 0.6;
+  stroke-dasharray: none;
+}
+.pulse {
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 14 300;
+  animation: mc-pulse 1.6s linear infinite;
+}
+.label {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-muted);
+  transition: fill var(--dur) var(--ease);
+}
+.labelOn {
+  fill: var(--ifm-color-primary);
+}
+
+.root .proof {
+  margin: var(--gap-sm) 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--cdb-muted);
+  text-align: center;
+}
+
+@keyframes mc-wander {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--dx), var(--dy));
+  }
+}
+@keyframes mc-pulse {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -314;
+  }
+}
+@keyframes mc-lit {
+  from {
+    fill-opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    animation: none !important;
+  }
+  .pulse {
+    stroke-dasharray: none;
+    stroke-opacity: 0.8;
+  }
+}

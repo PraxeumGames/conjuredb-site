@@ -1,0 +1,431 @@
+/* Two programs → one schema → both sides. Colour is semantics:
+   hand wiring = muted red-grey noise, schema & client = gold,
+   server = steel blue (--cdb-server). */
+
+.root {
+  --tts-wire: rgba(205, 118, 104, 0.72);
+  --tts-wire-hot: var(--cdb-wire);
+  --tts-script-fill: var(--cdb-surface-2);
+  --tts-script-line: rgba(196, 128, 116, 0.38);
+  --tts-script-ink: var(--cdb-muted);
+  --tts-gold: var(--ifm-color-primary);
+  --tts-gold-soft: rgba(236, 194, 92, 0.09);
+  --tts-server: var(--cdb-server);
+  --tts-server-soft: var(--cdb-server-soft);
+  --tts-card-fill: var(--cdb-surface-2);
+  --tts-ease: var(--ease);
+
+  position: relative;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+:global([data-theme='light']) .root {
+  --tts-wire: rgba(170, 84, 70, 0.5);
+  --tts-script-line: rgba(160, 92, 80, 0.35);
+  --tts-gold-soft: rgba(169, 117, 15, 0.08);
+}
+
+.stage {
+  position: relative;
+}
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 8% 14%;
+  background: radial-gradient(closest-side, rgba(236, 194, 92, 0.12), transparent);
+  filter: blur(30px);
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease);
+  pointer-events: none;
+}
+.isSchema .stage::before,
+.isGenerated .stage::before {
+  opacity: 1;
+}
+
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 640px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+  }
+}
+
+/* ---- Act 1: the tangle ------------------------------------------------- */
+/* Base rules are phase 01. Coming back to it is a quick cross-fade in place,
+   never the collapse played backwards. */
+.tangleGroup {
+  transition: opacity var(--dur) var(--ease);
+}
+.drift {
+  animation: tts-drift 8s ease-in-out infinite;
+}
+.isSchema .tangleGroup,
+.isGenerated .tangleGroup {
+  transform: rotate(24deg) scale(0.05);
+  opacity: 0;
+  transition:
+    transform var(--dur-slow) var(--tts-ease),
+    opacity var(--dur-slow) var(--ease) 0.45s;
+}
+
+.wire {
+  fill: none;
+  stroke: var(--tts-wire);
+  /* stroke-width is per wire, inline */
+}
+.signal {
+  stroke: var(--tts-wire-hot);
+  stroke-dasharray: 3 9;
+  animation: tts-flow 1.6s linear infinite;
+}
+
+.script {
+  fill: var(--tts-script-fill);
+  stroke: var(--tts-script-line);
+  stroke-width: 1;
+}
+.scriptLabel {
+  font-family: var(--cdb-mono);
+  fill: var(--tts-script-ink);
+}
+
+.breathe {
+  animation: tts-breathe 5s ease-in-out infinite;
+}
+.isSchema .breathe,
+.isGenerated .breathe,
+.isSchema .drift,
+.isGenerated .drift,
+.isSchema .signal,
+.isGenerated .signal {
+  animation-play-state: paused;
+}
+
+/* The network boundary between client and server code. */
+.network {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+}
+.networkLabel,
+.halfLabel {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  letter-spacing: 0.04em;
+  fill: var(--cdb-muted);
+}
+.networkLabel {
+  fill-opacity: 0.8;
+}
+.halfLabel {
+  fill-opacity: 0.6;
+}
+
+/* ---- Act 2: the card --------------------------------------------------- */
+.card {
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform 0s linear 0.35s;
+}
+.isSchema .card,
+.isGenerated .card {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform var(--dur-slow) var(--ease) 0.55s,
+    opacity var(--dur) var(--ease) 0.55s;
+}
+
+.cardBox {
+  fill: var(--tts-card-fill);
+  stroke: var(--tts-gold);
+  stroke-width: 1.5;
+}
+.cardRule {
+  stroke: var(--tts-gold);
+  stroke-opacity: 0.28;
+}
+.cardName {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--tts-gold);
+}
+.cardLine {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.82;
+}
+.kw {
+  fill: var(--tts-gold);
+}
+.cardCaption {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  letter-spacing: 0.04em;
+  fill: var(--tts-gold);
+  fill-opacity: 0.85;
+}
+.glow {
+  opacity: 0.7;
+}
+/* Light mode: the glow stays a hint (0.28 stop × 0.4 ≈ 0.11). */
+:global([data-theme='light']) .glow {
+  opacity: 0.4;
+}
+:global([data-theme='light']) .stage::before {
+  background: radial-gradient(closest-side, rgba(169, 117, 15, 0.08), transparent);
+}
+
+/* ---- Act 3: rays + generated modules ----------------------------------- */
+.ray {
+  fill: none;
+  stroke: var(--tts-gold);
+  stroke-opacity: 0.55;
+  stroke-width: 1.4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease),
+    stroke-dashoffset 0s linear 0.35s;
+}
+.isGenerated .ray {
+  opacity: 1;
+  stroke-dashoffset: 0;
+  transition:
+    opacity 0s,
+    stroke-dashoffset var(--dur-slow) var(--tts-ease) calc(0.15s + var(--d, 0s));
+}
+.flow {
+  fill: none;
+  stroke: var(--tts-gold);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 11.9;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  animation: tts-flow 1.4s linear infinite paused;
+}
+.isGenerated .flow {
+  opacity: 0.9;
+  animation-play-state: running;
+  transition: opacity var(--dur) var(--ease) calc(0.9s + var(--d, 0s));
+}
+
+.module {
+  opacity: 0;
+  transform: translate(var(--dx), var(--dy)) scale(0.3);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform 0s linear 0.35s;
+}
+.isGenerated .module {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform var(--dur-slow) var(--ease) var(--d, 0s),
+    opacity var(--dur) var(--ease) var(--d, 0s);
+}
+.moduleBase {
+  fill: var(--tts-card-fill);
+}
+.moduleTint {
+  fill: var(--tts-gold-soft);
+  stroke: var(--tts-gold);
+  stroke-opacity: 0.7;
+  stroke-width: 1.2;
+}
+.moduleTitle {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 560;
+  fill: var(--cdb-ink);
+}
+.moduleSub {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  fill: var(--tts-gold);
+}
+
+/* Output tones: client gold-on-dark, server steel blue, small outputs. */
+.tClient .moduleTint {
+  stroke-width: 1.5;
+}
+.tClient .moduleTitle,
+.tServer .moduleTitle {
+  font-size: 1.08em;
+  font-weight: 600;
+}
+.tServer .moduleTint {
+  fill: var(--tts-server-soft);
+  stroke: var(--tts-server);
+  stroke-width: 1.5;
+}
+.tServer .moduleSub {
+  fill: var(--tts-server);
+}
+.tServer .ray,
+.tServer .flow {
+  stroke: var(--tts-server);
+}
+.small .moduleTitle {
+  font-size: 1em;
+}
+.small .moduleTint {
+  stroke-opacity: 0.5;
+}
+
+/* The signature motif: actions travel client → server, each gets a check
+   when the server has replayed it. */
+.stream {
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.isGenerated .stream {
+  opacity: 1;
+  transition: opacity var(--dur) var(--ease) 1s;
+}
+.streamLine {
+  fill: none;
+  stroke: var(--tts-gold);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.streamLabel {
+  font-family: var(--cdb-mono);
+  font-size: 1em;
+  letter-spacing: 0.06em;
+  fill: var(--cdb-muted);
+}
+.marker {
+  animation: tts-action 4.4s linear infinite paused;
+}
+.check {
+  fill: none;
+  stroke: var(--tts-server);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  animation: tts-check 4.4s linear infinite paused;
+}
+.markerBox {
+  fill: var(--tts-gold);
+  animation: tts-arrive 4.4s linear infinite paused;
+  animation-delay: inherit;
+}
+.isGenerated .marker,
+.isGenerated .check,
+.isGenerated .markerBox {
+  animation-play-state: running;
+}
+
+@keyframes tts-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@keyframes tts-breathe {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(2.5px, -2px);
+  }
+  66% {
+    transform: translate(-2px, 1.5px);
+  }
+}
+@keyframes tts-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(2px, -1.5px);
+  }
+  75% {
+    transform: translate(-1.5px, 2px);
+  }
+}
+@keyframes tts-action {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  78% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 1;
+  }
+  94% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 0;
+  }
+}
+@keyframes tts-check {
+  0%,
+  78% {
+    opacity: 0;
+  }
+  84%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes tts-arrive {
+  0%,
+  76% {
+    fill: var(--tts-gold);
+  }
+  84%,
+  100% {
+    fill: var(--tts-server);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before {
+    transition: none !important;
+    animation: none !important;
+  }
+  .flow {
+    opacity: 0 !important;
+  }
+  /* Static stream: markers spread along the line, the last one verified. */
+  .marker {
+    transform: translate(calc(var(--mx) * var(--p)), calc(var(--my) * var(--p)));
+  }
+  .markerDone .check {
+    opacity: 1;
+  }
+  .markerDone .markerBox {
+    fill: var(--tts-server);
+  }
+}

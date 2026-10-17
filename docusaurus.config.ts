@@ -5,9 +5,14 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'ConjureDB',
-  tagline: 'A compiled, zero-allocation data layer for game clients',
-  favicon: 'img/favicon.ico',
+  title: 'Conjure',
+  tagline: 'One schema. Client, server, liveops.',
+  favicon: 'img/favicon.svg',
+
+  // .ico fallback for browsers that don't take an SVG favicon.
+  headTags: [
+    {tagName: 'link', attributes: {rel: 'icon', href: '/img/favicon.ico', sizes: '48x48'}},
+  ],
 
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
@@ -57,18 +62,19 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // TODO(brand): add img/conjuredb-social-card.png and a real logo, then set
-    // `image` and a navbar `logo` here.
+    image: 'img/social-card.png',
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: false,
     },
     navbar: {
-      title: 'ConjureDB',
+      title: 'Conjure',
+      logo: {alt: 'Conjure', src: 'img/logo-light.svg', srcDark: 'img/logo.svg', width: 24, height: 24},
       items: [
-        {to: '/why', label: 'Why ConjureDB', position: 'left'},
+        {to: '/platform', label: 'Platform', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
-        {to: '/performance', label: 'Performance', position: 'left'},
+        {to: '/architecture', label: 'Architecture', position: 'left'},
+        {to: '/data-layer', label: 'Data layer', position: 'left'},
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
@@ -79,14 +85,23 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'dark',
+      style: 'light',
       links: [
+        {
+          // Brand column: mark, wordmark and one line.
+          items: [
+            {
+              html: '<div class="cdb-footer-brand"><span class="cdb-footer-mark" aria-hidden="true"></span><span class="cdb-footer-word">Conjure</span><p>A compiled game platform for Unity &amp; .NET.</p></div>',
+            },
+          ],
+        },
         {
           title: 'Product',
           items: [
-            {label: 'Why ConjureDB', to: '/why'},
+            {label: 'Platform', to: '/platform'},
             {label: 'How it works', to: '/how-it-works'},
-            {label: 'Performance', to: '/performance'},
+            {label: 'Architecture', to: '/architecture'},
+            {label: 'Data layer', to: '/data-layer'},
           ],
         },
         {
@@ -106,7 +121,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} ConjureDB. Built with Docusaurus.`,
+      copyright: `© ${new Date().getFullYear()} Conjure`,
     },
     prism: {
       theme: prismThemes.oneLight,
