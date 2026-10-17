@@ -7,7 +7,12 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Conjure',
   tagline: 'One schema. Client, server, liveops.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
+
+  // .ico fallback for browsers that don't take an SVG favicon.
+  headTags: [
+    {tagName: 'link', attributes: {rel: 'icon', href: '/img/favicon.ico', sizes: '48x48'}},
+  ],
 
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
@@ -57,14 +62,14 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // TODO(brand): add img/conjuredb-social-card.png and a real logo, then set
-    // `image` and a navbar `logo` here.
+    image: 'img/social-card.png',
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: false,
     },
     navbar: {
       title: 'Conjure',
+      logo: {alt: 'Conjure', src: 'img/logo-light.svg', srcDark: 'img/logo.svg', width: 24, height: 24},
       items: [
         {to: '/platform', label: 'Platform', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
@@ -79,8 +84,16 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'dark',
+      style: 'light',
       links: [
+        {
+          // Brand column: mark, wordmark and one line.
+          items: [
+            {
+              html: '<div class="cdb-footer-brand"><span class="cdb-footer-mark" aria-hidden="true"></span><span class="cdb-footer-word">Conjure</span><p>A compiled game platform for Unity &amp; .NET.</p></div>',
+            },
+          ],
+        },
         {
           title: 'Product',
           items: [
@@ -106,7 +119,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Conjure. Built with Docusaurus.`,
+      copyright: `© ${new Date().getFullYear()} Conjure`,
     },
     prism: {
       theme: prismThemes.oneLight,
