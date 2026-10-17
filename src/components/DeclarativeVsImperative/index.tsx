@@ -1,12 +1,13 @@
-import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import type {CSSProperties, ReactNode} from 'react';
 import clsx from 'clsx';
 import {C, CodeWindow, F, K, N, T, type CodeTab} from '@site/src/components/CodeWindow';
+import DemoStage, {type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
-// Declarative vs imperative, in three beats:
-//   1. the same requirement written both ways, and who owns each decision;
-//   2. change the requirement — four places on the left, one line on the right;
-//   3. why a small, checked language is safe for assistant drafts.
+// Declarative vs imperative, in the DemoStage shell. Four steps: the same
+// requirement written both ways (and who owns each decision); two changes to
+// the requirement — four places on the left, one line on the right; and an
+// assistant's draft the compiler rejects, then accepts.
 // The query follows docs/query-language: `| filter`, `| sort`, `| take`, `!` for negation.
 
 /** A hotspot line on the imperative side: tinted, with its number at the end. */
@@ -128,162 +129,171 @@ const PLAN: Record<Change, string> = {
   owned: 'plan: filter in the maintained pipeline · delta-maintained',
 };
 
-/**
- * 'static' (server render, reduced motion: the final state) → 'armed' (waiting
- * off screen) → 'play' (scrolled into view once; CSS runs the sequence).
- */
-function useReveal<T extends HTMLElement>(threshold = 0.4) {
-  const ref = useRef<T>(null);
-  const [phase, setPhase] = useState<'static' | 'armed' | 'play'>('static');
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    setPhase('armed');
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setPhase('play');
-          io.disconnect();
-        }
-      },
-      {threshold},
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [threshold]);
-  return [ref, phase] as const;
+const STEPS: DemoStep[] = [
+  {
+    id: 'requirement',
+    label: 'the requirement',
+    holdMs: 4200,
+    narration:
+      'The same requirement, written as steps on the left and as a result on the right. The four marked places on the left are decisions you own — and one is already a bug.',
+  },
+  {
+    id: 'class',
+    label: "add: only the player's class",
+    narration: 'One line on the right; four places on the left, and another place to forget.',
+  },
+  {
+    id: 'owned',
+    label: 'add: exclude owned items',
+    narration: 'One more line on the right; four more places on the left, with a second invalidation path to keep in sync.',
+  },
+  {
+    id: 'assistant',
+    label: "an assistant tries 'sort by rarity'",
+    holdMs: 4200,
+    narration:
+      'The draft names a column that does not exist; the compiler says so in a second, and the corrected draft compiles. That is what makes a first version from an assistant safe to try.',
+  },
+];
+
+const COST: Record<string, [string, string]> = {
+  requirement: ['≈ 40 lines · 4 decisions that are yours · 1 bug already in', '6 lines · 0 of those decisions are yours'],
+  class: ['+12 lines · 4 places · new invalidation path', '+1 line · 1 place'],
+  owned: ['+22 lines · 8 places · new invalidation paths', '+2 lines · 1 place'],
+  assistant: ['', 'a rejected draft costs a second'],
+};
+
+function Ledger(): ReactNode {
+  return (
+    <div className={styles.ledger} role="table" aria-label="Who decides">
+      <div className={styles.ledgerHead} role="row">
+        <span role="columnheader">who decides</span>
+        <span role="columnheader">imperative</span>
+        <span role="columnheader">declarative</span>
+      </div>
+      {LEDGER.map((row, i) => (
+        <div key={row} className={styles.ledgerRow} role="row" style={{'--i': i} as CSSProperties}>
+          <span role="rowheader">{row}</span>
+          <span role="cell" className={styles.you}>
+            you
+          </span>
+          <span role="cell" className={styles.compiler}>
+            compiler
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function SameRequirement(): ReactNode {
-  const [ledgerRef, phase] = useReveal<HTMLDivElement>(0.5);
+function Hunks({active}: {active: Change[]}): ReactNode {
+  const hunks = active.flatMap((c) => HUNKS[c].hunks.map((h) => ({...h, change: c})));
   return (
-    <div className={styles.band}>
-      <h3 className={styles.bandTitle}>Same requirement, two ways</h3>
-      <p className={styles.requirement}>Show the 10 cheapest offers the player can afford. Keep it current.</p>
-      <div className={styles.pair}>
-        <div className={styles.side}>
-          <div className={styles.window}>
-            <CodeWindow tabs={IMPERATIVE} dense />
-          </div>
-          <ol className={styles.hotspots}>
-            {HOTSPOTS.map(([n, t]) => (
-              <li key={n}>
-                <span className={styles.hotNum}>{n}</span>
-                {t}
-              </li>
+    <ul className={styles.hunks}>
+      {hunks.map((h, i) => (
+        <li key={`${h.change}-${h.where}`} className={styles.hunk} style={{'--i': i} as CSSProperties}>
+          <span className={styles.hunkWhere}>{h.where}</span>
+          <pre>
+            {h.lines.map((l) => (
+              <span key={l}>+ {l}</span>
             ))}
-          </ol>
-          <p className={clsx(styles.summary, styles.summaryRed)}>≈ 40 lines · 4 decisions that are yours · 1 bug already in</p>
-        </div>
-        <div className={styles.side}>
-          <div className={styles.window}>
-            <CodeWindow tabs={declarativeTabs(new Set())} dense />
-          </div>
-          <p className={styles.summary}>6 lines · 0 of those decisions are yours</p>
+          </pre>
+          {h.forget && <span className={styles.forget}>④ another place to forget</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-          <div ref={ledgerRef} className={clsx(styles.ledger, phase === 'armed' && styles.armed, phase === 'play' && styles.play)} role="table" aria-label="Who decides">
-            <div className={styles.ledgerHead} role="row">
-              <span role="columnheader">who decides</span>
-              <span role="columnheader">imperative</span>
-              <span role="columnheader">declarative</span>
-            </div>
-            {LEDGER.map((row, i) => (
-              <div key={row} className={styles.ledgerRow} role="row" style={{'--i': i} as CSSProperties}>
-                <span role="rowheader">{row}</span>
-                <span role="cell" className={styles.you}>
-                  you
-                </span>
-                <span role="cell" className={styles.compiler}>
-                  compiler
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className={styles.caption}>
-            Nothing on the right can be written &lsquo;wrong&rsquo; in the ways the left goes wrong:
-            those decisions are not yours to get wrong.
-          </p>
-        </div>
+function Drafts(): ReactNode {
+  const step = (t: string) => ({'--t': t}) as CSSProperties;
+  return (
+    <div className={styles.runs}>
+      <div className={styles.run}>
+        <span className={clsx(styles.chip, styles.step)} style={step('0s')}>
+          assistant: sort offers by rarity
+        </span>
+        <span className={clsx(styles.arrow, styles.step)} style={step('0.3s')} aria-hidden="true">
+          <span>→</span>
+        </span>
+        <span className={clsx(styles.chip, styles.mono, styles.step)} style={step('0.4s')}>
+          +1 line · <code>| sort o.Rarity</code>
+        </span>
+        <span className={clsx(styles.arrow, styles.step)} style={step('0.7s')} aria-hidden="true">
+          <span>→</span>
+        </span>
+        <span className={clsx(styles.chip, styles.mono, styles.rejected, styles.step)} style={step('0.8s')}>
+          compiler: unknown column Rarity on Offer — did you mean Tier?
+        </span>
+      </div>
+      <div className={styles.run}>
+        <span className={clsx(styles.chip, styles.step)} style={step('1.6s')}>
+          assistant: …by tier
+        </span>
+        <span className={clsx(styles.arrow, styles.step)} style={step('1.9s')} aria-hidden="true">
+          <span>→</span>
+        </span>
+        <span className={clsx(styles.chip, styles.mono, styles.step)} style={step('2s')}>
+          +1 line · <code>| sort o.Tier</code>
+        </span>
+        <span className={clsx(styles.arrow, styles.step)} style={step('2.3s')} aria-hidden="true">
+          <span>→</span>
+        </span>
+        <span className={clsx(styles.chip, styles.mono, styles.accepted, styles.step)} style={step('2.4s')}>
+          compiler: ok · 0 diagnostics
+        </span>
       </div>
     </div>
   );
 }
 
-function ChangeRequirement(): ReactNode {
-  const [on, setOn] = useState<Set<Change>>(new Set());
-  const [blink, setBlink] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setOn(new Set<Change>(['class', 'owned']));
-  }, []);
-  const toggle = (c: Change) => {
-    setOn((prev) => {
-      const next = new Set(prev);
-      if (next.has(c)) next.delete(c);
-      else {
-        next.add(c);
-        setBlink((b) => b + 1);
-      }
-      return next;
-    });
-  };
-  const active = (['class', 'owned'] as Change[]).filter((c) => on.has(c));
-  const hunks = active.flatMap((c) => HUNKS[c].hunks.map((h) => ({...h, change: c})));
-  const added = active.reduce((n, c) => n + HUNKS[c].added, 0);
+function Stage({index}: {index: number}): ReactNode {
+  const active: Change[] = index === 1 ? ['class'] : index >= 2 ? ['class', 'owned'] : [];
+  const on = new Set(active);
+  const changing = index === 1 || index === 2;
   return (
-    <div className={styles.band}>
-      <h3 className={styles.bandTitle}>Change the requirement</h3>
-      <div className={styles.changes} role="group" aria-label="Change the requirement">
-        {(['class', 'owned'] as Change[]).map((c) => (
-          <button key={c} type="button" aria-pressed={on.has(c)} className={clsx(styles.change, on.has(c) && styles.changeOn)} onClick={() => toggle(c)}>
-            {on.has(c) ? '✓ ' : '+ '}
-            {CHANGE_LABEL[c]}
-          </button>
-        ))}
-      </div>
-      <div className={styles.pair}>
+    <div className={styles.stage}>
+      <p className={styles.requirement}>
+        Show the 10 cheapest offers the player can afford. Keep it current.
+        {on.has('class') && <span className={styles.reqAdd}> Only the player&apos;s class.</span>}
+        {on.has('owned') && <span className={styles.reqAdd}> Exclude owned items.</span>}
+      </p>
+      <div className={clsx(styles.pair, index === 3 && styles.dimmed)}>
         <div className={styles.side}>
-          <span className={styles.sideLabel}>ShopOffers.cs · imperative</span>
-          {hunks.length === 0 ? (
-            <p className={styles.empty}>pick a change above</p>
+          {changing ? (
+            <>
+              <span className={styles.sideLabel}>ShopOffers.cs · the change</span>
+              <Hunks active={index === 1 ? ['class'] : ['owned']} />
+            </>
           ) : (
-            <ul className={styles.hunks}>
-              {hunks.map((h, i) => (
-                <li key={`${h.change}-${h.where}`} className={styles.hunk} style={{'--i': i} as CSSProperties}>
-                  <span className={styles.hunkWhere}>{h.where}</span>
-                  <pre>
-                    {h.lines.map((l) => (
-                      <span key={l}>+ {l}</span>
-                    ))}
-                  </pre>
-                  {h.forget && (
-                    <span key={blink} className={styles.forget}>
-                      ④ another place to forget
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className={styles.window}>
+                <CodeWindow tabs={IMPERATIVE} dense maxLines={18} />
+              </div>
+              <ol className={styles.hotspots}>
+                {HOTSPOTS.map(([n, t]) => (
+                  <li key={n}>
+                    <span className={styles.hotNum}>{n}</span>
+                    {t}
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
-          <p className={clsx(styles.summary, styles.summaryRed)} aria-live="polite">
-            {active.length === 0 ? '—' : `+${added} lines · ${hunks.length} places · new invalidation path${active.length > 1 ? 's' : ''}`}
-          </p>
         </div>
         <div className={styles.side}>
-          <span className={styles.sideLabel}>shop.conjure · declarative</span>
           <div className={styles.window}>
-            <CodeWindow key={active.join()} tabs={declarativeTabs(on)} dense />
+            <CodeWindow tabs={declarativeTabs(on)} dense />
           </div>
           {active.map((c) => (
             <p key={c} className={styles.plan}>
               {PLAN[c]} <span className={styles.illustrative}>(illustrative)</span>
             </p>
           ))}
-          <p className={styles.summary} aria-live="polite">
-            {active.length === 0 ? '—' : `+${active.length} line${active.length > 1 ? 's' : ''} · 1 place`}
-          </p>
+          <Ledger />
         </div>
       </div>
+      {index === 3 && <Drafts />}
     </div>
   );
 }
@@ -297,69 +307,38 @@ const DOOR: {title: string; body: string}[] = [
   {title: 'Humans review intent', body: 'You read six lines of what, not forty lines of how.'},
 ];
 
-function Door(): ReactNode {
-  const [ref, phase] = useReveal<HTMLDivElement>(0.5);
-  return (
-    <div className={styles.band}>
-      <h3 className={styles.bandTitle}>Why this is the door for assistants</h3>
-      <div className={styles.cards}>
-        {DOOR.map((d) => (
-          <div key={d.title} className={styles.card}>
-            <h4>{d.title}</h4>
-            <p>{d.body}</p>
-          </div>
-        ))}
-      </div>
-      <div ref={ref} className={clsx(styles.runs, phase === 'armed' && styles.armed, phase === 'play' && styles.play)}>
-        <div className={styles.run}>
-          <span className={clsx(styles.chip, styles.step)} style={{'--t': '0s'} as CSSProperties}>
-            assistant: sort offers by rarity
-          </span>
-          <span className={clsx(styles.arrow, styles.step)} style={{'--t': '0.3s'} as CSSProperties} aria-hidden="true">
-            <span>→</span>
-          </span>
-          <span className={clsx(styles.chip, styles.mono, styles.step)} style={{'--t': '0.4s'} as CSSProperties}>
-            +1 line · <code>| sort o.Rarity</code>
-          </span>
-          <span className={clsx(styles.arrow, styles.step)} style={{'--t': '0.7s'} as CSSProperties} aria-hidden="true">
-            <span>→</span>
-          </span>
-          <span className={clsx(styles.chip, styles.mono, styles.rejected, styles.step)} style={{'--t': '0.8s'} as CSSProperties}>
-            compiler: unknown column Rarity on Offer — did you mean Tier?
-          </span>
-        </div>
-        <div className={styles.run}>
-          <span className={clsx(styles.chip, styles.step)} style={{'--t': '1.6s'} as CSSProperties}>
-            assistant: …by tier
-          </span>
-          <span className={clsx(styles.arrow, styles.step)} style={{'--t': '1.9s'} as CSSProperties} aria-hidden="true">
-            <span>→</span>
-          </span>
-          <span className={clsx(styles.chip, styles.mono, styles.step)} style={{'--t': '2s'} as CSSProperties}>
-            +1 line · <code>| sort o.Tier</code>
-          </span>
-          <span className={clsx(styles.arrow, styles.step)} style={{'--t': '2.3s'} as CSSProperties} aria-hidden="true">
-            <span>→</span>
-          </span>
-          <span className={clsx(styles.chip, styles.mono, styles.accepted, styles.step)} style={{'--t': '2.4s'} as CSSProperties}>
-            compiler: ok · 0 diagnostics
-          </span>
-        </div>
-      </div>
-      <p className={styles.caption}>
-        A rejected draft costs a second. That is what makes it safe to let an assistant write the
-        first version.
-      </p>
-    </div>
-  );
-}
-
 export default function DeclarativeVsImperative(): ReactNode {
   return (
     <div className={styles.root}>
-      <SameRequirement />
-      <ChangeRequirement />
-      <Door />
+      <DemoStage
+        title="same requirement, two ways"
+        steps={STEPS}
+        costLine={({step}) => {
+          const [left, right] = COST[step];
+          return (
+            <span className={styles.costPair}>
+              {left && <span className={styles.costRed}>imperative · {left}</span>}
+              <span className={styles.costGold}>{left ? `declarative · ${right}` : right}</span>
+            </span>
+          );
+        }}>
+        {({index, run}) => (
+          <div key={`${run}-${index}`}>
+            <Stage index={index} />
+          </div>
+        )}
+      </DemoStage>
+      <div className={styles.door}>
+        <h3 className={styles.doorTitle}>Why this is the door for assistants</h3>
+        <div className={styles.cards}>
+          {DOOR.map((d) => (
+            <div key={d.title} className={styles.card}>
+              <h4>{d.title}</h4>
+              <p>{d.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

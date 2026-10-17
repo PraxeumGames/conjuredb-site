@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from 'react';
+import {useState, type CSSProperties, type ReactNode} from 'react';
 import styles from './styles.module.css';
 
 // VSCode Dark+ token helpers — hand-colored for a crisp, reliable editor look
@@ -21,8 +21,19 @@ function Dot({color}: {color: string}) {
 /**
  * `dense`: smaller type for narrow columns. `locked`: a fixed-height,
  * non-scrolling excerpt — the reader sees how much there is, not every line.
+ * `maxLines`: cap the visible lines and scroll the rest inside the window.
  */
-export function CodeWindow({tabs, dense = false, locked = false}: {tabs: CodeTab[]; dense?: boolean; locked?: boolean}) {
+export function CodeWindow({
+  tabs,
+  dense = false,
+  locked = false,
+  maxLines,
+}: {
+  tabs: CodeTab[];
+  dense?: boolean;
+  locked?: boolean;
+  maxLines?: number;
+}) {
   const [active, setActive] = useState(0);
   const tab = tabs[active];
   return (
@@ -46,7 +57,9 @@ export function CodeWindow({tabs, dense = false, locked = false}: {tabs: CodeTab
         </div>
         <span className={styles.lang}>{tab.lang}</span>
       </div>
-      <div className={styles.body}>
+      <div
+        className={maxLines ? `${styles.body} ${styles.scroll}` : styles.body}
+        style={maxLines ? ({'--cw-lines': maxLines} as CSSProperties) : undefined}>
         <div className={styles.gutter} aria-hidden="true">
           {tab.lines.map((_, i) => (
             <span key={i}>{i + 1}</span>

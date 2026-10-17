@@ -160,6 +160,11 @@
   .caret { animation: none; }
 }
 
+.scroll {
+  /* 1.7em per line plus the body's vertical padding */
+  max-height: calc(var(--cw-lines) * 1.7em + 2rem);
+  overflow-y: auto;
+}
 .dense .body {
   font-size: var(--fs-xs);
 }
