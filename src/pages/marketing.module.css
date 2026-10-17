@@ -220,3 +220,121 @@
   color: var(--ifm-color-primary);
   text-align: center;
 }
+
+/* Architecture page */
+.sliceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+  gap: var(--gap-md);
+  align-items: start;
+  margin-top: 3rem;
+  text-align: left;
+}
+/* The tree stays in view beside the longer code column. */
+.sliceGrid > :first-child {
+  position: sticky;
+  top: 5rem;
+}
+@media (max-width: 996px) {
+  .sliceGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sliceGrid > :first-child {
+    position: static;
+  }
+}
+.tree {
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--r-lg);
+  background: var(--ifm-background-color);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 2;
+  color: var(--cdb-ink);
+  white-space: pre;
+  overflow-x: auto;
+}
+.treeRow {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  column-gap: 0.8rem;
+}
+.treeRoot {
+  color: var(--ifm-color-primary);
+}
+.treeNote {
+  color: var(--cdb-muted);
+  white-space: normal;
+}
+@media (max-width: 560px) {
+  .treeRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .treeNote {
+    padding-left: 1.2rem;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+  }
+  .treeNote:empty {
+    display: none;
+  }
+}
+.treeCaption {
+  margin: var(--gap-sm) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--cdb-muted);
+  line-height: 1.55;
+}
+.sliceCode {
+  display: grid;
+  gap: var(--gap-sm);
+  min-width: 0;
+}
+.sliceCode .codeCaption {
+  margin-top: 0.2rem;
+}
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.cardHead h3 {
+  margin: 0 0 0.5rem;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-sm);
+  margin: 3rem 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+@media (max-width: 996px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.stepNum {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+.steps p {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--cdb-ink);
+}
+.honest {
+  max-width: 44rem;
+  margin: var(--gap-md) auto 0;
+  font-size: var(--fs-md);
+  color: var(--cdb-muted);
+  text-align: center;
+  text-wrap: balance;
+}

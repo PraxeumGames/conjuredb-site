@@ -169,6 +169,7 @@ const CLAIMS: Claim[] = [
       {label: 'ready-made modules', status: 'planned'},
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
+    link2: {label: 'Vertical slices →', to: '/architecture'},
     visual: <ModuleSlice />,
   },
 ];

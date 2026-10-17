@@ -5,6 +5,9 @@ import type {Status} from '@site/src/components/StatusBadge';
 
 export type GroupId = 'compiler' | 'device' | 'server' | 'delivery' | 'services';
 
+/** A "what's in it" line; a few link to the page that explains them. */
+export type PartItem = string | {label: string; to: string};
+
 export type Part = {
   id: string; // anchor id on /platform
   name: string;
@@ -12,7 +15,7 @@ export type Part = {
   status: Status;
   also?: {status: Status; note: string}; // a second badge
   body: string;
-  items?: [string, string, string];
+  items?: [PartItem, PartItem, PartItem];
   links?: {label: string; to: string}[];
 };
 
@@ -150,7 +153,7 @@ export const PARTS: Part[] = [
     group: 'delivery',
     status: 'shipped',
     body: 'A feature is a module of the schema: its tables, commands and queries in one place. Modules can be overridden by the project that uses them, so a shared feature stays yours to change.',
-    items: ['Module declarations in the schema', 'Overrides without forking', 'Vertical slices across client and server'],
+    items: ['Module declarations in the schema', 'Overrides without forking', {label: 'Vertical slices across client and server', to: '/architecture'}],
     links: [{label: 'Schema language', to: '/docs/schema/schema-language'}],
   },
   {

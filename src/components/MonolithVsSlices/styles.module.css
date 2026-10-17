@@ -1,0 +1,313 @@
+/* Monolith vs slices. Monolith: muted feature tints smeared across layers,
+   wire-red cross calls. Slices: lit columns, gold modules and floor,
+   dotted declared references only. */
+
+.root {
+  --mvs-shop: #b8a370;
+  --mvs-inv: #7fa58c;
+  --mvs-quests: #7f97b3;
+  --mvs-bp: #a387b3;
+  margin: var(--gap-lg) auto 0;
+  max-width: 64rem;
+  text-align: left;
+}
+
+.seg {
+  display: inline-flex;
+  margin-bottom: var(--gap-md);
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+}
+.seg button {
+  padding: 0.38rem 0.85rem;
+  border: none;
+  background: transparent;
+  color: var(--cdb-muted);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.seg button:first-child {
+  border-radius: var(--r-md) 0 0 var(--r-md);
+}
+.seg button:last-child {
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  border-left: 1px solid var(--cdb-line);
+}
+.seg .on {
+  color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.seg .onRed {
+  color: var(--cdb-wire);
+  background: rgba(224, 132, 116, 0.09);
+}
+
+.wide,
+.narrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.narrow {
+  display: none;
+}
+@media (max-width: 760px) {
+  .wide {
+    display: none;
+  }
+  .narrow {
+    display: block;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+}
+
+/* The two states crossfade. */
+.mono,
+.slices {
+  transition: opacity var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease);
+}
+.isMono .slices,
+.isSlices .mono {
+  opacity: 0;
+  pointer-events: none;
+}
+.isMono .slices {
+  transform: translateY(10px);
+}
+
+/* Monolith */
+.band {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-line);
+}
+.layerName {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-muted);
+}
+.smear {
+  fill: none;
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.16;
+}
+.frag {
+  fill-opacity: 0.16;
+  stroke-opacity: 0.6;
+}
+.smear.shop,
+.frag.shop {
+  stroke: var(--mvs-shop);
+  fill: var(--mvs-shop);
+}
+.smear.inv,
+.frag.inv {
+  stroke: var(--mvs-inv);
+  fill: var(--mvs-inv);
+}
+.smear.quests,
+.frag.quests {
+  stroke: var(--mvs-quests);
+  fill: var(--mvs-quests);
+}
+.smear.bp,
+.frag.bp {
+  stroke: var(--mvs-bp);
+  fill: var(--mvs-bp);
+}
+.smear {
+  fill: none !important;
+}
+.fragText {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-ink);
+  fill-opacity: 0.82;
+}
+.wire {
+  fill: none;
+  stroke: var(--cdb-wire);
+  stroke-width: 1.3;
+  stroke-opacity: 0.85;
+}
+.wireEnd {
+  fill: var(--cdb-wire);
+}
+.caption {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-wire);
+}
+
+/* Slices */
+.project,
+.projectB,
+.lift {
+  transform-box: view-box;
+  transition: transform var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease);
+}
+.project {
+  transform-origin: 0 0;
+}
+.shrunk {
+  transform: translate(0, 46px) scale(0.74);
+}
+.lifted {
+  transform: translateY(-28px);
+  opacity: 0;
+}
+.aside {
+  opacity: 0;
+}
+.projectB {
+  opacity: 0;
+  transform: translateX(16px);
+  pointer-events: none;
+}
+.projectB.shown {
+  opacity: 1;
+  transform: none;
+}
+.frameB {
+  fill: var(--ifm-background-color);
+  stroke: var(--cdb-muted);
+  stroke-dasharray: 4 4;
+}
+.frameTitle {
+  font-family: var(--cdb-mono);
+  font-weight: 600;
+  fill: var(--cdb-ink);
+}
+.rowLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+.colName {
+  font-weight: 600;
+  fill: var(--cdb-ink);
+}
+.screen {
+  fill: var(--cdb-surface-2);
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.35;
+}
+.newArt {
+  stroke: var(--cdb-server);
+  stroke-opacity: 0.9;
+  fill: var(--cdb-server-soft);
+}
+.screenName {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--cdb-ink);
+}
+.small {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+.module {
+  fill: rgba(236, 194, 92, 0.07);
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.3;
+}
+.code {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-ink);
+}
+.kw {
+  fill: var(--ifm-color-primary);
+}
+.override {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-server);
+}
+.systems {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-dasharray: 4 3;
+}
+.floor {
+  fill: rgba(236, 194, 92, 0.16);
+  stroke: var(--ifm-color-primary);
+  stroke-opacity: 0.6;
+}
+.floorText {
+  font-family: var(--cdb-mono);
+  font-size: 0.92em;
+  fill: var(--ifm-color-primary);
+}
+.ref {
+  fill: none;
+  stroke: var(--cdb-ink);
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+}
+.refPill {
+  fill: var(--ifm-background-color);
+  stroke: var(--cdb-line);
+}
+.refText {
+  font-family: var(--cdb-mono);
+  font-size: 0.9em;
+  fill: var(--cdb-muted);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: var(--gap-md);
+  transition: opacity var(--dur) var(--ease);
+}
+.actionsHidden {
+  opacity: 0.35;
+}
+.action {
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--cdb-ink);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.action:hover:not(:disabled) {
+  border-color: rgba(236, 194, 92, 0.45);
+}
+.action:disabled {
+  cursor: default;
+}
+.actionOn {
+  border-color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.message {
+  flex: 1 1 20rem;
+  margin: 0;
+  min-height: 1.5em;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  color: var(--ifm-color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

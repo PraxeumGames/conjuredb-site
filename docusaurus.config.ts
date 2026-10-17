@@ -73,6 +73,7 @@ const config: Config = {
       items: [
         {to: '/platform', label: 'Platform', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
+        {to: '/architecture', label: 'Architecture', position: 'left'},
         {to: '/data-layer', label: 'Data layer', position: 'left'},
         {
           type: 'docSidebar',
@@ -99,6 +100,7 @@ const config: Config = {
           items: [
             {label: 'Platform', to: '/platform'},
             {label: 'How it works', to: '/how-it-works'},
+            {label: 'Architecture', to: '/architecture'},
             {label: 'Data layer', to: '/data-layer'},
           ],
         },

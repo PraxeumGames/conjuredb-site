@@ -10,6 +10,7 @@ export const S = ({children}: {children: ReactNode}) => <span className={styles.
 export const N = ({children}: {children: ReactNode}) => <span className={styles.num}>{children}</span>;
 export const C = ({children}: {children: ReactNode}) => <span className={styles.com}>{children}</span>;
 export const V = ({children}: {children: ReactNode}) => <span className={styles.varname}>{children}</span>;
+export const A = ({children}: {children: ReactNode}) => <span className={styles.attr}>{children}</span>;
 
 export type CodeTab = {name: string; lang: string; lines: ReactNode[]};
 

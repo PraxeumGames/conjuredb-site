@@ -59,9 +59,15 @@ function PartCard({part, wide}: {part: Part; wide?: boolean}): ReactNode {
         <div className={styles.whatsIn}>
           <span className={styles.whatsInLabel}>What's in it</span>
           <ul>
-            {part.items.map((it) => (
-              <li key={it}>{it}</li>
-            ))}
+            {part.items.map((it) =>
+              typeof it === 'string' ? (
+                <li key={it}>{it}</li>
+              ) : (
+                <li key={it.label}>
+                  <Link to={it.to}>{it.label}</Link>
+                </li>
+              ),
+            )}
           </ul>
         </div>
       )}
