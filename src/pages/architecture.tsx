@@ -17,21 +17,39 @@ function Header(): ReactNode {
         <span className="cdb-kicker">Architecture</span>
         <h1 className={styles.pageTitle}>Vertical slices, finally possible in a game client.</h1>
         <p className={styles.pageLead}>
-          Game clients grow into one fat monolith: every feature reaches into every manager, so
-          nothing can be removed, replaced or reused. When a feature&apos;s state and rules are
-          declared in one schema module, the feature becomes a vertical slice — data, logic, UI view
-          and server behaviour in one folder — that you can add, delete or carry to the next game.
+          You have written the shop three times. Not because the rules changed — because in every
+          project the shop was wired into that project&apos;s managers, save format and events, and
+          nothing could be lifted out. A vertical slice — a feature folder — is the opposite:
+          everything one feature needs, kept together, with the rest of the game reaching it only
+          through declared references. Conjure makes that possible in a game client because a
+          feature&apos;s state and rules live in one schema module.
         </p>
       </div>
     </header>
   );
 }
 
+const PLAIN: {title: string; body: string}[] = [
+  {title: 'What a slice is', body: "One feature's data, rules, UI view and server behaviour in one folder."},
+  {title: 'What it is not', body: 'Not layers shared by every feature: UI, managers, services, data, each touched by every change.'},
+  {
+    title: 'Why it was hard in games',
+    body: 'State lived in managers and singletons; nothing owned anything, so everything depended on everything.',
+  },
+];
+
 function Shapes(): ReactNode {
   return (
     <section className="cdb-section">
       <div className="container">
-        <span className="cdb-kicker">Same four features, two shapes</span>
+        <div className={`cdb-grid ${styles.plainCards}`}>
+          {PLAIN.map((c) => (
+            <div className="cdb-card" key={c.title}>
+              <h3>{c.title}</h3>
+              <p>{c.body}</p>
+            </div>
+          ))}
+        </div>
         <MonolithVsSlices />
       </div>
     </section>
