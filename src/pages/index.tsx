@@ -43,7 +43,7 @@ function Hero(): ReactNode {
             <span className={styles.chip}>Offline-first</span>
             <span className={styles.chip}>Replay-verified</span>
             <span className={styles.chip}>0 B/frame</span>
-            <span className={styles.chip}>Features = schema</span>
+            <span className={styles.chip}>Features are schema</span>
             <span className={styles.chip}>Self-hosted</span>
           </div>
         </div>

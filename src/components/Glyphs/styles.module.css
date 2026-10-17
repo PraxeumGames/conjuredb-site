@@ -21,11 +21,6 @@
 .deviceNotch {
   fill: var(--g-device-body);
 }
-.deviceTime {
-  font-family: var(--cdb-mono);
-  font-size: 0.7em;
-  fill: var(--cdb-muted);
-}
 
 .wifi path {
   fill: none;
@@ -59,8 +54,4 @@
   font-weight: 600;
   font-size: 0.95em;
   fill: var(--cdb-server);
-}
-.serverRule {
-  stroke: var(--cdb-server);
-  stroke-opacity: 0.3;
 }

@@ -49,8 +49,6 @@
   letter-spacing: -0.02em;
   font-weight: 600;
   margin: 0 0 1.1rem;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid var(--cdb-line);
 }
 
 .grid {
@@ -72,9 +70,6 @@
 }
 .part:target {
   border-color: var(--ifm-color-primary);
-}
-.partWide {
-  border-left: 2px solid var(--ifm-color-primary);
 }
 .partHead {
   display: flex;

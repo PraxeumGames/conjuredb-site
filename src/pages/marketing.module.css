@@ -110,10 +110,8 @@
 
 .dictCard {
   margin-top: 1.4rem;
-  border: 1px solid var(--cdb-line);
-  border-left: 3px solid var(--cdb-accent);
   border-radius: var(--r-lg);
-  background: var(--cdb-surface);
+  background: var(--ifm-background-color);
   padding: 1.3rem 1.4rem;
 }
 
@@ -171,9 +169,8 @@
 }
 .compareCell {
   padding: 1.1rem 1.2rem;
-  border: 1px solid var(--cdb-line);
   border-radius: var(--r-lg);
-  background: var(--cdb-surface-2);
+  background: var(--ifm-background-color);
 }
 .compareLabel {
   display: block;

@@ -106,7 +106,6 @@
   justify-content: center;
   gap: 0.7rem;
   padding: 1.2rem 1.3rem;
-  border: 1px solid var(--cdb-line);
   border-radius: var(--r-lg);
   background: var(--cdb-surface-2);
 }

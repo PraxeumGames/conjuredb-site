@@ -160,8 +160,14 @@
 
 /* Desktop: copy on the left, the visual on the right — both in the first viewport. */
 @media (min-width: 997px) {
+  /* Both columns centred in one screen (minus the navbar), capped at 820px;
+     the step buttons keep ≥ 2.5rem from the hero's bottom edge. */
   .hero {
-    padding: 2.5rem 0 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: min(calc(100vh - var(--ifm-navbar-height)), 820px);
+    padding: var(--gap-md) 0 var(--gap-lg);
   }
   .heroGrid {
     display: grid;
@@ -191,12 +197,12 @@
   .chips {
     margin-top: 1.7rem;
     justify-content: flex-start;
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
   .chip {
     font-size: var(--fs-2xs);
     letter-spacing: -0.02em;
-    padding: 0.34rem 0.42rem;
+    padding: 0.34rem 0.34rem;
     white-space: nowrap;
   }
   .heroVisual {
@@ -235,7 +241,7 @@
   justify-content: space-between;
   gap: 0.8rem;
   padding: 1rem 1.1rem;
-  border: 1px solid var(--cdb-line);
+  background: var(--ifm-background-color);
   border-radius: var(--r-lg);
   font-size: var(--fs-md);
   line-height: 1.45;
@@ -259,8 +265,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   align-items: center;
-  gap: 2.5rem;
-  padding: 2rem 2.2rem;
+  gap: var(--gap-lg);
+  padding: var(--gap-lg);
 }
 .claimFlip .claimText {
   order: 2;
@@ -336,8 +342,7 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.15rem 1rem;
-  padding: 0.95rem 0;
-  border-bottom: 1px solid var(--cdb-line);
+  padding: 0.7rem 0;
 }
 .shippedList li:first-child {
   padding-top: 0.2rem;

@@ -290,21 +290,22 @@ html {
   }
 }
 
-/* Cards: layered surface, hairline border, hover lift + accent edge. */
+/* Content cards: no border — a surface step and spacing separate them.
+   Borders belong to interactive or "window" surfaces only; a linked card
+   (cdb-card--link) shows one on hover as its affordance. */
 .cdb-card {
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
-    var(--cdb-surface-2);
-  border: 1px solid var(--cdb-line);
+  background: var(--cdb-surface-2);
+  border: 1px solid transparent;
   border-radius: var(--r-lg);
   padding: var(--card-pad);
-  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  transition: border-color var(--dur-fast) var(--ease);
 }
-.cdb-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(236, 194, 92, 0.4);
-  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+.cdb-surface .cdb-card {
+  background: var(--ifm-background-color);
+}
+.cdb-card--link:hover {
+  border-color: rgba(236, 194, 92, 0.45);
 }
 .cdb-card h3 {
   font-family: var(--ifm-heading-font-family);
@@ -377,11 +378,7 @@ html {
 .cdb-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--cdb-line);
-  border: 1px solid var(--cdb-line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
+  gap: var(--gap-md);
 }
 @media (max-width: 768px) {
   .cdb-stats {
@@ -389,8 +386,7 @@ html {
   }
 }
 .cdb-stat {
-  background: var(--cdb-surface-2);
-  padding: 1.7rem 1.2rem;
+  padding: 0.4rem 0.6rem;
   text-align: center;
 }
 .cdb-stat b {
@@ -403,8 +399,9 @@ html {
 }
 .cdb-stat span {
   display: block;
-  margin-top: 0.4rem;
-  font-size: var(--fs-sm);
+  margin-top: 0.5rem;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
   color: var(--cdb-muted);
 }
 

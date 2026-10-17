@@ -34,9 +34,6 @@ export function DeviceFrame({
       <rect className={styles.deviceBody} width={width} height={height} rx={r} />
       <rect className={styles.deviceScreen} x={5} y={5} width={width - 10} height={height - 10} rx={r - 4} />
       <rect className={styles.deviceNotch} x={width * 0.36} y={9} width={width * 0.28} height={6} rx={3} />
-      <text className={styles.deviceTime} x={16} y={DEVICE_STATUS_H - 6}>
-        9:41
-      </text>
       {network && <g transform={`translate(${width - 24} ${DEVICE_STATUS_H - 10})`}>{network}</g>}
       {children}
     </g>
@@ -80,7 +77,6 @@ export function ServerFrame({
       <text className={styles.serverTitle} x={38} y={26}>
         {title}
       </text>
-      <line className={styles.serverRule} x1={0} x2={width} y1={40} y2={40} />
       {children}
       {hash && <g transform={`translate(16 ${height - 16})`}>{hash}</g>}
     </g>
