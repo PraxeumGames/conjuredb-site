@@ -5,7 +5,7 @@
   --pm-gap: 3.5rem;
   --pm-row-gap: 1.4rem;
   --pm-card: var(--cdb-surface-2);
-  --pm-line: rgba(236, 194, 92, 0.45);
+  --pm-line: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
 
   position: relative;
   display: grid;
@@ -56,7 +56,7 @@
   background: var(--pm-card);
   border: 1.5px solid var(--ifm-color-primary);
   border-radius: var(--r-lg);
-  box-shadow: 0 0 60px -14px rgba(236, 194, 92, 0.4);
+  box-shadow: 0 0 60px -14px color-mix(in srgb, var(--ifm-color-primary) 40%, transparent);
   color: var(--cdb-ink);
   font-family: var(--cdb-mono);
   text-decoration: none;
@@ -67,7 +67,7 @@
   padding: 0.8rem 1rem 0.7rem;
   font-weight: 600;
   color: var(--ifm-color-primary);
-  border-bottom: 1px solid rgba(236, 194, 92, 0.28);
+  border-bottom: 1px solid color-mix(in srgb, var(--ifm-color-primary) 28%, transparent);
 }
 .schemaLines {
   display: flex;
@@ -92,7 +92,7 @@
   margin: 0;
   padding: 0.75rem 1rem 0.85rem;
   list-style: none;
-  border-top: 1px solid rgba(236, 194, 92, 0.28);
+  border-top: 1px solid color-mix(in srgb, var(--ifm-color-primary) 28%, transparent);
   font-family: var(--ifm-font-family-base);
 }
 /* The schema's own parts: same pills as the groups, on the card. */

@@ -62,31 +62,36 @@ const MODULE_TABS: CodeTab[] = [
     lang: 'schema',
     lines: [
       <><K>module</K> <T>BattlePass</T> {'{'}</>,
-      <>    <K>table</K> <T>PassProgress</T>(persistence: <K>local</K>, type_id: <N>7101</N>, schema_version: <N>1</N>) {'{'}</>,
+      <>    <K>table</K> <T>Tier</T>(persistence: <K>local</K>, type_id: <N>7101</N>, schema_version: <N>1</N>) {'{'}</>,
+      <>        <V>Id</V>: <K>int</K> <A>@id</A></>,
+      <>        <V>XpRequired</V>: <K>int</K></>,
+      <>    {'}'}</>,
+      <>{' '}</>,
+      <>    <K>table</K> <T>Progress</T>(persistence: <K>local</K>, type_id: <N>7102</N>, schema_version: <N>1</N>) {'{'}</>,
       <>        <V>PlayerId</V>: <K>int</K> <A>@id</A></>,
       <>        <V>Xp</V>: <K>int</K></>,
-      <>        <V>Tier</V>: <K>int</K></>,
+      <>        <V>ClaimedTier</V>: <K>int</K></>,
       <>    {'}'}</>,
       <>{' '}</>,
-      <>    <K>type</K> <T>AddXpResult</T> {'{'}</>,
-      <>        <V>xpAfter</V>: <K>int</K></>,
+      <>    <K>type</K> <T>ClaimTierResult</T> {'{'}</>,
+      <>        <V>tier</V>: <K>int</K></>,
       <>    {'}'}</>,
       <>{' '}</>,
-      <>    <K>command</K> <F>AddXp</F>(playerId: <K>int</K>, amount: <K>int</K>) -&gt; <T>AddXpResult</T></>,
+      <>    <K>command</K> <F>ClaimTier</F>(playerId: <K>int</K>, tier: <K>int</K>) -&gt; <T>ClaimTierResult</T></>,
       <>    kind: <K>local</K></>,
       <>    {'{'}</>,
-      <>        <K>require</K> @amount &gt; <N>0</N> <K>else</K> InvalidAmount</>,
+      <>        <K>require</K> @tier &gt; <N>0</N> <K>else</K> InvalidTier</>,
       <>{' '}</>,
-      <>        <K>upsert</K> <T>PassProgress</T></>,
+      <>        <K>upsert</K> <T>Progress</T></>,
       <>        | <K>key</K> {'{'} PlayerId = @playerId {'}'}</>,
-      <>        | <K>set</K> {'{'} Xp += @amount {'}'}</>,
-      <>        | <K>returning</K> {'{'} xpAfter = Xp {'}'} <K>into</K> progressAfter</>,
+      <>        | <K>set</K> {'{'} ClaimedTier = @tier {'}'}</>,
+      <>        | <K>returning</K> {'{'} tier = ClaimedTier {'}'} <K>into</K> claimed</>,
       <>{' '}</>,
-      <>        <K>return</K> {'{'} xpAfter = progressAfter.XpAfter {'}'}</>,
+      <>        <K>return</K> {'{'} tier = claimed.Tier {'}'}</>,
       <>    {'}'}</>,
       <>{' '}</>,
-      <>    <K>reactive query</K> <F>Track</F>(playerId: <K>int</K>) -&gt; <T>PassProgress</T>[] {'{'}</>,
-      <>        <K>from</K> <T>PassProgress</T> p</>,
+      <>    <K>reactive query</K> <F>Track</F>(playerId: <K>int</K>) -&gt; <T>Progress</T>[] {'{'}</>,
+      <>        <K>from</K> <T>Progress</T> p</>,
       <>        | <K>filter</K> p.PlayerId == @playerId</>,
       <>    {'}'}</>,
       <>{'}'}</>,
@@ -139,10 +144,10 @@ function Contents(): ReactNode {
             <CodeWindow tabs={MODULE_TABS} dense />
             <CodeWindow tabs={SCREEN_TABS} dense />
             <p className={styles.codeCaption}>
-              A module groups the feature&apos;s table, command and reactive query. The CLI generates a
-              separate interface for each module — <code>ICore</code> for <code>module Core</code>,{' '}
-              <code>ISocial</code> for <code>module Social</code> — and the UI view binds the reactive
-              query, its view model, through the generated context.
+              A module groups the feature&apos;s tables, command and reactive query. The CLI generates
+              an interface per module — <code>IBattlePass</code> for <code>module BattlePass</code>, as
+              the docs show <code>ICore</code> for <code>module Core</code> — and the UI view binds the
+              reactive query, its view model, through the generated context.
             </p>
           </div>
         </div>

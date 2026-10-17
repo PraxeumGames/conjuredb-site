@@ -74,7 +74,7 @@
   fill: var(--cdb-muted);
 }
 .staleTag {
-  fill: rgba(224, 132, 116, 0.12);
+  fill: color-mix(in srgb, var(--cdb-wire) 12%, transparent);
   stroke: var(--cdb-wire);
 }
 .staleText {

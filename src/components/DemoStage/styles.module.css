@@ -84,7 +84,7 @@
   border-color: var(--cdb-line);
 }
 .replay:hover {
-  border-color: rgba(236, 194, 92, 0.45);
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
 }
 .mode:focus-visible,
 .replay:focus-visible,
@@ -153,7 +153,7 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 8px 28px -8px rgba(236, 194, 92, 0.6);
+  box-shadow: 0 8px 28px -8px color-mix(in srgb, var(--ifm-color-primary) 60%, transparent);
   transition: transform var(--dur-fast) var(--ease);
 }
 .playBtn:hover {
@@ -217,7 +217,7 @@
 .tabOn:hover {
   color: var(--ifm-color-primary);
   border-color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
 }
 .chevron {
   color: var(--cdb-muted);

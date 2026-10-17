@@ -143,7 +143,7 @@
   flex: none;
 }
 .check circle {
-  fill: rgba(236, 194, 92, 0.15);
+  fill: color-mix(in srgb, var(--ifm-color-primary) 15%, transparent);
   stroke: var(--ifm-color-primary);
   stroke-width: 1.1;
 }
@@ -314,7 +314,7 @@
   font-family: var(--cdb-mono);
   font-size: var(--fs-xs);
   border-color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
   color: var(--ifm-color-primary);
 }
 .stripArrow {

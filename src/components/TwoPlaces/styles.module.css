@@ -3,7 +3,7 @@
 
 .root {
   --tp-gap: 2.5rem;
-  --tp-line: rgba(236, 194, 92, 0.45);
+  --tp-line: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
   margin: 2.6rem auto 0;
   max-width: 60rem;
   text-align: left;
@@ -143,7 +143,7 @@
 .done .equalsSign::before,
 .done .equalsSign::after {
   background: var(--ifm-color-primary);
-  box-shadow: 0 0 10px rgba(236, 194, 92, 0.6);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ifm-color-primary) 60%, transparent);
 }
 .equalsLabel {
   font-family: var(--cdb-mono);

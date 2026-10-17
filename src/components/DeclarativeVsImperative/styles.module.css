@@ -79,7 +79,7 @@
 .hot {
   display: inline-block;
   min-width: 100%;
-  background: rgba(224, 132, 116, 0.12);
+  background: color-mix(in srgb, var(--cdb-wire) 12%, transparent);
   box-shadow: inset 2px 0 0 var(--cdb-wire);
 }
 .hotNum {
@@ -128,7 +128,7 @@
 .ledgerRow {
   border-radius: var(--r-sm);
   color: var(--cdb-ink);
-  background: rgba(236, 194, 92, 0.07);
+  background: color-mix(in srgb, var(--ifm-color-primary) 7%, transparent);
 }
 .you,
 .compiler {
@@ -163,9 +163,9 @@
 }
 .hunk {
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(224, 132, 116, 0.45);
+  border: 1px solid color-mix(in srgb, var(--cdb-wire) 45%, transparent);
   border-radius: var(--r-md);
-  background: rgba(224, 132, 116, 0.07);
+  background: color-mix(in srgb, var(--cdb-wire) 7%, transparent);
   animation: dvi-in var(--dur) var(--ease) calc(var(--i) * 0.12s) both;
 }
 .hunkWhere {
@@ -200,12 +200,12 @@
 .added {
   display: inline-block;
   min-width: 100%;
-  background: rgba(236, 194, 92, 0.16);
+  background: color-mix(in srgb, var(--ifm-color-primary) 16%, transparent);
   box-shadow: inset 2px 0 0 var(--ifm-color-primary);
   animation: dvi-in var(--dur) var(--ease) both;
 }
 .addedInline {
-  background: rgba(236, 194, 92, 0.16);
+  background: color-mix(in srgb, var(--ifm-color-primary) 16%, transparent);
   border-radius: 2px;
 }
 .plan {
@@ -271,12 +271,12 @@
 }
 .rejected {
   border-color: var(--cdb-wire);
-  background: rgba(224, 132, 116, 0.08);
+  background: color-mix(in srgb, var(--cdb-wire) 8%, transparent);
   color: var(--cdb-wire);
 }
 .accepted {
   border-color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
   color: var(--ifm-color-primary);
 }
 .arrow {
@@ -334,7 +334,7 @@
     background: transparent;
   }
   to {
-    background: rgba(236, 194, 92, 0.07);
+    background: color-mix(in srgb, var(--ifm-color-primary) 7%, transparent);
   }
 }
 @keyframes dvi-gold {

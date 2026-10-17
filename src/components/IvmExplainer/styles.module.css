@@ -135,7 +135,7 @@
 }
 /* Rx and rebuild: every box works, every time. */
 .chainRed .box {
-  border-color: rgba(224, 132, 116, 0.55);
+  border-color: color-mix(in srgb, var(--cdb-wire) 55%, transparent);
 }
 .chainRed .boxStatus {
   color: var(--cdb-wire);
@@ -154,7 +154,7 @@
 }
 .toggle:hover {
   color: var(--cdb-ink);
-  border-color: rgba(236, 194, 92, 0.45);
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
 }
 .toggle:focus-visible {
   outline: 2px solid var(--ifm-color-primary);
@@ -217,10 +217,10 @@
   }
   40% {
     border-color: var(--ifm-color-primary);
-    background: rgba(236, 194, 92, 0.12);
+    background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
   }
   100% {
-    border-color: rgba(236, 194, 92, 0.5);
+    border-color: color-mix(in srgb, var(--ifm-color-primary) 50%, transparent);
   }
 }
 @keyframes ivm-mark {
