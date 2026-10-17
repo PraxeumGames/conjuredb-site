@@ -144,13 +144,13 @@ function Scene({L, index, className}: {L: Layout; index: number; className: stri
         </g>
       </g>
 
-      {/* The two connections; the active one carries a travelling pulse */}
-      <path className={clsx(styles.track, index === 1 && styles.trackOn)} d={L.down} />
+      {/* The two connections stay lit once used; the current step's carries a travelling pulse */}
+      <path className={clsx(styles.track, index >= 1 && styles.trackOn)} d={L.down} />
       {index === 1 && <path className={styles.pulse} d={L.down} />}
-      <path className={clsx(styles.track, index === 2 && styles.trackOn)} d={L.up} />
+      <path className={clsx(styles.track, index >= 2 && styles.trackOn)} d={L.up} />
       {index === 2 && <path className={styles.pulse} d={L.up} />}
       {[L.downLabel, L.upLabel].map((lab, k) => (
-        <text key={k} className={clsx(styles.label, index === k + 1 && styles.labelOn)} x={lab.x} y={lab.y} textAnchor="middle">
+        <text key={k} className={clsx(styles.label, index >= k + 1 && styles.labelOn)} x={lab.x} y={lab.y} textAnchor="middle">
           {lab.lines.map((line, j) => (
             <tspan key={line} x={lab.x} dy={j ? '1.25em' : 0}>
               {line}

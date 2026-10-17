@@ -9,9 +9,10 @@ import styles from './styles.module.css';
 
 // "A feature is a schema, not a sprint", in the DemoStage shell: one module
 // declared, compiled into a UI view, a server command and liveops knobs,
-// carried to another project, then extended by an assistant's draft. Each
-// step brings its own column to full opacity and plays it; the others stay
-// visible, dimmed. Every delay (--t) is relative to the step's start.
+// carried to another project, then extended by an assistant's draft. Steps
+// reveal the columns cumulatively — what an earlier step revealed stays at
+// full brightness; step 04 highlights the assistant strip. Every delay (--t)
+// is relative to the step's start.
 
 /** Delay helper: the step lands `t` seconds into the run. */
 const at = (t: number) => ({'--t': `${t}s`}) as CSSProperties;
@@ -149,8 +150,9 @@ function PassScreen() {
 }
 
 function Stage({index, live}: {index: number; live: boolean}): ReactNode {
-  // Entrances play only once the demo is live; until then each step is static.
-  const on = (i: number) => (index === i ? live && styles.play : styles.dim);
+  // Columns reveal cumulatively: hidden until their step, then they stay at
+  // full brightness. The step's own column plays its entrance (once live).
+  const on = (i: number) => clsx(index < i && styles.hidden, index === i && live && styles.play);
   const col = (i: number) => clsx(styles.col, on(i));
   return (
     <>
@@ -243,7 +245,7 @@ function Stage({index, live}: {index: number; live: boolean}): ReactNode {
         </div>
       </div>
 
-      <div className={clsx(styles.strip, on(3))}>
+      <div className={clsx(styles.strip, on(3), index === 3 && styles.stripOn)}>
         <span className={clsx(styles.chip, styles.prompt, styles.a)} style={at(T_STRIP[0])}>
           assistant: add a weekly reset to the battle pass
         </span>

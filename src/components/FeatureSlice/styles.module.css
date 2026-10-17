@@ -7,8 +7,8 @@
   text-align: left;
 }
 
-/* The active step's column is at full opacity and plays its entrances
-   (each at its --t into the step); the others stay visible, dimmed. */
+/* Revealed cumulatively: a column is hidden until its step, plays its
+   entrances (each at its --t into the step), then stays at full brightness. */
 .play .a,
 .a.play,
 .play .typed {
@@ -24,8 +24,16 @@
 .copyPath {
   transition: opacity var(--dur) var(--ease);
 }
-.dim {
-  opacity: 0.32;
+.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+/* Step 04: the assistant strip is the step's own element. */
+.stripOn {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--ifm-color-primary);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--ifm-color-primary) 6%, transparent);
 }
 .typed {
   display: inline-block;

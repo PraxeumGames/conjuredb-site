@@ -26,10 +26,6 @@
 .reqAdd {
   color: var(--ifm-color-primary);
 }
-.dimmed {
-  opacity: 0.35;
-  transition: opacity var(--dur) var(--ease);
-}
 .costPair {
   display: flex;
   flex-wrap: wrap;

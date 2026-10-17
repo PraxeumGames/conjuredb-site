@@ -258,7 +258,7 @@ function Stage({index}: {index: number}): ReactNode {
         {on.has('class') && <span className={styles.reqAdd}> Only the player&apos;s class.</span>}
         {on.has('owned') && <span className={styles.reqAdd}> Exclude owned items.</span>}
       </p>
-      <div className={clsx(styles.pair, index === 3 && styles.dimmed)}>
+      <div className={styles.pair}>
         <div className={styles.side}>
           {changing ? (
             <>
