@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
+import Link from '@docusaurus/Link';
 import {CodeWindow, F, K, T, type CodeTab} from '@site/src/components/CodeWindow';
 import {DEVICE_STATUS_H, DeviceFrame, ServerFrame} from '@site/src/components/Glyphs';
 import StatusBadge from '@site/src/components/StatusBadge';
@@ -208,7 +209,7 @@ function Stage(): ReactNode {
       </div>
       <p className={styles.caption}>
         Small, typed, closed: the compiler rejects what is wrong, so a draft from an assistant is
-        safe to try.
+        safe to try. <Link to="/how-it-works#declarative">why declarative →</Link>
       </p>
     </>
   );

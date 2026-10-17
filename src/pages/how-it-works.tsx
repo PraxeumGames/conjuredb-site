@@ -7,6 +7,7 @@ import {Pipeline as BuildPipeline} from '@site/src/components/Pipeline';
 import MechanismChain from '@site/src/components/MechanismChain';
 import TwoPlaces from '@site/src/components/TwoPlaces';
 import IvmExplainer from '@site/src/components/IvmExplainer';
+import DeclarativeVsImperative from '@site/src/components/DeclarativeVsImperative';
 import styles from './marketing.module.css';
 
 function Header(): ReactNode {
@@ -23,6 +24,24 @@ function Header(): ReactNode {
         </p>
       </div>
     </header>
+  );
+}
+
+function Declarative(): ReactNode {
+  return (
+    <section id="declarative" className="cdb-section">
+      <div className="container">
+        <span className="cdb-kicker">Declarative, not imperative</span>
+        <h2 className="cdb-h2">You say what. The compiler decides how.</h2>
+        <p className="cdb-lead">
+          Imperative code tells the machine the steps: loop, check, cache, invalidate, redraw.
+          Declarative code states the result you want and leaves the steps to a compiler that knows
+          your whole game. The difference is not style — it is who owns the hard decisions, and
+          whether a change costs one line or four files.
+        </p>
+        <DeclarativeVsImperative />
+      </div>
+    </section>
   );
 }
 
@@ -198,13 +217,14 @@ function NoMagic(): ReactNode {
 export default function HowItWorks(): ReactNode {
   // Section anchors the mechanism chain (and other pages) link to.
   const brokenLinks = useBrokenLinks();
-  ['closed-world', 'compiler', 'determinism', 'ivm'].forEach((id) => brokenLinks.collectAnchor(id));
+  ['declarative', 'closed-world', 'compiler', 'determinism', 'ivm'].forEach((id) => brokenLinks.collectAnchor(id));
   return (
     <Layout
       title="How Conjure works — a closed world, compiled"
       description="A game knows every state, command and question before it ships. Conjure compiles that closed world at build time into deterministic C#, so the same command runs on the device and on the server and both reach the same state.">
       <Header />
       <main>
+        <Declarative />
         <Chain />
         <OneCommand />
         <InsideCompiler />

@@ -37,7 +37,7 @@ function Hero(): ReactNode {
             <Link className="button button--primary button--lg" to="/docs/getting-started">
               Read the docs
             </Link>
-            <Link className="button button--secondary button--lg" to="/how-it-works">
+            <Link className="button button--secondary button--lg" to="/how-it-works#declarative">
               How it works
             </Link>
           </div>
