@@ -22,6 +22,13 @@ const DOT: Record<Status, string> = {
   planned: styles.planned,
 };
 
+export const STATUS_LABEL = LABEL;
+
+/** Just the coloured dot, for compact lists (the platform map). */
+export function StatusDot({status, className}: {status: Status; className?: string}): ReactNode {
+  return <span className={clsx(styles.dot, DOT[status], className)} aria-label={LABEL[status]} role="img" />;
+}
+
 export default function StatusBadge({
   status,
   children,
