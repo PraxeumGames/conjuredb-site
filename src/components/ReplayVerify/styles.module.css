@@ -412,6 +412,30 @@
 }
 
 /* Reduced motion: no animation; each phase shows its final frame. */
+/* Static (before the demo is live): each phase's end state, no timeline. */
+.static *,
+.static *::before {
+  transition: none !important;
+  animation: none !important;
+}
+.static.isOffline .w1,
+.static.isOffline .x1,
+.static.isReconnect .w2,
+.static.isReconnect .x2,
+.static.isReplay .w3,
+.static.isReplay .x3,
+.static.isForged .w4,
+.static.isForged .x4 {
+  opacity: 1;
+}
+.static.isOffline .o1,
+.static.isReconnect .o2,
+.static.isReplay .o3,
+.static.isForged .o4,
+.static .ripple {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .root *,
   .root *::before {

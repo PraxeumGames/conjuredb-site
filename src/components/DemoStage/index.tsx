@@ -6,10 +6,12 @@ import styles from './styles.module.css';
 // One shell for every interactive visual on the site, top to bottom:
 //   header (▶ interactive · title | modes | ↺ replay) → stage → cost line →
 //   step rail → narration → code tabs (collapsed by default).
-// Autoplay runs once, when the shell is 40 % visible, then waits on the last
-// step. Clicking a step pins it; ↺ replay runs the steps again. Reduced
-// motion shows the last step, static. Nothing blinks: a continuous process
-// is a <Sweep>, a thin bar travelling left to right.
+// Everything renders at first paint, static and fully visible. Autoplay — the
+// step timer and the entrance effects (ctx.live) — starts once, when the
+// header row is fully in view or 20 % of the shell is (stages taller than
+// 70 vh use the header rule only), then waits on the last step. Clicking a
+// step pins it; ↺ replay runs the steps again. Reduced motion shows the last
+// step, static. Nothing blinks: a continuous process is a <Sweep>.
 
 export type DemoStep = {
   id: string;
@@ -30,6 +32,12 @@ export type DemoContext = {
   /** True while autoplay is advancing (false when pinned, finished or reduced motion). */
   playing: boolean;
   reduced: boolean;
+  /**
+   * False until the autoplay trigger fires (and always under reduced motion):
+   * entrance effects — typing, reveals — run only when true, so the first
+   * paint is the static, complete step.
+   */
+  live: boolean;
 };
 
 const DEFAULT_HOLD = 3200;
@@ -72,6 +80,7 @@ export default function DemoStage({
   const [run, setRun] = useState(0);
   const [tab, setTab] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const last = steps.length - 1;
   // Steps and onStep are usually rebuilt on every parent render; read them
   // through a ref so a parent re-render never resets the autoplay timer.
@@ -83,26 +92,33 @@ export default function DemoStage({
     latest.current.onStep?.(latest.current.steps[i].id);
   }, []);
 
-  // Reduced motion: the last step, static. Otherwise wait to be seen.
+  // Reduced motion: the last step, static. Otherwise start on the first of:
+  // the header row fully in view, or 20 % of the shell in view (unless the
+  // shell is taller than 70 vh, where 20 % can sit below the fold).
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setReduced(true);
       setIndex(last);
       return;
     }
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        io.disconnect();
-        setSeen(true);
-        setPlaying(true);
-      },
-      {threshold: 0.4},
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    const root = rootRef.current;
+    const header = headerRef.current;
+    if (!root || !header || typeof IntersectionObserver === 'undefined') return;
+    const start = () => {
+      ios.forEach((io) => io.disconnect());
+      setSeen(true);
+      setPlaying(true);
+    };
+    const watch = (el: Element, threshold: number) =>
+      new IntersectionObserver(([e]) => e.isIntersecting && start(), {threshold});
+    const ios = [watch(header, 1)];
+    ios[0].observe(header);
+    if (root.getBoundingClientRect().height <= window.innerHeight * 0.7) {
+      const io = watch(root, 0.2);
+      io.observe(root);
+      ios.push(io);
+    }
+    return () => ios.forEach((io) => io.disconnect());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -117,10 +133,12 @@ export default function DemoStage({
   const replay = () => {
     setRun((r) => r + 1);
     if (reduced) return;
+    setSeen(true);
     go(0);
     setPlaying(true);
   };
   const pick = (id: string) => {
+    setSeen(true);
     setPlaying(false);
     setRun((r) => r + 1);
     go(Math.max(0, steps.findIndex((s) => s.id === id)));
@@ -135,7 +153,7 @@ export default function DemoStage({
     }
   };
 
-  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced};
+  const ctx: DemoContext = {step: steps[index].id, index, run, playing, reduced, live: seen && !reduced};
   const stageStyle = stageMinHeight
     ? ({'--stage-h': stageMinHeight.wide, '--stage-h-narrow': stageMinHeight.narrow} as CSSProperties)
     : undefined;
@@ -144,7 +162,9 @@ export default function DemoStage({
 
   return (
     <div ref={rootRef} className={clsx(styles.root, seen && styles.seen)}>
-      <DemoHeader title={title} modes={modes} mode={mode} onMode={pickMode} onReplay={replay} />
+      <div ref={headerRef}>
+        <DemoHeader title={title} modes={modes} mode={mode} onMode={pickMode} onReplay={replay} />
+      </div>
 
       <div className={clsx(styles.stage, stageClassName)} style={stageStyle}>
         {typeof children === 'function' ? children(ctx) : children}

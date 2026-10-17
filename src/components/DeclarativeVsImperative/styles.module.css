@@ -142,11 +142,12 @@
   color: var(--ifm-color-primary);
   font-weight: 600;
 }
-/* Each row lights gold in turn when the step starts. */
-.ledgerRow {
+/* Once the demo is live, each row lights gold in turn when the step starts;
+   before that the rows are simply lit. */
+.live .ledgerRow {
   animation: dvi-light var(--dur-slow) var(--ease) calc(var(--i) * 0.35s) both;
 }
-.compiler {
+.live .compiler {
   animation: dvi-gold var(--dur-slow) var(--ease) calc(var(--i) * 0.35s) both;
 }
 

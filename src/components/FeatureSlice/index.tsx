@@ -103,9 +103,9 @@ function Check({t}: {t: number}) {
   );
 }
 
-function Arrow({t, on}: {t: number; on: boolean}) {
+function Arrow({t, cls}: {t: number; cls: string | false}) {
   return (
-    <div className={clsx(styles.arrow, styles.a, on ? styles.play : styles.dim)} style={at(t)} aria-hidden="true">
+    <div className={clsx(styles.arrow, styles.a, cls)} style={at(t)} aria-hidden="true">
       <svg viewBox="0 0 40 12">
         <path d="M2 6 H36 M31 1.5 L36.5 6 L31 10.5" />
       </svg>
@@ -148,13 +148,15 @@ function PassScreen() {
   );
 }
 
-function Stage({index}: {index: number}): ReactNode {
-  const col = (i: number) => clsx(styles.col, index === i ? styles.play : styles.dim);
+function Stage({index, live}: {index: number; live: boolean}): ReactNode {
+  // Entrances play only once the demo is live; until then each step is static.
+  const on = (i: number) => (index === i ? live && styles.play : styles.dim);
+  const col = (i: number) => clsx(styles.col, on(i));
   return (
     <>
       <div className={styles.cols}>
         {/* The copy travels from the declaration to Project B, over the top. */}
-        <svg className={clsx(styles.copyPath, styles.a, index === 2 ? styles.play : styles.dim)} style={at(T_COPY)} viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+        <svg className={clsx(styles.copyPath, styles.a, on(2))} style={at(T_COPY)} viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
           <path d="M14 10 C 30 -6, 70 -6, 86 10" />
         </svg>
 
@@ -166,7 +168,7 @@ function Stage({index}: {index: number}): ReactNode {
           <p className={styles.mono}>one file · one owner · both sides</p>
         </div>
 
-        <Arrow t={T_ARROW1} on={index === 1} />
+        <Arrow t={T_ARROW1} cls={on(1)} />
 
         <div className={col(1)}>
           <span className={styles.colLabel}>compiled</span>
@@ -216,7 +218,7 @@ function Stage({index}: {index: number}): ReactNode {
           </div>
         </div>
 
-        <Arrow t={T_ARROW2} on={index === 2} />
+        <Arrow t={T_ARROW2} cls={on(2)} />
 
         <div className={col(2)}>
           <span className={styles.colLabel}>reused</span>
@@ -241,7 +243,7 @@ function Stage({index}: {index: number}): ReactNode {
         </div>
       </div>
 
-      <div className={clsx(styles.strip, index === 3 ? styles.play : styles.dim)}>
+      <div className={clsx(styles.strip, on(3))}>
         <span className={clsx(styles.chip, styles.prompt, styles.a)} style={at(T_STRIP[0])}>
           assistant: add a weekly reset to the battle pass
         </span>
@@ -272,9 +274,9 @@ export default function FeatureSlice(): ReactNode {
         {id: 'write', label: 'what you write', content: <CodeWindow tabs={VIEW_TABS} dense />},
         {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
       ]}>
-      {({index, run}) => (
+      {({index, run, live}) => (
         <div key={`${run}-${index}`} className={styles.root}>
-          <Stage index={index} />
+          <Stage index={index} live={live} />
         </div>
       )}
     </DemoStage>

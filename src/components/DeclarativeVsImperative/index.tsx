@@ -322,8 +322,8 @@ export default function DeclarativeVsImperative(): ReactNode {
             </span>
           );
         }}>
-        {({index, run}) => (
-          <div key={`${run}-${index}`}>
+        {({index, run, live}) => (
+          <div key={`${run}-${index}`} className={clsx(live && styles.live)}>
             <Stage index={index} />
           </div>
         )}

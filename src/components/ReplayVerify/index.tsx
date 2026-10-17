@@ -577,8 +577,8 @@ export default function ReplayVerify(): ReactNode {
         {id: 'schema', label: 'schema', content: <CodeWindow tabs={SCHEMA} dense />},
         {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
       ]}>
-      {({step, run}) => (
-        <div key={run} className={clsx(styles.root, PHASE_CLASS[step as Phase])}>
+      {({step, run, live}) => (
+        <div key={run} className={clsx(styles.root, PHASE_CLASS[step as Phase], !live && styles.static)}>
           <div className={styles.stage}>
             <Scene layout={WIDE} phase={step as Phase} className={styles.wide} />
             <Scene layout={NARROW} phase={step as Phase} className={styles.narrow} />

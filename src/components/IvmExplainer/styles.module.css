@@ -59,11 +59,16 @@
 }
 .flash {
   fill: var(--ifm-color-primary);
-  fill-opacity: 0.16;
+  fill-opacity: 0.12;
+}
+.live .flash {
   animation: ivm-mark 1.2s var(--ease) 0.9s both;
 }
 .flashRed {
   fill: var(--cdb-wire);
+  fill-opacity: 0;
+}
+.live .flashRed {
   animation: ivm-red 1.4s var(--ease) both;
 }
 .shimmer {
@@ -121,11 +126,11 @@
   font-size: var(--fs-xs);
   color: var(--ifm-color-primary);
 }
-/* IVM: the delta reaches each box in turn. */
-.ivm .box {
+/* IVM: the delta reaches each box in turn (once the demo is live). */
+.live.ivm .box {
   animation: ivm-reach var(--dur) var(--ease) calc(var(--i) * 0.28s) both;
 }
-.ivm .boxStatus {
+.live.ivm .boxStatus {
   animation: ivm-in var(--dur) var(--ease) calc(var(--i) * 0.28s + 0.1s) both;
 }
 /* Rx and rebuild: every box works, every time. */

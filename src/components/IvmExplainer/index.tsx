@@ -253,8 +253,8 @@ export default function IvmExplainer(): ReactNode {
         {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
         {id: 'numbers', label: 'numbers', content: <CompilerNotes lines={NUMBERS} />},
       ]}>
-      {({step, run}) => (
-        <div className={clsx(styles.stage, styles[mode])}>
+      {({step, run, live}) => (
+        <div className={clsx(styles.stage, styles[mode], live && styles.live)}>
           <Leaderboard ev={step as EventId} mode={mode} run={`${run}-${step}-${mode}`} />
           <div className={styles.side}>
             {mode === 'rebuild' && <Sweep label="re-running every frame · 10 000 rows, 0 changes" />}
