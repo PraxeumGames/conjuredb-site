@@ -1,5 +1,6 @@
-/* Tangle → schema → generated. Colour is semantics:
-   hand wiring = muted red-grey noise, schema & generated = gold. */
+/* Two programs → one schema → both sides. Colour is semantics:
+   hand wiring = muted red-grey noise, schema & client = gold,
+   server = steel blue (--cdb-server). */
 
 .root {
   --tts-wire: rgba(205, 118, 104, 0.72);
@@ -9,6 +10,8 @@
   --tts-script-ink: #a59a94;
   --tts-gold: var(--ifm-color-primary);
   --tts-gold-soft: rgba(236, 194, 92, 0.09);
+  --tts-server: var(--cdb-server);
+  --tts-server-soft: var(--cdb-server-soft);
   --tts-card-fill: #191b21;
   --tts-ease: cubic-bezier(0.65, 0, 0.25, 1);
 
@@ -113,6 +116,29 @@
 .isSchema .signal,
 .isGenerated .signal {
   animation-play-state: paused;
+}
+
+/* The network boundary between client and server code. */
+.network {
+  fill: none;
+  stroke: var(--cdb-muted);
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+}
+.networkLabel,
+.halfLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.66em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  fill: var(--cdb-muted);
+}
+.networkLabel {
+  fill-opacity: 0.8;
+}
+.halfLabel {
+  fill-opacity: 0.6;
 }
 
 /* ---- Act 2: the card --------------------------------------------------- */
@@ -237,6 +263,87 @@
   fill: var(--tts-gold);
 }
 
+/* Output tones: client gold-on-dark, server steel blue, small outputs. */
+.tClient .moduleTint {
+  stroke-width: 1.5;
+}
+.tClient .moduleTitle,
+.tServer .moduleTitle {
+  font-size: 1.08em;
+  font-weight: 600;
+}
+.tServer .moduleTint {
+  fill: var(--tts-server-soft);
+  stroke: var(--tts-server);
+  stroke-width: 1.5;
+}
+.tServer .moduleSub {
+  fill: var(--tts-server);
+}
+.tClient .moduleSub,
+.tServer .moduleSub {
+  font-size: 0.74em;
+}
+.small .moduleSub {
+  font-size: 0.72em;
+}
+.tServer .ray,
+.tServer .flow {
+  stroke: var(--tts-server);
+}
+.small .moduleTitle {
+  font-size: 0.92em;
+}
+.small .moduleTint {
+  stroke-opacity: 0.5;
+}
+
+/* The signature motif: actions travel client → server, each gets a check
+   when the server has replayed it. */
+.stream {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.isGenerated .stream {
+  opacity: 1;
+  transition: opacity 0.5s ease 1s;
+}
+.streamLine {
+  fill: none;
+  stroke: var(--tts-gold);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.streamLabel {
+  font-family: var(--cdb-mono);
+  font-size: 0.66em;
+  letter-spacing: 0.06em;
+  fill: var(--cdb-muted);
+}
+.marker {
+  animation: tts-action 4.4s linear infinite paused;
+}
+.check {
+  fill: none;
+  stroke: var(--tts-server);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  animation: tts-check 4.4s linear infinite paused;
+}
+.markerBox {
+  fill: var(--tts-gold);
+  animation: tts-arrive 4.4s linear infinite paused;
+  animation-delay: inherit;
+}
+.isGenerated .marker,
+.isGenerated .check,
+.isGenerated .markerBox {
+  animation-play-state: running;
+}
+
 /* ---- Step labels under the visual -------------------------------------- */
 .steps {
   display: grid;
@@ -345,6 +452,47 @@
     transform: translate(-1.5px, 2px);
   }
 }
+@keyframes tts-action {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  78% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 1;
+  }
+  94% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--mx), var(--my));
+    opacity: 0;
+  }
+}
+@keyframes tts-check {
+  0%,
+  78% {
+    opacity: 0;
+  }
+  84%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes tts-arrive {
+  0%,
+  76% {
+    fill: var(--tts-gold);
+  }
+  84%,
+  100% {
+    fill: var(--tts-server);
+  }
+}
 @keyframes tts-timer {
   from {
     transform: scaleX(0);
@@ -362,5 +510,15 @@
   }
   .flow {
     opacity: 0 !important;
+  }
+  /* Static stream: markers spread along the line, the last one verified. */
+  .marker {
+    transform: translate(calc(var(--mx) * var(--p)), calc(var(--my) * var(--p)));
+  }
+  .markerDone .check {
+    opacity: 1;
+  }
+  .markerDone .markerBox {
+    fill: var(--tts-server);
   }
 }

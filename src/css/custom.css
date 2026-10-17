@@ -33,6 +33,9 @@
   --cdb-line: #e8e2d6;
   --cdb-surface: #faf8f4;
   --cdb-surface-2: #ffffff;
+  /* Second semantic colour: the server / cloud side. Gold stays the schema. */
+  --cdb-server: #46627d;
+  --cdb-server-soft: rgba(70, 98, 125, 0.08);
 }
 
 [data-theme='dark'] {
@@ -58,6 +61,8 @@
   --cdb-line: #262a31;
   --cdb-surface: #171a20;
   --cdb-surface-2: #1b1e25;
+  --cdb-server: #8ea7bf;
+  --cdb-server-soft: rgba(142, 167, 191, 0.1);
 }
 
 html {

@@ -2,149 +2,170 @@ import {useEffect, useId, useRef, useState, type CSSProperties, type ReactNode} 
 import clsx from 'clsx';
 import styles from './styles.module.css';
 
-// Hero visual: hand-wired game scripts (muted red-grey) collapse into one
-// game.conjure file (gold), which then fans out into generated modules.
-// Pure SVG + CSS transitions; React only flips the phase class.
+// Hero visual: today's two hand-wired programs (client + server, muted
+// red-grey) collapse into one game.conjure file (gold), which then compiles
+// into both sides — client (gold), server (steel blue) — with the replayed
+// action stream between them. Pure SVG + CSS; React only flips the phase class.
 
 type Phase = 'tangle' | 'schema' | 'generated';
 const PHASES: Phase[] = ['tangle', 'schema', 'generated'];
 
 // Time on each phase in auto-play: its transition plus a ~2.5 s hold.
-const HOLD_MS: Record<Phase, number> = {tangle: 3300, schema: 3600, generated: 4600};
+// Phase 03 holds longer so the action stream gets a few full passes.
+const HOLD_MS: Record<Phase, number> = {tangle: 3300, schema: 3600, generated: 5600};
 
-const PHASE_CLASS: Record<Phase, string> = {
-  tangle: styles.isTangle,
+const PHASE_CLASS: Record<Phase, string | undefined> = {
+  tangle: undefined,
   schema: styles.isSchema,
   generated: styles.isGenerated,
 };
 
 const STEPS: {phase: Phase; n: string; label: string}[] = [
-  {phase: 'tangle', n: '01', label: 'hand-written today'},
+  {phase: 'tangle', n: '01', label: 'two programs today'},
   {phase: 'schema', n: '02', label: 'you write this'},
-  {phase: 'generated', n: '03', label: 'compiler generates this'},
+  {phase: 'generated', n: '03', label: 'compiler builds both sides'},
 ];
 
 const ARIA: Record<Phase, string> = {
   tangle:
-    'Hand-written today: ShopPresenter, InventoryMgr, QuestSystem, a Dictionary of items, an OnChanged event bus, LeaderboardUI and SaveManager, all wired to each other.',
-  schema: 'You write this: one game.conjure file describing state, screens and rules.',
+    'Two programs today: client scripts (ShopPresenter, InventoryMgr, QuestSystem, an OnChanged bus) and server code (PlayerController API, DTOs and protocol, save migrations, an admin panel, an analytics SDK), wired to each other across the network.',
+  schema:
+    'You write this: one game.conjure file with tables, commands, reactive queries and modules.',
   generated:
-    'The compiler generates this: storage with indexes, self-updating screens, frame systems, save and load, and plain C# with zero allocations per frame.',
+    'The compiler builds both sides: the client (screens, frame, local state), the server (player, config, shared state), a replay verifier, liveops and modules. Player actions stream from client to server and are verified by replay.',
 };
 
+// Indices 0–3 are client scripts, 4–8 server code.
 const SCRIPTS = [
   'ShopPresenter',
   'InventoryMgr',
   'QuestSystem',
-  'Dictionary<Item>',
   'OnChanged bus',
-  'LeaderboardUI',
-  'SaveManager',
+  'PlayerController API',
+  'DTOs + protocol',
+  'Save migrations',
+  'Admin panel',
+  'Analytics SDK',
 ];
-const BUS = 4; // index of the event bus — drawn as a pill
+const BUS = 3; // the event bus is drawn as a pill
 
-// Accretion, not architecture: every pair of the 7 scripts is wired, two
-// pairs twice over, at uneven weights. `signal` wires carry event traffic.
+// Accretion, not architecture: wiring inside each program, one doubled pair,
+// uneven weights, and seven wires across the network. `signal` = live traffic.
 const WIRES: {a: number; b: number; bend: number; w: number; signal?: boolean}[] = [
-  {a: 0, b: 1, bend: 40, w: 0.9},
-  {a: 0, b: 2, bend: -110, w: 0.6},
-  {a: 0, b: 3, bend: -30, w: 1.2},
-  {a: 0, b: 4, bend: 50, w: 0.8, signal: true},
-  {a: 0, b: 4, bend: -25, w: 0.6},
-  {a: 0, b: 5, bend: -60, w: 1.1},
-  {a: 0, b: 6, bend: 90, w: 0.7},
-  {a: 1, b: 2, bend: -35, w: 1.0},
-  {a: 1, b: 3, bend: 45, w: 0.8, signal: true},
-  {a: 1, b: 4, bend: -70, w: 1.2},
-  {a: 1, b: 5, bend: 120, w: 0.6, signal: true},
-  {a: 1, b: 6, bend: 60, w: 0.9},
-  {a: 2, b: 3, bend: -50, w: 0.7},
-  {a: 2, b: 4, bend: 35, w: 1.0, signal: true},
-  {a: 2, b: 5, bend: 80, w: 0.6},
-  {a: 2, b: 6, bend: -45, w: 1.1},
-  {a: 3, b: 4, bend: 30, w: 0.9},
-  {a: 3, b: 5, bend: -40, w: 0.7, signal: true},
-  {a: 3, b: 5, bend: 65, w: 1.2},
-  {a: 3, b: 6, bend: 85, w: 0.6},
-  {a: 4, b: 5, bend: 55, w: 0.8, signal: true},
-  {a: 4, b: 6, bend: -30, w: 1.0},
+  // client
+  {a: 0, b: 1, bend: 30, w: 0.9},
+  {a: 0, b: 2, bend: -40, w: 1.1},
+  {a: 0, b: 3, bend: 45, w: 0.7, signal: true},
+  {a: 0, b: 3, bend: -30, w: 0.6},
+  {a: 1, b: 2, bend: 35, w: 0.8},
+  {a: 1, b: 3, bend: -25, w: 1.2},
+  {a: 2, b: 3, bend: 30, w: 0.7},
+  // server
+  {a: 4, b: 5, bend: -30, w: 1.0},
+  {a: 4, b: 6, bend: 40, w: 0.7},
+  {a: 5, b: 6, bend: -35, w: 0.9, signal: true},
+  {a: 5, b: 7, bend: 30, w: 0.6},
+  {a: 4, b: 8, bend: -60, w: 1.1},
+  {a: 6, b: 8, bend: 25, w: 0.8},
+  {a: 7, b: 8, bend: -30, w: 1.2},
+  {a: 5, b: 8, bend: 45, w: 0.6},
+  // across the network
+  {a: 0, b: 4, bend: -35, w: 0.9, signal: true},
+  {a: 1, b: 5, bend: 40, w: 0.7, signal: true},
+  {a: 2, b: 6, bend: -30, w: 1.1},
+  {a: 3, b: 4, bend: 55, w: 0.6},
+  {a: 3, b: 7, bend: -40, w: 1.0, signal: true},
+  {a: 1, b: 8, bend: 50, w: 0.8, signal: true},
+  {a: 2, b: 5, bend: -45, w: 0.6},
 ];
 
-const MODULES = [
-  {title: 'Storage + indexes', sub: 'O(1) lookups'},
-  {title: 'Self-updating screens', sub: 'shop · inventory · ranks'},
-  {title: 'Frame systems', sub: 'scheduled per phase'},
-  {title: 'Save / load', sub: 'local persistence'},
-  {title: 'Plain C#', sub: '0 alloc / frame'},
+type Tone = 'client' | 'server' | 'gold';
+const OUTPUTS: {title: string; sub: string; tone: Tone; small?: boolean}[] = [
+  {title: 'Client', sub: 'screens · frame · local state', tone: 'client'},
+  {title: 'Server', sub: 'player · config · shared state', tone: 'server'},
+  {title: 'Replay verifier', sub: 'actions in, verdict out', tone: 'gold'},
+  {title: 'Liveops', sub: 'rules without a release', tone: 'gold', small: true},
+  {title: 'Modules', sub: 'battle pass · store · inventory', tone: 'gold', small: true},
 ];
 
 const CARD_LINES: ReactNode[] = [
   <><tspan className={styles.kw}>table</tspan> Item {'{ … }'}</>,
-  <><tspan className={styles.kw}>reactive query</tspan> ShopOffers</>,
   <><tspan className={styles.kw}>command</tspan> BuyItem(…)</>,
-  <><tspan className={styles.kw}>system</tspan> Move(phase: …)</>,
+  <><tspan className={styles.kw}>reactive query</tspan> ShopOffers</>,
+  <><tspan className={styles.kw}>module</tspan> BattlePass</>,
 ];
+
+const MARKERS = 4; // actions in flight on the client → server stream
 
 type Pt = [number, number];
 type Layout = {
   w: number;
   h: number;
   font: number;
-  script: {w: number; h: number};
-  scripts: {at: Pt; rot: number}[];
+  scriptH: number;
+  scripts: {at: Pt; rot: number; w: number}[];
+  // The network boundary between the two halves of the tangle.
+  network: {d: string; label: Pt; client: Pt; server: Pt; vertical: boolean};
   card: {cx: number; cy: number; w: number; h: number; line: number};
-  module: {w: number; h: number};
-  modules: Pt[];
+  outputs: {at: Pt; w: number; h: number; sub?: string[]}[];
+  // Stream path, where the markers start, and how far they travel.
+  stream: {d: string; start: Pt; travel: Pt; check: Pt; label?: Pt};
 };
 
 const WIDE: Layout = {
   w: 760,
-  h: 440,
+  h: 420,
   font: 15,
-  script: {w: 168, h: 36},
+  scriptH: 36,
   scripts: [
-    {at: [140, 72], rot: -4},
-    {at: [560, 60], rot: 3},
-    {at: [652, 206], rot: -3},
-    {at: [318, 168], rot: 2},
-    {at: [470, 284], rot: -2},
-    {at: [128, 300], rot: 4},
-    {at: [600, 380], rot: -5},
+    {at: [108, 78], rot: -4, w: 166},
+    {at: [262, 158], rot: 3, w: 160},
+    {at: [100, 246], rot: 2, w: 156},
+    {at: [250, 336], rot: -3, w: 160},
+    {at: [540, 62], rot: 3, w: 200},
+    {at: [642, 150], rot: -3, w: 176},
+    {at: [512, 236], rot: 2, w: 176},
+    {at: [652, 316], rot: -4, w: 140},
+    {at: [522, 384], rot: 3, w: 160},
   ],
-  card: {cx: 380, cy: 210, w: 236, h: 176, line: 21},
-  module: {w: 212, h: 58},
-  modules: [
-    [118, 128],
-    [642, 128],
-    [118, 300],
-    [642, 300],
-    [380, 398],
+  network: {d: 'M380 30 V410', label: [380, 20], client: [16, 20], server: [744, 20], vertical: true},
+  card: {cx: 380, cy: 192, w: 236, h: 176, line: 21},
+  outputs: [
+    {at: [116, 192], w: 220, h: 66},
+    {at: [644, 192], w: 220, h: 66},
+    {at: [380, 352], w: 230, h: 58},
+    {at: [116, 362], w: 222, h: 54},
+    {at: [644, 362], w: 222, h: 54},
   ],
+  stream: {d: 'M116 159 V60 H644 V159', start: [126, 60], travel: [508, 0], check: [0, -13], label: [380, 48]},
 };
 
 const NARROW: Layout = {
   w: 360,
-  h: 460,
+  h: 580,
   font: 12.5,
-  script: {w: 140, h: 32},
+  scriptH: 32,
   scripts: [
-    {at: [86, 48], rot: -4},
-    {at: [262, 84], rot: 3},
-    {at: [140, 160], rot: 2},
-    {at: [278, 222], rot: -3},
-    {at: [92, 260], rot: -2},
-    {at: [232, 336], rot: 4},
-    {at: [98, 410], rot: -4},
+    {at: [92, 44], rot: -4, w: 140},
+    {at: [262, 100], rot: 3, w: 134},
+    {at: [104, 172], rot: 2, w: 132},
+    {at: [252, 240], rot: -3, w: 134},
+    {at: [150, 330], rot: 3, w: 172},
+    {at: [268, 400], rot: -3, w: 150},
+    {at: [96, 450], rot: 2, w: 150},
+    {at: [262, 506], rot: -4, w: 120},
+    {at: [118, 548], rot: 3, w: 134},
   ],
-  card: {cx: 180, cy: 222, w: 204, h: 160, line: 19},
-  module: {w: 166, h: 52},
-  modules: [
-    [91, 52],
-    [269, 52],
-    [91, 360],
-    [269, 360],
-    [180, 426],
+  network: {d: 'M10 287 H350', label: [350, 279], client: [10, 12], server: [10, 302], vertical: false},
+  card: {cx: 190, cy: 208, w: 204, h: 160, line: 19},
+  outputs: [
+    {at: [190, 52], w: 236, h: 58},
+    {at: [190, 362], w: 236, h: 58},
+    {at: [190, 440], w: 236, h: 52},
+    {at: [100, 520], w: 168, h: 62, sub: ['rules without', 'a release']},
+    {at: [280, 520], w: 168, h: 62, sub: ['battle pass ·', 'store · inventory']},
   ],
+  stream: {d: 'M72 52 H26 V362 H72', start: [26, 62], travel: [0, 290], check: [13, 4]},
 };
 
 function wirePath(p: Pt, q: Pt, bend: number): string {
@@ -159,10 +180,11 @@ function wirePath(p: Pt, q: Pt, bend: number): string {
 
 function Scene({layout, phase, className}: {layout: Layout; phase: Phase; className: string}) {
   const glowId = `${useId().replace(/:/g, '')}glow`;
-  const {card} = layout;
+  const {card, network, stream} = layout;
   const origin = `${card.cx}px ${card.cy}px`;
   const cardTop = card.cy - card.h / 2;
   const cardLeft = card.cx - card.w / 2;
+  const lh = layout.font * 1.05;
 
   return (
     <svg
@@ -178,9 +200,27 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
         </radialGradient>
       </defs>
 
-      {/* Act 1 — the tangle. The whole group collapses into the card's centre. */}
+      {/* Act 1 — two programs and the glue. The whole group collapses into the card. */}
       <g className={styles.tangleGroup} style={{transformOrigin: origin}}>
         <g className={styles.drift}>
+          <path className={styles.network} d={network.d} />
+          <text
+            className={styles.networkLabel}
+            x={network.label[0]}
+            y={network.label[1]}
+            textAnchor={network.vertical ? 'middle' : 'end'}>
+            network
+          </text>
+          <text className={styles.halfLabel} x={network.client[0]} y={network.client[1]}>
+            client
+          </text>
+          <text
+            className={styles.halfLabel}
+            x={network.server[0]}
+            y={network.server[1]}
+            textAnchor={network.vertical ? 'end' : 'start'}>
+            server
+          </text>
           {WIRES.map((wr, i) => (
             <path
               key={i}
@@ -190,8 +230,8 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
             />
           ))}
           {SCRIPTS.map((name, i) => {
-            const {at, rot} = layout.scripts[i];
-            const {w, h} = layout.script;
+            const {at, rot, w} = layout.scripts[i];
+            const h = layout.scriptH;
             return (
               <g key={name} transform={`translate(${at[0]} ${at[1]}) rotate(${rot})`}>
                 <g
@@ -215,36 +255,77 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
         </g>
       </g>
 
-      {/* Act 3 — rays and generated modules, drawn under the card. */}
+      {/* Act 3 — rays, the action stream and both sides, drawn under the card. */}
       <g className={styles.output}>
-        {layout.modules.map(([mx, my], i) => {
+        {layout.outputs.map(({at: [mx, my]}, i) => {
           const d = `M${card.cx} ${card.cy} L${mx} ${my}`;
           const delay = {'--d': `${0.12 * i}s`} as CSSProperties;
           return (
-            <g key={i} style={delay}>
+            <g key={i} style={delay} className={clsx(OUTPUTS[i].tone === 'server' && styles.tServer)}>
               <path className={styles.ray} d={d} pathLength={1} />
               <path className={styles.flow} d={d} />
             </g>
           );
         })}
-        {layout.modules.map(([mx, my], i) => {
-          const {w, h} = layout.module;
+
+        <g className={styles.stream}>
+          <path className={styles.streamLine} d={stream.d} />
+          {stream.label && (
+            <text className={styles.streamLabel} x={stream.label[0]} y={stream.label[1]} textAnchor="middle">
+              actions → replayed on the server
+            </text>
+          )}
+          {Array.from({length: MARKERS}, (_, i) => {
+            const style = {
+              '--mx': `${stream.travel[0]}px`,
+              '--my': `${stream.travel[1]}px`,
+              '--p': `${(i + 0.6) / MARKERS}`,
+              animationDelay: `${(-i * 4.4) / MARKERS}s`,
+            } as CSSProperties;
+            return (
+              <g key={i} transform={`translate(${stream.start[0]} ${stream.start[1]})`}>
+                <g className={clsx(styles.marker, i === MARKERS - 1 && styles.markerDone)} style={style}>
+                  <rect className={styles.markerBox} x={-4.5} y={-4.5} width={9} height={9} rx={2} />
+                  <path
+                    className={styles.check}
+                    style={{animationDelay: style.animationDelay}}
+                    d={`M${stream.check[0] - 4} ${stream.check[1]} l3 3 l5.5 -6`}
+                  />
+                </g>
+              </g>
+            );
+          })}
+        </g>
+
+        {layout.outputs.map(({at: [mx, my], w, h, sub}, i) => {
+          const out = OUTPUTS[i];
+          const lines = sub ?? [out.sub];
+          const titleY = (-lines.length * lh) / 2 + 3;
           const style = {
             '--d': `${0.25 + 0.12 * i}s`,
             '--dx': `${card.cx - mx}px`,
             '--dy': `${card.cy - my}px`,
           } as CSSProperties;
           return (
-            <g key={MODULES[i].title} transform={`translate(${mx} ${my})`}>
-              <g className={styles.module} style={style}>
+            <g key={out.title} transform={`translate(${mx} ${my})`}>
+              <g
+                className={clsx(
+                  styles.module,
+                  out.tone === 'server' && styles.tServer,
+                  out.tone === 'client' && styles.tClient,
+                  out.small && styles.small,
+                )}
+                style={style}>
                 <rect className={styles.moduleBase} x={-w / 2} y={-h / 2} width={w} height={h} rx={9} />
                 <rect className={styles.moduleTint} x={-w / 2} y={-h / 2} width={w} height={h} rx={9} />
-                <text className={styles.moduleTitle} textAnchor="middle" y={-h * 0.11}>
-                  {MODULES[i].title}
+                <text className={styles.moduleTitle} textAnchor="middle" y={titleY}>
+                  {out.title}
                 </text>
-                <text className={styles.moduleSub} textAnchor="middle" y={h * 0.29}>
-                  {MODULES[i].sub}
-                </text>
+                {lines.map((line, j) => (
+                  <text key={j} className={styles.moduleSub} textAnchor="middle" y={titleY + lh * (j + 1) + 2}>
+                    {line}
+                  </text>
+                ))}
               </g>
             </g>
           );

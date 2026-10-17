@@ -5,8 +5,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'ConjureDB',
-  tagline: 'A compiled, zero-allocation data layer for game clients',
+  title: 'Conjure',
+  tagline: 'One schema. Client, server, liveops.',
   favicon: 'img/favicon.ico',
 
   future: {
@@ -64,7 +64,7 @@ const config: Config = {
       respectPrefersColorScheme: false,
     },
     navbar: {
-      title: 'ConjureDB',
+      title: 'Conjure',
       items: [
         {to: '/why', label: 'Why ConjureDB', position: 'left'},
         {to: '/how-it-works', label: 'How it works', position: 'left'},
@@ -106,7 +106,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} ConjureDB. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Conjure. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.oneLight,

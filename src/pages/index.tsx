@@ -12,34 +12,36 @@ function Hero(): ReactNode {
       <div className={`container ${styles.heroGrid}`}>
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>
-            <span className={styles.eyebrowDot} /> Compiled game state · Unity &amp; .NET
+            <span className={styles.eyebrowDot} /> Compiled game platform · Unity &amp; .NET
           </span>
           <h1 className={styles.title}>
-            Your game's state, <span className={styles.grad}>compiled.</span>
+            One schema.
+            <br />
+            <span className={styles.grad}>Client, server, liveops.</span>
           </h1>
           <p className={styles.subtitle}>
             <span className={styles.subLine}>
-              Every game hides a hand-wired data machine: dictionaries, lists and OnChanged wires
-              keeping screens in sync.
+              Conjure compiles a declarative description of your game into the client data layer,
+              the server, replay verification and liveops.
             </span>
             <span className={styles.subLine}>
-              ConjureDB compiles that machine from one description — indexed, reactive,
-              allocation-free, reusable across titles.
+              Play offline, verify on the server, ship features in days — with a three-person team.
             </span>
           </p>
           <div className={styles.ctaRow}>
             <Link className="button button--primary button--lg" to="/docs/getting-started">
-              Get started
+              Read the docs
             </Link>
             <Link className="button button--secondary button--lg" to="/how-it-works">
-              See how it works
+              How it works
             </Link>
           </div>
           <div className={styles.chips}>
-            <span className={styles.chip}>No GC spikes</span>
-            <span className={styles.chip}>Ships on iOS</span>
-            <span className={styles.chip}>Self-updating UI</span>
-            <span className={styles.chip}>Runs the frame loop</span>
+            <span className={styles.chip}>Offline-first</span>
+            <span className={styles.chip}>Replay-verified</span>
+            <span className={styles.chip}>0 B/frame</span>
+            <span className={styles.chip}>Features = schema</span>
+            <span className={styles.chip}>Self-hosted</span>
           </div>
         </div>
         <div className={styles.heroVisual}>
@@ -52,10 +54,10 @@ function Hero(): ReactNode {
 
 type Stat = {n: string; l: string};
 const STATS: Stat[] = [
-  {n: '0 B/frame', l: 'no GC spikes'},
-  {n: '1 file', l: 'per feature'},
-  {n: 'O(1)', l: 'lookups, indexed'},
-  {n: 'iOS', l: 'ships under IL2CPP'},
+  {n: '1 schema', l: 'client, server, liveops'},
+  {n: '0 B', l: 'per frame on the device'},
+  {n: 'µs', l: 'per command, device and server'},
+  {n: '0', l: 'trust required in the client'},
 ];
 
 function StatBand(): ReactNode {
@@ -292,8 +294,8 @@ function FinalCta(): ReactNode {
 export default function Home(): ReactNode {
   return (
     <Layout
-      title="ConjureDB — your game's state, compiled"
-      description="ConjureDB compiles your game's state from one description: storage and indexes, screens that update themselves, per-frame systems, save/load and allocation-free C# — for Unity & .NET.">
+      title="Conjure — one schema, compiled for client and server"
+      description="Conjure compiles one declarative description of your game into the client data layer, the server, replay verification and liveops. Play offline, verify on the server by replay, ship features in days — for Unity & .NET.">
       <Hero />
       <main>
         <StatBand />
