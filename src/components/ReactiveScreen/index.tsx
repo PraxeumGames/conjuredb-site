@@ -186,7 +186,7 @@ export default function ReactiveScreen(): ReactNode {
       mode={mode}
       onMode={(m) => setMode(m as Mode)}
       steps={steps}
-      stageMinHeight={{wide: '24rem', narrow: '33rem'}}
+      stageMinHeight={{wide: '28rem', narrow: '33rem'}}
       costLine={({index}) => {
         const applied = index + 1;
         if (wired) return applied >= 3 ? 'rows refreshed 6 / 6 · 1 stale' : 'rows refreshed 6 / 6';
@@ -284,7 +284,7 @@ function Stage({applied, wired, run}: {applied: number; wired: boolean; run: num
         </DeviceFrame>
       </svg>
 
-      <div className={styles.side}>
+      <div className={styles.panel}>
         {wired && (
           <pre className={styles.presenter}>
             <span className={styles.cls}>ShopPresenter</span>

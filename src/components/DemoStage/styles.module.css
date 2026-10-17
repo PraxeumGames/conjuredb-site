@@ -97,6 +97,9 @@
 /* b. Stage: fixed height per breakpoint */
 .stage {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-height: var(--stage-h);
   min-width: 0;
 }

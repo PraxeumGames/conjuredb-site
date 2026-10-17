@@ -144,14 +144,6 @@ function Monolith({L}: {L: Layout}) {
           </g>
         );
       })}
-      {/* Each feature's smear down through the layers */}
-      {FEATURES.map((f) => {
-        const pts = LAYERS.map((layer, l) => {
-          const b = fragBox(L, l, layer.frags.findIndex(([id]) => id === f.id));
-          return `${b.x + b.w / 2},${b.y + b.h / 2}`;
-        });
-        return <polyline key={f.id} className={clsx(styles.smear, styles[f.id])} points={pts.join(' ')} />;
-      })}
       {LAYERS.map((layer, l) =>
         layer.frags.map(([id, label], s) => {
           const b = fragBox(L, l, s);

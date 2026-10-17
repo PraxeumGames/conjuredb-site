@@ -123,6 +123,9 @@
   width: 100%;
   height: auto;
 }
+.server {
+  max-width: 17rem;
+}
 .meta {
   display: flex;
   flex-wrap: wrap;
@@ -318,9 +321,15 @@
   color: var(--ifm-color-primary);
 }
 
-@media (max-width: 996px) {
+/* Three columns need ~1100px; below that they stack, arrows pointing down. */
+@media (max-width: 1099px) {
   .cols {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .col {
+    width: 100%;
+    max-width: 36rem;
+    justify-self: center;
   }
   .arrow {
     justify-self: center;

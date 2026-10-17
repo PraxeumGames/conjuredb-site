@@ -56,8 +56,9 @@
   min-width: 0;
 }
 .window {
+  /* No containment here: the capped imperative window scrolls on its own,
+     and a contained scroller can paint empty until its first scroll. */
   min-width: 0;
-  contain: inline-size;
 }
 .sideLabel {
   font-family: var(--cdb-mono);
