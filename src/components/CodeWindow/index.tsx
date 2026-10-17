@@ -164,25 +164,50 @@ export const HERO_TABS: CodeTab[] = [
   },
 ];
 
-// How-it-works, "one command, two places": the generated command both sides run.
+// How-it-works, "one command, two places": the generated command both sides run,
+// in the shape the command emitter writes (statement by statement, abridged at
+// the second mutation). Source:
+//   command BuyItem(playerId: int, itemId: int, cost: int) -> BuyItemResult
+//     require @cost > 0 else InvalidCost
+//     update Wallet | key { PlayerId: playerId } else NoWallet | set Gold -= @cost
+//       | returning { gold = Gold } into wallet
+//     upsert Inventory | key { PlayerId = @playerId, ItemId = @itemId } | set { Amount += 1 }
+//     return { gold = wallet.gold }
 export const BUY_TABS: CodeTab[] = [
   {
     name: 'BuyItemExecutor.g.cs',
-    lang: 'generated C#',
+    lang: 'generated C# (abridged)',
     lines: [
-      <C>// generated once — runs on both sides (abridged)</C>,
       <><K>public static class</K> <T>BuyItemExecutor</T></>,
       <>{'{'}</>,
-      <>    <K>public static</K> <T>BuyItemOutcome</T> <F>ExecuteCore</F>(</>,
-      <>        <T>DbContext</T> context, <T>BuyItemCommand</T> command, <T>CommandExecutionFrame</T> frame)</>,
+      <>    <K>public static</K> <T>BuyItemOutcome</T> <F>ExecuteCore</F>(<T>DbContext</T> context, <T>BuyItemCommand</T> command, <T>CommandExecutionFrame</T> frame)</>,
       <>    {'{'}</>,
-      <>        <K>ref var</K> wallet = <K>ref</K> context.<V>Wallets</V>.<F>GetRef</F>(command.<V>PlayerId</V>);</>,
-      <>        <K>if</K> (wallet.<V>Balance</V> &lt; command.<V>Cost</V>)</>,
-      <>            <K>return</K> <T>BuyItemOutcome</T>.<F>Failure</F>(<T>BuyItemErrorCode</T>.<V>InsufficientFunds</V>);</>,
-      <>        wallet.<V>Balance</V> -= command.<V>Cost</V>;</>,
-      <>        context.<V>Inventory</V>.<F>Upsert</F>(command.<V>PlayerId</V>, command.<V>ItemId</V>, <N>1</N>);</>,
-      <>        <K>return</K> <T>BuyItemOutcome</T>.<F>Success</F>();</>,
+      <>        <K>if</K> (context <K>is null</K>) <K>throw new</K> <T>global::System.ArgumentNullException</T>(<K>nameof</K>(context));</>,
+      <>        <K>var</K> db = (<T>GameDbContext</T>)context;</>,
+      <>        <K>if</K> (!(command.<V>cost</V> &gt; <N>0</N>))</>,
+      <>        {'{'}</>,
+      <>            <K>return</K> <T>BuyItemOutcome</T>.<F>Failure</F>(<T>BuyItemErrorCode</T>.<V>InvalidCost</V>);</>,
+      <>        {'}'}</>,
+      <>        <K>var</K> __mutation1Key = command.<V>playerId</V>;</>,
+      <>        <T>Wallet</T> __mutation1Row;</>,
+      <>        <K>var</K> __mutation1Matched = db.<V>Wallets</V>.<F>TryFindById</F>(__mutation1Key, <K>out</K> __mutation1Row);</>,
+      <>        <K>if</K> (!__mutation1Matched)</>,
+      <>        {'{'}</>,
+      <>            <K>return</K> <T>BuyItemOutcome</T>.<F>Failure</F>(<T>BuyItemErrorCode</T>.<V>NoWallet</V>);</>,
+      <>        {'}'}</>,
+      <>        __mutation1Row = <K>new</K> <T>Wallet</T></>,
+      <>        {'{'}</>,
+      <>            <V>PlayerId</V> = __mutation1Row.<V>PlayerId</V>,</>,
+      <>            <V>Gold</V> = __mutation1Row.<V>Gold</V>,</>,
+      <>        {'};'}</>,
+      <>        __mutation1Row.<V>Gold</V> = __mutation1Row.<V>Gold</V> - command.<V>cost</V>;</>,
+      <>        db.<V>Wallets</V>.<F>Update</F>(__mutation1Row);</>,
+      <>        <K>var</K> wallet = <K>new</K> {'{'} gold = __mutation1Row.<V>Gold</V> {'}'};</>,
+      <C>        // … upsert Inventory: same shape — key, TryQuery on its unique index, Update or Add</C>,
+      <>        <K>return</K> <T>BuyItemOutcome</T>.<F>Success</F>(<K>new</K> <T>BuyItemResult</T> {'{'} gold = wallet.gold {'}'});</>,
       <>    {'}'}</>,
+      <>{' '}</>,
+      <C>    // + Execute(...) wrapper and error mappers</C>,
       <>{'}'}</>,
     ],
   },
