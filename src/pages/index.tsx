@@ -5,9 +5,9 @@ import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
 import TangleToSchema from '@site/src/components/TangleToSchema';
 import ReplayVerify from '@site/src/components/ReplayVerify';
 import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
-import {ModuleSlice} from '@site/src/components/ClaimVisuals';
 import ReactiveScreen from '@site/src/components/ReactiveScreen';
 import MetaCore from '@site/src/components/MetaCore';
+import FeatureSlice from '@site/src/components/FeatureSlice';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -117,7 +117,7 @@ type Claim = {
   link: {label: string; to: string};
   link2?: {label: string; to: string};
   visual: ReactNode;
-  wide?: boolean; // larger visual: a 50/50 split
+  wide?: boolean; // header row + full-width visual
 };
 
 const CLAIMS: Claim[] = [
@@ -165,7 +165,8 @@ const CLAIMS: Claim[] = [
     ],
     link: {label: 'Every part and its status →', to: '/platform'},
     link2: {label: 'Vertical slices →', to: '/architecture'},
-    visual: <ModuleSlice />,
+    visual: <FeatureSlice />,
+    wide: true,
   },
 ];
 
@@ -176,10 +177,8 @@ function Claims(): ReactNode {
         <span className="cdb-kicker">Why this is new</span>
         <h2 className="cdb-h2">Four things that change.</h2>
         <div className={styles.claims}>
-          {CLAIMS.map((c, i) => (
-            <article
-              key={c.title}
-              className={`cdb-card ${styles.claim} ${i % 2 ? styles.claimFlip : ''} ${c.wide ? styles.claimWide : ''}`}>
+          {CLAIMS.map((c) => (
+            <article key={c.title} className={`cdb-card ${styles.claim} ${c.wide ? styles.claimWide : ''}`}>
               <div className={styles.claimText}>
                 <h3>{c.title}</h3>
                 <p>{c.body}</p>

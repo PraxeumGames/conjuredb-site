@@ -253,7 +253,7 @@
   }
 }
 
-/* Claims: three full-width rows, text and a small picture, alternating. */
+/* Claims: four full-width cards, each a header row over its visual. */
 .claims {
   display: flex;
   flex-direction: column;
@@ -266,9 +266,6 @@
   align-items: center;
   gap: var(--gap-lg);
   padding: var(--gap-lg);
-}
-.claimFlip .claimText {
-  order: 2;
 }
 /* Claims with a larger, interactive visual: a header row (title, badges and
    links | the paragraph), then the visual across the whole card. */
@@ -351,9 +348,6 @@
     grid-template-columns: 1fr;
     gap: 1.6rem;
     padding: 1.5rem 1.3rem;
-  }
-  .claimFlip .claimText {
-    order: 0;
   }
 }
 
