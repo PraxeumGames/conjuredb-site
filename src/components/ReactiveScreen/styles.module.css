@@ -7,7 +7,7 @@
      Wide cards: schema | device | stream, then the code pane | summary. */
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'toggle' 'schema' 'device' 'side' 'write' 'after';
+  grid-template-areas: 'toggle' 'schema' 'device' 'side' 'write' 'after' 'caption';
   gap: var(--gap-sm) var(--gap-md);
   align-items: start;
 }
@@ -32,10 +32,14 @@
 .after {
   grid-area: after;
 }
+/* The body-text caption reads under the whole visual, not inside a column. */
+.caption {
+  grid-area: caption;
+}
 @media (min-width: 561px) {
   .root {
     grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
-    grid-template-areas: 'toggle toggle' 'schema schema' 'device side' 'write write' 'after after';
+    grid-template-areas: 'toggle toggle' 'schema schema' 'device side' 'write write' 'after after' 'caption caption';
   }
   .side {
     align-self: center;
@@ -44,7 +48,7 @@
 @media (min-width: 997px) {
   .root {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: 'toggle toggle' 'schema device' 'side write' 'after after';
+    grid-template-areas: 'toggle toggle' 'schema device' 'side write' 'after after' 'caption caption';
   }
   .root .toggle {
     justify-self: end;
@@ -69,6 +73,9 @@
   }
   .deviceCol {
     grid-area: auto;
+  }
+  .caption {
+    grid-column: 1 / -1;
   }
   .colA,
   .colC {
@@ -207,11 +214,13 @@
   opacity: 0.7;
 }
 
-.counter {
+/* Under the device, within its column: wraps rather than running into the next one. */
+.root .counter {
   margin: 0.6rem 0 0;
-  white-space: nowrap;
   font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  text-wrap: balance;
   color: var(--cdb-muted);
   text-align: center;
 }
@@ -348,8 +357,9 @@
   display: grid;
   gap: 0.6rem;
 }
-.caption {
-  margin: 0;
+.root .caption {
+  /* --gap-md above in total: the grid's row gap plus the difference. */
+  margin: calc(var(--gap-md) - var(--gap-sm)) 0 0;
   font-size: var(--fs-sm);
   color: var(--cdb-muted);
   line-height: 1.5;

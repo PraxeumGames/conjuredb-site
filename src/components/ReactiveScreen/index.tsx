@@ -316,14 +316,14 @@ export default function ReactiveScreen(): ReactNode {
           <p className={styles.writeSummary}>
             {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
           </p>
-          <p className={styles.caption}>
-            The UI view binds a view model. Once. A materialized view keeps the result and the
-            compiler maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive
-            query is the UI view&apos;s subscription to that view model: the current rows and per-row
-            changes. Ordinary queries reuse the same state.
-          </p>
         </div>
       </div>
+      <p className={styles.caption}>
+        The UI view binds a view model. Once. A materialized view keeps the result and the compiler
+        maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive query is the UI
+        view&apos;s subscription to that view model: the current rows and per-row changes. Ordinary
+        queries reuse the same state.
+      </p>
     </div>
   );
 }
