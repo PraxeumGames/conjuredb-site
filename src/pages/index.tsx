@@ -37,10 +37,9 @@ function Hero(): ReactNode {
           </div>
           <div className={styles.chips}>
             <span className={styles.chip}>No GC spikes</span>
-            <span className={styles.chip}>Ships on iOS (IL2CPP)</span>
-            <span className={styles.chip}>Screens update themselves</span>
-            <span className={styles.chip}>Same file runs the frame loop</span>
-            <span className={styles.chip}>Read the generated C#</span>
+            <span className={styles.chip}>Ships on iOS</span>
+            <span className={styles.chip}>Self-updating UI</span>
+            <span className={styles.chip}>Runs the frame loop</span>
           </div>
         </div>
         <div className={styles.heroVisual}>

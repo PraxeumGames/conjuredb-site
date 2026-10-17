@@ -2,7 +2,7 @@
    hand wiring = muted red-grey noise, schema & generated = gold. */
 
 .root {
-  --tts-wire: rgba(205, 118, 104, 0.58);
+  --tts-wire: rgba(205, 118, 104, 0.72);
   --tts-wire-hot: rgba(232, 138, 120, 0.95);
   --tts-script-fill: #1a1c22;
   --tts-script-line: rgba(196, 128, 116, 0.38);
@@ -18,7 +18,7 @@
   margin: 0 auto;
 }
 :global([data-theme='light']) .root {
-  --tts-wire: rgba(170, 84, 70, 0.38);
+  --tts-wire: rgba(170, 84, 70, 0.5);
   --tts-wire-hot: rgba(176, 82, 66, 0.8);
   --tts-script-fill: #f3efe8;
   --tts-script-line: rgba(160, 92, 80, 0.35);
@@ -65,10 +65,13 @@
 }
 
 /* ---- Act 1: the tangle ------------------------------------------------- */
+/* Base rules are phase 01. Coming back to it is a quick cross-fade in place,
+   never the collapse played backwards. */
 .tangleGroup {
-  transition:
-    transform 1.05s var(--tts-ease),
-    opacity 0.7s ease 0.3s;
+  transition: opacity 0.4s ease;
+}
+.drift {
+  animation: tts-drift 8s ease-in-out infinite;
 }
 .isSchema .tangleGroup,
 .isGenerated .tangleGroup {
@@ -82,7 +85,7 @@
 .wire {
   fill: none;
   stroke: var(--tts-wire);
-  stroke-width: 1.5;
+  /* stroke-width is per wire, inline */
 }
 .signal {
   stroke: var(--tts-wire-hot);
@@ -105,6 +108,8 @@
 }
 .isSchema .breathe,
 .isGenerated .breathe,
+.isSchema .drift,
+.isGenerated .drift,
 .isSchema .signal,
 .isGenerated .signal {
   animation-play-state: paused;
@@ -115,8 +120,8 @@
   opacity: 0;
   transform: scale(0.6);
   transition:
-    transform 0.6s var(--tts-ease),
-    opacity 0.35s ease;
+    opacity 0.35s ease,
+    transform 0s linear 0.35s;
 }
 .isSchema .card,
 .isGenerated .card {
@@ -170,11 +175,17 @@
   stroke-width: 1.4;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  transition: stroke-dashoffset 0.35s ease;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease,
+    stroke-dashoffset 0s linear 0.35s;
 }
 .isGenerated .ray {
+  opacity: 1;
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.6s var(--tts-ease) calc(0.15s + var(--d, 0s));
+  transition:
+    opacity 0s,
+    stroke-dashoffset 0.6s var(--tts-ease) calc(0.15s + var(--d, 0s));
 }
 .flow {
   fill: none;
@@ -183,7 +194,7 @@
   stroke-linecap: round;
   stroke-dasharray: 0.1 11.9;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.35s ease;
   animation: tts-flow 1.4s linear infinite paused;
 }
 .isGenerated .flow {
@@ -196,8 +207,8 @@
   opacity: 0;
   transform: translate(var(--dx), var(--dy)) scale(0.3);
   transition:
-    transform 0.4s var(--tts-ease),
-    opacity 0.25s ease;
+    opacity 0.35s ease,
+    transform 0s linear 0.35s;
 }
 .isGenerated .module {
   opacity: 1;
@@ -320,6 +331,18 @@
   }
   66% {
     transform: translate(-2px, 1.5px);
+  }
+}
+@keyframes tts-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(2px, -1.5px);
+  }
+  75% {
+    transform: translate(-1.5px, 2px);
   }
 }
 @keyframes tts-timer {

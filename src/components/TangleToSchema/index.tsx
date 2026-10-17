@@ -43,27 +43,31 @@ const SCRIPTS = [
 ];
 const BUS = 4; // index of the event bus — drawn as a pill
 
-// 18 of the 21 possible wires between the 7 scripts: nearly everything
-// talks to everything. `signal` wires carry animated event traffic.
-const WIRES: {a: number; b: number; bend: number; signal?: boolean}[] = [
-  {a: 0, b: 1, bend: 40},
-  {a: 0, b: 3, bend: -30},
-  {a: 0, b: 4, bend: 50, signal: true},
-  {a: 0, b: 5, bend: -60},
-  {a: 0, b: 6, bend: 90},
-  {a: 1, b: 2, bend: -35},
-  {a: 1, b: 3, bend: 45, signal: true},
-  {a: 1, b: 4, bend: -70},
-  {a: 1, b: 6, bend: 60},
-  {a: 2, b: 3, bend: -50},
-  {a: 2, b: 4, bend: 35, signal: true},
-  {a: 2, b: 5, bend: 80},
-  {a: 2, b: 6, bend: -45},
-  {a: 3, b: 4, bend: 30},
-  {a: 3, b: 5, bend: -40},
-  {a: 4, b: 5, bend: 55, signal: true},
-  {a: 4, b: 6, bend: -30},
-  {a: 5, b: 6, bend: 70},
+// Accretion, not architecture: every pair of the 7 scripts is wired, two
+// pairs twice over, at uneven weights. `signal` wires carry event traffic.
+const WIRES: {a: number; b: number; bend: number; w: number; signal?: boolean}[] = [
+  {a: 0, b: 1, bend: 40, w: 0.9},
+  {a: 0, b: 2, bend: -110, w: 0.6},
+  {a: 0, b: 3, bend: -30, w: 1.2},
+  {a: 0, b: 4, bend: 50, w: 0.8, signal: true},
+  {a: 0, b: 4, bend: -25, w: 0.6},
+  {a: 0, b: 5, bend: -60, w: 1.1},
+  {a: 0, b: 6, bend: 90, w: 0.7},
+  {a: 1, b: 2, bend: -35, w: 1.0},
+  {a: 1, b: 3, bend: 45, w: 0.8, signal: true},
+  {a: 1, b: 4, bend: -70, w: 1.2},
+  {a: 1, b: 5, bend: 120, w: 0.6, signal: true},
+  {a: 1, b: 6, bend: 60, w: 0.9},
+  {a: 2, b: 3, bend: -50, w: 0.7},
+  {a: 2, b: 4, bend: 35, w: 1.0, signal: true},
+  {a: 2, b: 5, bend: 80, w: 0.6},
+  {a: 2, b: 6, bend: -45, w: 1.1},
+  {a: 3, b: 4, bend: 30, w: 0.9},
+  {a: 3, b: 5, bend: -40, w: 0.7, signal: true},
+  {a: 3, b: 5, bend: 65, w: 1.2},
+  {a: 3, b: 6, bend: 85, w: 0.6},
+  {a: 4, b: 5, bend: 55, w: 0.8, signal: true},
+  {a: 4, b: 6, bend: -30, w: 1.0},
 ];
 
 const MODULES = [
@@ -96,8 +100,8 @@ type Layout = {
 const WIDE: Layout = {
   w: 760,
   h: 440,
-  font: 14,
-  script: {w: 164, h: 36},
+  font: 15,
+  script: {w: 168, h: 36},
   scripts: [
     {at: [140, 72], rot: -4},
     {at: [560, 60], rot: 3},
@@ -176,37 +180,39 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
 
       {/* Act 1 — the tangle. The whole group collapses into the card's centre. */}
       <g className={styles.tangleGroup} style={{transformOrigin: origin}}>
-        {WIRES.map((wr, i) => (
-          <path
-            key={i}
-            className={clsx(styles.wire, wr.signal && styles.signal)}
-            d={wirePath(layout.scripts[wr.a].at, layout.scripts[wr.b].at, wr.bend)}
-            style={{animationDelay: `${(i % 5) * -0.37}s`}}
-          />
-        ))}
-        {SCRIPTS.map((name, i) => {
-          const {at, rot} = layout.scripts[i];
-          const {w, h} = layout.script;
-          return (
-            <g key={name} transform={`translate(${at[0]} ${at[1]}) rotate(${rot})`}>
-              <g
-                className={styles.breathe}
-                style={{animationDelay: `${i * -0.9}s`, animationDuration: `${4.6 + (i % 3) * 0.8}s`}}>
-                <rect
-                  className={styles.script}
-                  x={-w / 2}
-                  y={-h / 2}
-                  width={w}
-                  height={h}
-                  rx={i === BUS ? h / 2 : 6}
-                />
-                <text className={styles.scriptLabel} textAnchor="middle" dominantBaseline="central">
-                  {name}
-                </text>
+        <g className={styles.drift}>
+          {WIRES.map((wr, i) => (
+            <path
+              key={i}
+              className={clsx(styles.wire, wr.signal && styles.signal)}
+              d={wirePath(layout.scripts[wr.a].at, layout.scripts[wr.b].at, wr.bend)}
+              style={{strokeWidth: wr.w, animationDelay: `${(i % 5) * -0.37}s`}}
+            />
+          ))}
+          {SCRIPTS.map((name, i) => {
+            const {at, rot} = layout.scripts[i];
+            const {w, h} = layout.script;
+            return (
+              <g key={name} transform={`translate(${at[0]} ${at[1]}) rotate(${rot})`}>
+                <g
+                  className={styles.breathe}
+                  style={{animationDelay: `${i * -0.9}s`, animationDuration: `${4.6 + (i % 3) * 0.8}s`}}>
+                  <rect
+                    className={styles.script}
+                    x={-w / 2}
+                    y={-h / 2}
+                    width={w}
+                    height={h}
+                    rx={i === BUS ? h / 2 : 6}
+                  />
+                  <text className={styles.scriptLabel} textAnchor="middle" dominantBaseline="central">
+                    {name}
+                  </text>
+                </g>
               </g>
-            </g>
-          );
-        })}
+            );
+          })}
+        </g>
       </g>
 
       {/* Act 3 — rays and generated modules, drawn under the card. */}
