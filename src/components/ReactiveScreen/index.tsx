@@ -1,14 +1,15 @@
-import {useEffect, useRef, useState, type ReactNode} from 'react';
+import {useState, type ReactNode} from 'react';
 import clsx from 'clsx';
 import {DEVICE_STATUS_H, DeviceFrame} from '@site/src/components/Glyphs';
 import {C, CodeWindow, F, K, T, V, type CodeTab} from '@site/src/components/CodeWindow';
+import DemoStage, {CompilerNotes, type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
 // "UI views update themselves": a shop UI view bound to a view model (a
-// reactive query). Each event changes the data; in "view model" mode only the rows whose
-// output changed are touched, in "hand-wired" mode an OnChanged presenter
-// refreshes every row — and on the third event its handlers run in the wrong
-// order and leave a stale row. Below, what each mode asks you to write.
+// reactive query), in the shared DemoStage shell. Each step is one event; in
+// "reactive" mode only the rows whose output changed are touched, in
+// "hand-wired" mode an OnChanged presenter refreshes every row — and on the
+// third event its handlers run in the wrong order and leave a stale row.
 
 type Mode = 'reactive' | 'wired';
 type Row = {name: string; price: number | null; owned: boolean};
@@ -23,7 +24,7 @@ const BASE: Row[] = [
   {name: 'Whetstone', price: null, owned: false}, // unlocks with a sword
 ];
 
-const EVENTS = ['server grants +200 gold', 'liveops: potions −50%', 'player buys sword'];
+const EVENTS = ['server grants +200 gold', 'liveops: potions −50 %', 'player buys sword'];
 
 // What SubscribeChanged delivers for each event: per-row deltas
 // (ReactiveChangeAction.Add / Remove / Replace), not the cause.
@@ -98,6 +99,39 @@ const PRESENTER: CodeTab[] = [
     ],
   },
 ];
+const SCHEMA: CodeTab[] = [
+  {
+    name: 'shop.conjure',
+    lang: 'schema',
+    lines: [
+      <><K>materialized view</K> <T>ShopOffers</T> {'{'}</>,
+      <>    …</>,
+      <>{'}'} = <K>from</K> <T>Offer</T> o</>,
+      <>    | <K>join</K> <T>Price</T> p (o.Id == p.OfferId)</>,
+      <>    | <K>select</K> {'{ … }'}</>,
+      <>{' '}</>,
+      <><K>reactive query</K> <F>Offers</F>() -&gt; <T>OfferRow</T>[] {'{'}</>,
+      <>    <K>from</K> <T>ShopOffers</T></>,
+      <>    | <K>sort</K> Price</>,
+      <>{'}'}</>,
+    ],
+  },
+];
+const COMPILER = ['join maintainer on Offer × Price', 'delta per commit', 'bounded sort state'];
+
+const NARRATION: Record<Mode, string[]> = {
+  reactive: [
+    'Gold changed, so the view model changed one row — the sword became affordable — and the UI view updated that one row.',
+    'Two prices halved: the view model changed two rows, and only those two rows were redrawn.',
+    'One purchase changed gold, ownership and an unlocked price: four rows changed, four redrawn, nothing else touched.',
+  ],
+  wired: [
+    'OnGoldChanged fires and the presenter rebuilds all six rows to change one.',
+    'Two price events, two full refreshes: six rows redrawn twice for two changes.',
+    'Three events fire, the presenter refreshes all six rows, and the price change arrives before the list refresh: row 6 is stale.',
+  ],
+};
+
 const SCREEN: CodeTab[] = [
   {
     name: 'ShopView.cs',
@@ -134,56 +168,125 @@ const ROWS_TOP = DEVICE_STATUS_H + 48;
 
 export default function ReactiveScreen(): ReactNode {
   const [mode, setMode] = useState<Mode>('reactive');
-  const [applied, setApplied] = useState(0);
-  const [auto, setAuto] = useState(true);
-  const [visible, setVisible] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const wired = mode === 'wired';
+  const steps: DemoStep[] = EVENTS.map((label, i) => ({
+    id: `e${i + 1}`,
+    label,
+    narration: NARRATION[mode][i],
+    alt: wired && i === 2,
+  }));
 
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setAuto(false);
-      setApplied(3);
-    }
-  }, []);
+  return (
+    <DemoStage
+      title="UI view stays in sync"
+      modes={[
+        {id: 'reactive', label: 'reactive'},
+        {id: 'wired', label: 'hand-wired'},
+      ]}
+      mode={mode}
+      onMode={(m) => setMode(m as Mode)}
+      steps={steps}
+      stageMinHeight={{wide: '24rem', narrow: '33rem'}}
+      costLine={({index}) => {
+        const applied = index + 1;
+        if (wired) return applied >= 3 ? 'rows refreshed 6 / 6 · 1 stale' : 'rows refreshed 6 / 6';
+        return `rows touched ${touchedRows(applied).length} / 6 · delta, not rescan`;
+      }}
+      codeTabs={[
+        {id: 'schema', label: 'schema', content: <CodeWindow tabs={SCHEMA} dense />},
+        {
+          id: 'write',
+          label: 'what you write',
+          content: (
+            <div className={styles.write}>
+              <CodeWindow tabs={wired ? PRESENTER : SCREEN} dense locked={wired} />
+              <p className={clsx(styles.writeSummary, wired && styles.red)}>
+                {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '4 lines · 0 subscriptions to manage · no ordering'}
+              </p>
+            </div>
+          ),
+        },
+        {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
+      ]}>
+      {({index, run}) => <Stage applied={index + 1} wired={wired} run={run} />}
+    </DemoStage>
+  );
+}
 
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), {threshold: 0.35});
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+function touchedRows(applied: number): number[] {
+  if (applied === 0) return [];
+  const now = stateAfter(applied);
+  const before = stateAfter(applied - 1);
+  return now.rows.map((r, i) => (view(r, now.gold) !== view(before.rows[i], before.gold) ? i : -1)).filter((i) => i >= 0);
+}
 
-  // Auto-play: one event every 2.2 s, a pause on the final state, then again.
-  useEffect(() => {
-    if (!auto || !visible) return;
-    const t = window.setTimeout(() => setApplied((a) => (a >= 3 ? 0 : a + 1)), applied >= 3 ? 3600 : 2200);
-    return () => window.clearTimeout(t);
-  }, [auto, visible, applied]);
-
+function Stage({applied, wired, run}: {applied: number; wired: boolean; run: number}): ReactNode {
   const now = stateAfter(applied);
   const before = stateAfter(Math.max(0, applied - 1));
-  const touched = applied === 0 ? [] : now.rows.map((r, i) => view(r, now.gold) !== view(before.rows[i], before.gold)).map((c, i) => (c ? i : -1)).filter((i) => i >= 0);
-  const wired = mode === 'wired';
+  const touched = touchedRows(applied);
   const stale = wired && applied >= 3;
   const flashed = applied === 0 ? [] : wired ? BASE.map((_, i) => i) : touched;
 
-  const fire = (n: number) => {
-    setAuto(false);
-    setApplied(n);
-  };
-  const pickMode = (m: Mode) => {
-    setMode(m);
-    setAuto(false);
-    setApplied(0);
-  };
-
   return (
-    <div ref={rootRef} className={clsx(styles.root, wired && styles.isWired)}>
-      <div className={styles.colA}>
-        {/* The query (or the presenter it replaces); the OnChanged web runs to it. */}
-        {wired ? (
-          <pre className={clsx(styles.code, styles.presenter)}>
+    <div className={clsx(styles.stage, wired && styles.isWired)}>
+      <svg
+        className={styles.svg}
+        viewBox="0 0 270 380"
+        role="img"
+        style={{fontSize: 15}}
+        aria-label={`Shop UI view: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
+        {/* OnChanged web from every row to the presenter beside the device (hand-wired) */}
+        <g className={styles.web}>
+          {BASE.map((_, i) => (
+            <path key={i} d={`M222 ${ROWS_TOP + i * ROW_H + 10} C252 ${ROWS_TOP + i * ROW_H + 10} 262 190 300 190`} />
+          ))}
+        </g>
+        <DeviceFrame x={1} y={1} width={220} height={378}>
+          <text className={styles.goldLabel} x={16} y={DEVICE_STATUS_H + 22}>
+            gold
+          </text>
+          <text className={styles.gold} x={58} y={DEVICE_STATUS_H + 22}>
+            {now.gold.toLocaleString('en-US')}
+          </text>
+          {now.rows.map((r, i) => {
+            const y = ROWS_TOP + i * ROW_H;
+            const showStale = stale && i === STALE_ROW;
+            const price = showStale ? before.rows[i].price : r.price;
+            const affordable = !r.owned && price !== null && price <= now.gold;
+            return (
+              <g key={r.name} transform={`translate(10 ${y - 12})`}>
+                {flashed.includes(i) && (
+                  <rect key={`${wired}-${applied}-${run}`} className={clsx(styles.flash, wired && styles.flashRed)} width={200} height={ROW_H - 6} rx={6} />
+                )}
+                <text className={clsx(styles.name, !r.owned && !affordable && styles.dim)} x={8} y={22}>
+                  {r.name}
+                </text>
+                {r.owned && (
+                  <g transform="translate(116 8)">
+                    <rect className={styles.tag} width={56} height={20} rx={10} />
+                    <text className={styles.tagText} x={28} y={14.5} textAnchor="middle">owned</text>
+                  </g>
+                )}
+                {showStale && (
+                  <g transform="translate(110 8)">
+                    <rect className={styles.staleTag} width={52} height={20} rx={10} />
+                    <text className={styles.staleText} x={26} y={14.5} textAnchor="middle">stale</text>
+                  </g>
+                )}
+                {!r.owned && (
+                  <text className={clsx(styles.price, !affordable && styles.dim)} x={192} y={22} textAnchor="end">
+                    {price === null ? '—' : price}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </DeviceFrame>
+      </svg>
+
+      <div className={styles.side}>
+        {wired && (
+          <pre className={styles.presenter}>
             <span className={styles.cls}>ShopPresenter</span>
             {'\n'}  OnGoldChanged      += Refresh;
             {'\n'}  OnInventoryChanged += Refresh;
@@ -191,139 +294,20 @@ export default function ReactiveScreen(): ReactNode {
             {'\n'}  OnPriceChanged     += OnPriceChanged;
             {'\n'}<span className={styles.missed}>  // arrival order decides the row</span>
           </pre>
-        ) : (
-          <pre className={styles.code}>
-            <span className={styles.kw}>materialized view</span> ShopOffers {'{'}
-            {'\n'}    …
-            {'\n'}{'}'} = <span className={styles.kw}>from</span> Offer o
-            {'\n'}    | <span className={styles.kw}>join</span> Price p (o.Id == p.OfferId)
-            {'\n'}    | <span className={styles.kw}>select</span> {'{ … }'}
-            {'\n'}
-            {'\n'}<span className={styles.kw}>reactive query</span> Offers() -&gt; OfferRow[] {'{'}
-            {'\n'}    <span className={styles.kw}>from</span> ShopOffers
-            {'\n'}    | <span className={styles.kw}>sort</span> Price
-            {'\n'}{'}'}
-          </pre>
         )}
-        <div className={styles.write}>
-          <span className={styles.writeTitle}>what you write</span>
-          <div key={mode} className={clsx(styles.pane, wired && styles.paneDim)}>
-            <CodeWindow tabs={wired ? PRESENTER : SCREEN} dense locked={wired} />
-          </div>
+        <div className={styles.stream}>
+          <span className={styles.streamTitle}>{wired ? 'OnChanged handlers' : 'SubscribeChanged · per-row deltas'}</span>
+          <ol>
+            {(wired ? WIRED : DELTAS).slice(0, applied).flatMap((lines, step) =>
+              lines.map((l) => (
+                <li key={`${step}-${l}`} className={clsx(step === applied - 1 && styles.latest, l.startsWith('! ') && styles.miss)}>
+                  {l.replace(/^! /, '')}
+                </li>
+              )),
+            )}
+          </ol>
         </div>
       </div>
-      <div className={styles.deviceCol}>
-        <svg className={styles.svg} viewBox="0 0 270 380" role="img" style={{fontSize: 15}}
-          aria-label={`Shop UI view: gold ${now.gold}. ${now.rows.map((r) => `${r.name} ${r.owned ? 'owned' : r.price ?? 'locked'}`).join(', ')}.`}>
-          {/* OnChanged web from the presenter to every row (hand-wired mode):
-              up when the presenter sits above the device, left when beside it. */}
-          <g className={clsx(styles.web, styles.webUp)}>
-            {BASE.map((_, i) => (
-              <path key={i} d={`M222 ${ROWS_TOP + i * ROW_H + 10} C252 ${ROWS_TOP + i * ROW_H + 10} 258 60 258 -6`} />
-            ))}
-          </g>
-          <g className={clsx(styles.web, styles.webLeft)}>
-            {BASE.map((_, i) => (
-              <path key={i} d={`M2 ${ROWS_TOP + i * ROW_H + 10} C-16 ${ROWS_TOP + i * ROW_H + 10} -16 150 -30 150`} />
-            ))}
-          </g>
-          <DeviceFrame x={1} y={1} width={220} height={378}>
-            <text className={styles.goldLabel} x={16} y={DEVICE_STATUS_H + 22}>
-              gold
-            </text>
-            <text className={styles.gold} x={58} y={DEVICE_STATUS_H + 22}>
-              {now.gold.toLocaleString('en-US')}
-            </text>
-            {now.rows.map((r, i) => {
-              const y = ROWS_TOP + i * ROW_H;
-              const showStale = stale && i === STALE_ROW;
-              const price = showStale ? before.rows[i].price : r.price;
-              const affordable = !r.owned && price !== null && price <= now.gold;
-              return (
-                <g key={r.name} transform={`translate(10 ${y - 12})`}>
-                  {flashed.includes(i) && (
-                    <rect key={`${mode}-${applied}`} className={clsx(styles.flash, wired && styles.flashRed)} width={200} height={ROW_H - 6} rx={6} />
-                  )}
-                  <text className={clsx(styles.name, !r.owned && !affordable && styles.dim)} x={8} y={22}>
-                    {r.name}
-                  </text>
-                  {r.owned && (
-                    <g transform="translate(116 8)">
-                      <rect className={styles.tag} width={56} height={20} rx={10} />
-                      <text className={styles.tagText} x={28} y={14.5} textAnchor="middle">owned</text>
-                    </g>
-                  )}
-                  {showStale && (
-                    <g transform="translate(110 8)">
-                      <rect className={styles.staleTag} width={52} height={20} rx={10} />
-                      <text className={styles.staleText} x={26} y={14.5} textAnchor="middle">stale</text>
-                    </g>
-                  )}
-                  {!r.owned && (
-                    <text className={clsx(styles.price, !affordable && styles.dim)} x={192} y={22} textAnchor="end">
-                      {price === null ? '—' : price}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </DeviceFrame>
-        </svg>
-        <p className={styles.counter} aria-live="polite">
-          {applied === 0
-            ? 'waiting for an event'
-            : wired
-              ? 'rows refreshed 6 / 6'
-              : `rows touched ${touched.length} / 6 · delta, not rescan`}
-        </p>
-      </div>
-
-      <div className={styles.colC}>
-        <div className={styles.toggle} role="group" aria-label="How the UI view is kept up to date">
-          {(['reactive', 'wired'] as Mode[]).map((m) => (
-            <button key={m} type="button" aria-pressed={mode === m} className={clsx(mode === m && styles.on)} onClick={() => pickMode(m)}>
-              {m === 'reactive' ? 'view model' : 'hand-wired'}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.side}>
-          <div className={styles.controls}>
-            <button
-              type="button"
-              className={styles.next}
-              onClick={() => fire(applied >= 3 ? 0 : applied + 1)}>
-              {applied >= 3 ? 'reset ↺' : `▸ ${EVENTS[applied]}`}
-            </button>
-          </div>
-          <div className={styles.stream}>
-            <span className={styles.streamTitle}>
-              {wired ? 'OnChanged handlers' : 'SubscribeChanged · per-row deltas'}
-            </span>
-            <ol>
-              {(wired ? WIRED : DELTAS).slice(0, applied).flatMap((lines, step) =>
-                lines.map((l) => (
-                  <li key={`${step}-${l}`} className={clsx(step === applied - 1 && styles.latest, l.startsWith('! ') && styles.miss)}>
-                    {l.replace(/^! /, '')}
-                  </li>
-                )),
-              )}
-              {applied === 0 && <li className={styles.empty}>no changes yet</li>}
-            </ol>
-          </div>
-        </div>
-        <div className={styles.after}>
-          <p className={styles.writeSummary}>
-            {wired ? '≈ 40 lines · 4 subscriptions · 1 ordering bug' : '3 lines · 0 subscriptions to manage · no ordering'}
-          </p>
-        </div>
-      </div>
-      <p className={styles.caption}>
-        The UI view binds a view model. Once. A materialized view keeps the result and the compiler
-        maintains it by delta — filters, joins, aggregates, bounded Top-K. A reactive query is the UI
-        view&apos;s subscription to that view model: the current rows and per-row changes. Ordinary
-        queries reuse the same state.
-      </p>
     </div>
   );
 }

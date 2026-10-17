@@ -1,149 +1,32 @@
-/* Screens that update themselves: reactive view vs hand-wired presenter. */
+/* UI views that update themselves: view model vs hand-wired presenter,
+   inside the DemoStage shell. */
 
-.root {
-  width: 100%;
-  text-align: left;
-  /* Phones: one column. Tablets: the presenter above, device | stream.
-     Wide cards: schema | device | stream, then the code pane | summary. */
+/* Stage: the shop device centred, the stream (or presenter) beside it. */
+.stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'toggle' 'schema' 'device' 'side' 'write' 'after' 'caption';
-  gap: var(--gap-sm) var(--gap-md);
-  align-items: start;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 22rem);
+  justify-content: center;
+  align-items: center;
+  gap: var(--gap-md) calc(var(--gap-md) + 0.5rem);
 }
-.toggle {
-  grid-area: toggle;
-}
-.root > pre {
-  grid-area: schema;
-}
-.deviceCol {
-  grid-area: device;
-  width: 100%;
-  max-width: 15rem;
-  justify-self: center;
-}
-.side {
-  grid-area: side;
-}
-.write {
-  grid-area: write;
-}
-.after {
-  grid-area: after;
-}
-/* The body-text caption reads under the whole visual, not inside a column. */
-.caption {
-  grid-area: caption;
-}
-@media (min-width: 561px) {
-  .root {
-    grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
-    grid-template-areas: 'toggle toggle' 'schema schema' 'device side' 'write write' 'after after' 'caption caption';
+@media (max-width: 640px) {
+  .stage {
+    grid-template-columns: minmax(0, 15rem);
+    align-items: start;
   }
   .side {
-    align-self: center;
+    width: 100%;
   }
-}
-@media (min-width: 997px) {
-  .root {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: 'toggle toggle' 'schema device' 'side write' 'after after' 'caption caption';
-  }
-  .root .toggle {
-    justify-self: end;
-  }
-  .deviceCol {
-    justify-self: start;
-  }
-  .side {
-    align-self: start;
-  }
-}
-/* Wide cards: three columns — schema over the code pane | device | toggle,
-   stream and summary — so the code sits right under the schema. */
-.colA,
-.colC {
-  display: contents;
-}
-@media (min-width: 1180px) {
-  .root {
-    grid-template-columns: minmax(0, 1.15fr) 15rem minmax(0, 1fr);
-    grid-template-areas: none;
-  }
-  .deviceCol {
-    grid-area: auto;
-  }
-  .caption {
-    grid-column: 1 / -1;
-  }
-  .colA,
-  .colC {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-md);
-    min-width: 0;
-  }
-  .colC {
-    gap: var(--gap-sm);
-  }
-  .colC .toggle {
-    align-self: flex-end;
-  }
-  .colC .after {
-    margin-top: auto;
-  }
-  .pane {
-    --cw-locked-h: 12.5rem;
-  }
-}
-
-/* The OnChanged web points at the presenter: up when it sits above the
-   device, left when it sits beside it. */
-.webLeft {
-  display: none;
-}
-@media (min-width: 997px) {
-  .webUp {
+  .web {
     display: none;
   }
-  .webLeft {
-    display: inline;
-  }
 }
-
-.toggle {
-  display: inline-flex;
-  justify-self: start;
-  border: 1px solid var(--cdb-line);
-  border-radius: var(--r-md);
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  min-width: 0;
 }
-.toggle button {
-  padding: 0.32rem 0.75rem;
-  border: none;
-  background: transparent;
-  color: var(--cdb-muted);
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
-}
-.toggle button:first-child {
-  border-radius: var(--r-md) 0 0 var(--r-md);
-}
-.toggle button:last-child {
-  border-radius: 0 var(--r-md) var(--r-md) 0;
-  border-left: 1px solid var(--cdb-line);
-}
-.toggle .on {
-  color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
-}
-.isWired .toggle .on {
-  color: var(--cdb-wire);
-  background: rgba(224, 132, 116, 0.08);
-}
-
 
 .svg {
   display: block;
@@ -214,30 +97,12 @@
   opacity: 0.7;
 }
 
-/* Under the device, within its column: wraps rather than running into the next one. */
-.root .counter {
-  margin: 0.6rem 0 0;
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
-  text-wrap: balance;
-  color: var(--cdb-muted);
-  text-align: center;
-}
-.isWired .counter {
-  color: var(--cdb-wire);
-}
 
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-sm);
-  min-width: 0;
-}
-.code {
+/* The presenter the OnChanged web runs to (hand-wired) */
+.presenter {
   margin: 0;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--ifm-color-primary);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--cdb-wire);
   border-radius: var(--r-md);
   background: var(--ifm-background-color);
   font-family: var(--cdb-mono);
@@ -248,41 +113,12 @@
   overflow-x: auto;
   contain: inline-size;
 }
-.kw {
-  color: var(--ifm-color-primary);
-}
-.presenter {
-  border-color: var(--cdb-wire);
-}
 .cls {
   color: var(--cdb-wire);
   font-weight: 600;
 }
 .missed {
   color: var(--cdb-wire);
-}
-
-.controls {
-  display: flex;
-}
-.next {
-  padding: 0.4rem 0.7rem;
-  border: 1px solid var(--ifm-color-primary);
-  border-radius: var(--r-md);
-  background: rgba(236, 194, 92, 0.1);
-  color: var(--cdb-ink);
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
-}
-.next:hover {
-  background: rgba(236, 194, 92, 0.18);
-}
-.isWired .next {
-  border-color: var(--cdb-wire);
-  background: rgba(224, 132, 116, 0.08);
 }
 
 .stream {
@@ -321,48 +157,22 @@
   opacity: 0.6;
 }
 
-/* What you write: only the active mode's pane, swapped with a short slide. */
+
+/* Code tab "what you write" */
 .write {
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  --cw-locked-h: 16rem;
 }
-.writeTitle {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-2xs);
-  color: var(--cdb-muted);
-}
-.pane {
-  --cw-locked-h: 17rem;
-  /* Long code lines must not widen the column on phones. */
-  contain: inline-size;
-  overflow-x: auto;
-  animation: rs-swap var(--dur) var(--ease) both;
-}
-.paneDim {
-  opacity: 0.62;
-  pointer-events: none;
-}
-.writeSummary {
-  margin: 0.5rem 0 0;
+.write .writeSummary {
+  margin: 0;
   font-family: var(--cdb-mono);
   font-size: var(--fs-xs);
   color: var(--ifm-color-primary);
 }
-.isWired .writeSummary {
+.write .red {
   color: var(--cdb-wire);
-}
-
-.after {
-  display: grid;
-  gap: 0.6rem;
-}
-.root .caption {
-  /* --gap-md above in total: the grid's row gap plus the difference. */
-  margin: calc(var(--gap-md) - var(--gap-sm)) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--cdb-muted);
-  line-height: 1.5;
 }
 
 @keyframes rs-in {
@@ -373,12 +183,6 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes rs-swap {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
   }
 }
 @keyframes rs-flash {
@@ -394,7 +198,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .root * {
+  .stage * {
     transition: none !important;
     animation: none !important;
   }
