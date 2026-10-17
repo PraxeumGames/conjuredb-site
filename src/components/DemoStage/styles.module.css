@@ -1,0 +1,250 @@
+/* The shared shell for interactive visuals. One surface, no outer border. */
+
+.root {
+  --stage-h: auto;
+  --stage-h-narrow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: var(--card-pad);
+  border-radius: var(--r-lg);
+  background: var(--cdb-surface-2);
+  text-align: left;
+}
+/* Inside a card that already is surface-2, step down to the page surface. */
+:global(.cdb-card) .root {
+  background: var(--cdb-surface);
+}
+
+/* a. Header */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin-bottom: var(--gap-md);
+}
+.title {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  color: var(--cdb-muted);
+}
+.play {
+  display: inline-block;
+  color: var(--ifm-color-primary);
+}
+.seen .play {
+  animation: ds-pulse 0.7s var(--ease) 2;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.modes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--cdb-line);
+  border-radius: var(--r-pill);
+}
+.mode,
+.replay,
+.tab {
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--cdb-muted);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.mode {
+  padding: 0.32rem 0.75rem;
+}
+.mode:hover,
+.replay:hover,
+.tab:hover {
+  color: var(--cdb-ink);
+}
+.modeOn,
+.modeOn:hover {
+  color: var(--cdb-on-accent);
+  background: var(--ifm-color-primary);
+}
+.replay {
+  padding: 0.36rem 0.8rem;
+  border-color: var(--cdb-line);
+}
+.replay:hover {
+  border-color: rgba(236, 194, 92, 0.45);
+}
+.mode:focus-visible,
+.replay:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+/* b. Stage: fixed height per breakpoint */
+.stage {
+  position: relative;
+  min-height: var(--stage-h);
+  min-width: 0;
+}
+@media (max-width: 996px) {
+  .stage {
+    min-height: var(--stage-h-narrow);
+  }
+}
+
+/* c. Cost line */
+.root .cost {
+  margin: var(--gap-sm) 0 0;
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--cdb-ink);
+}
+
+/* e. Narration */
+.root .narration {
+  min-height: 3em;
+  margin: var(--gap-sm) auto 0;
+  max-width: 46rem;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--cdb-ink);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* f. Code tabs */
+.code {
+  margin-top: var(--gap-sm);
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.tab {
+  padding: 0.3rem 0.8rem;
+  border-color: var(--cdb-line);
+}
+.tabOn,
+.tabOn:hover {
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  background: rgba(236, 194, 92, 0.1);
+}
+.chevron {
+  color: var(--cdb-muted);
+  font-size: var(--fs-sm);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.chevronOpen {
+  transform: rotate(180deg);
+}
+.tabPanel {
+  margin-top: var(--gap-sm);
+  min-width: 0;
+  contain: inline-size;
+  animation: ds-open var(--dur) var(--ease) both;
+}
+.notes {
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  list-style: none;
+  border-radius: var(--r-md);
+  background: var(--ifm-background-color);
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.9;
+  color: var(--cdb-ink);
+}
+.notes li::before {
+  content: '› ';
+  color: var(--ifm-color-primary);
+}
+
+/* A continuous process: a slow sweep, never opacity flicker. */
+.sweep {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.sweepTrack {
+  position: relative;
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--cdb-line);
+}
+.sweepBar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  border-radius: inherit;
+  background: var(--cdb-wire);
+  animation: ds-sweep 1.6s linear infinite;
+}
+.sweepLabel {
+  font-family: var(--cdb-mono);
+  font-size: var(--fs-2xs);
+  color: var(--cdb-wire);
+}
+
+@media (max-width: 640px) {
+  .root {
+    padding: 1rem;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@keyframes ds-pulse {
+  50% {
+    transform: scale(1.35);
+  }
+}
+@keyframes ds-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes ds-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .sweepBar {
+    width: 100%;
+    opacity: 0.6;
+  }
+}

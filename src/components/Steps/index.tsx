@@ -16,6 +16,7 @@ export default function Steps<K extends string>({
   label,
   columns,
   narrowColumns = columns,
+  silent = false,
 }: {
   steps: Step<K>[];
   active: K;
@@ -24,6 +25,7 @@ export default function Steps<K extends string>({
   label: string;
   columns: number;
   narrowColumns?: number;
+  silent?: boolean; // the caller announces the step itself (DemoStage narration)
 }): ReactNode {
   const current = steps.find((s) => s.key === active);
   const style = {'--cols': columns, '--cols-narrow': narrowColumns} as CSSProperties;
@@ -53,9 +55,11 @@ export default function Steps<K extends string>({
           );
         })}
       </div>
-      <p className={styles.live} aria-live="polite">
-        {current ? `Step ${current.n}: ${current.live ?? current.label}` : ''}
-      </p>
+      {!silent && (
+        <p className={styles.live} aria-live="polite">
+          {current ? `Step ${current.n}: ${current.live ?? current.label}` : ''}
+        </p>
+      )}
     </>
   );
 }
