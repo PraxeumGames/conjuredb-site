@@ -181,8 +181,8 @@ function Stage({index, live}: {index: number; live: boolean}): ReactNode {
             </figure>
             <div className={styles.outStack}>
               <figure className={clsx(styles.out, styles.a)} style={at(T_SERVER)}>
-                <svg className={styles.server} viewBox="0 0 200 80" role="img" aria-label="Server, player grain: ClaimTier replayed and verified." style={{fontSize: 13}}>
-                  <ServerFrame x={0.5} y={0.5} width={199} height={79} title="Server · player grain">
+                <svg className={styles.server} viewBox="0 0 200 80" role="img" aria-label="Server, player state: ClaimTier replayed and verified." style={{fontSize: 13}}>
+                  <ServerFrame x={0.5} y={0.5} width={199} height={79} title="Server · player state">
                     <text className={styles.serverLine} x={16} y={50}>
                       ClaimTier ·
                     </text>

@@ -117,13 +117,19 @@ const SCHEMA: CodeTab[] = [
     ],
   },
 ];
-const COMPILER = ['join maintainer on Offer × Price', 'delta per commit', 'bounded sort state'];
+const COMPILER = [
+  'join maintainer on Offer × Price',
+  'delta per commit',
+  'bounded sort state',
+  'filters, joins, grouped aggregates and bounded Top-K are all maintained by delta',
+  'a shape it cannot maintain is a compile error, not a slow path',
+];
 
 const NARRATION: Record<Mode, string[]> = {
   reactive: [
     'Gold changed, so the view model changed one row — the sword became affordable — and the UI view updated that one row.',
     'Two prices halved: the view model changed two rows, and only those two rows were redrawn.',
-    'One purchase changed gold, ownership and an unlocked price: four rows changed, four redrawn, nothing else touched.',
+    'One purchase changed gold, ownership and an unlocked price: three rows changed, three redrawn, nothing else touched.',
   ],
   wired: [
     'OnGoldChanged fires and the presenter rebuilds all six rows to change one.',

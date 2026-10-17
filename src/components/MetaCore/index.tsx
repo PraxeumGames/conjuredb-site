@@ -92,7 +92,11 @@ const SCHEMA: CodeTab[] = [
     ],
   },
 ];
-const COMPILER = ['join Inventory on index in Collision', 'HitEvent → Progression.AddXp after commit'];
+const COMPILER = [
+  'join Inventory on index in Collision',
+  'HitEvent → Progression.AddXp after commit',
+  'one planner joins live frame state to persistent indexes',
+];
 
 function Scene({L, index, className}: {L: Layout; index: number; className: string}) {
   const {device, field} = L;

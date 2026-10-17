@@ -43,7 +43,7 @@ const STEPS: DemoStep[] = [
     label: 'replay, then apply',
     holdMs: HOLD_MS.replay,
     narration:
-      'The server replays the three commands with the same compiled logic, lands on the same state, then applies JoinClan to that verified state.',
+      'The server replays the three commands, lands on the same state as the device, then applies JoinClan to that verified state.',
   },
   {
     id: 'forged',
@@ -78,7 +78,12 @@ const SCHEMA: CodeTab[] = [
     ],
   },
 ];
-const COMPILER = ['same compiled command on both sides', 'journal hash chain', 'verdict per journal'];
+const COMPILER = [
+  'one generated method per command, run by the device and by the server',
+  'journal hash chain',
+  'verdict per journal',
+  'no request per tap, no latency, no trust in the client',
+];
 
 const ARIA: Record<Phase, string> = {
   offline:
@@ -86,7 +91,7 @@ const ARIA: Record<Phase, string> = {
   reconnect:
     'Reconnect: the connection is back and the three journaled commands travel to the server together with the queued JoinClan request, as one packet, starting from the last verified state 91c0. The server notes: journal and request received.',
   replay:
-    'Replay, then apply: the server runs the three offline actions with the same compiled logic, checking each one. Its state hash is a3f9, the same as the device. Then it runs JoinClan against that verified state: 3 replayed, 1 applied online, 11 microseconds. Verdict: accepted.',
+    'Replay, then apply: the server runs the three offline actions again, checking each one. Its state hash is a3f9, the same as the device. Then it runs JoinClan against that verified state: 3 replayed, 1 applied online, 11 microseconds. Verdict: accepted.',
   forged:
     "Tampered journal rejected: the device's journal was edited — its third entry is not a command but a direct edit, gold = 9,950 — so the device shows gold 9,950 and hash f00d. The server replays the real commands and lands on a3f9; entry 3 does not replay, and the queued JoinClan request is not applied. Verdict: rejected, state rolled back. Then the device is rolled back to the server state: gold 1,150, hash a3f9.",
 };
@@ -413,7 +418,7 @@ function Scene({layout, phase, className}: {layout: Layout; phase: Phase; classN
           y={server.y}
           width={server.w}
           height={server.h}
-          title="Server · player grain"
+          title="Server · player state"
         />
         <text
           {...vis({3: {in: 1.35}}, styles.matchLabel)}

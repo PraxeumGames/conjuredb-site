@@ -115,14 +115,14 @@ export const PARTS: Part[] = [
     group: 'server',
     status: 'prototype',
     body: "The same compiled commands run on the server, one grain per player (Orleans). The player's state lives there as the source of truth; the device keeps a replica and a journal of what the player did. Validated in a backend prototype.",
-    items: ['One grain per player, generated from the schema', 'Same compiled commands as the device', 'You host it; the runtime is open'],
+    items: ['One grain per player, generated from the schema', 'Runs the commands the device runs', 'You host it; the runtime is open'],
   },
   {
     id: 'replay-verification',
     name: 'Replay verification',
     group: 'server',
     status: 'prototype',
-    body: "The server replays the device's command journal with the same compiled logic and compares state hashes. Forged or divergent sessions are rejected and the device is rolled back to the server's state. Commands that need the server travel with the journal and run against the verified state.",
+    body: "The server replays the device's command journal and compares state hashes. Forged or divergent sessions are rejected and the device is rolled back to the server's state. Commands that need the server travel with the journal and run against the verified state.",
     items: [
       'Microseconds per replayed command',
       'No request per tap, no trust in the client',
@@ -185,7 +185,7 @@ export const PARTS: Part[] = [
     name: 'In-app purchases',
     group: 'services',
     status: 'planned',
-    body: 'Unity IAP with regional prices; receipts verified on the server and granted through the same compiled commands.',
+    body: 'Unity IAP with regional prices; receipts verified on the server and granted by a command, like any other change.',
     items: ['Regional price tables', 'Server-side receipt checks', 'Grants are ordinary commands'],
   },
   {

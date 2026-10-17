@@ -26,8 +26,8 @@ function Hero(): ReactNode {
           </h1>
           <p className={styles.subtitle}>
             <span className={styles.subLine}>
-              Conjure runs one declarative description of your game on the device and on the
-              server, and adds replay verification and liveops.
+              You describe your game&apos;s state and rules once. Conjure runs that description on the
+              device and on the server, and adds replay verification and liveops.
             </span>
             <span className={styles.subLine}>
               Play offline, verify on the server, ship features in days — with a three-person team.
@@ -123,7 +123,7 @@ type Claim = {
 const CLAIMS: Claim[] = [
   {
     title: 'Play offline. The server still checks.',
-    body: 'The device runs the compiled logic with no connection and writes down what the player did. When the network is back, the server replays that journal with the same compiled logic and compares the state. Commands that need the server — real-money purchases, shared state like clans — travel with the journal and run against the verified state. No request per tap, no latency, no trust in the client.',
+    body: "The device runs the game with no connection and writes down what the player did; when the network is back, the server replays that journal with the same compiled logic and compares the state. Commands that need the server — real-money purchases, clans — travel with the journal and run against the verified state.",
     badges: [
       {label: 'replay verification', status: 'prototype'},
       {label: 'determinism', status: 'shipped'},
@@ -134,9 +134,9 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'UI views update themselves.',
-    body: "Declare a materialized view and the compiler keeps it current by applying only the change — through filters, joins, grouped aggregates and bounded Top-K, with unsupported shapes rejected at compile time. A reactive query is the UI view's subscription to that view model: the current rows plus per-row changes. No OnChanged wiring, no refresh-order bugs, no stale UI.",
+    body: "Declare what a UI view shows and the compiler keeps that view model current by applying only the change. No OnChanged wiring, no refresh-order bugs, no stale UI.",
     badges: [
-      {label: 'materialized views · IVM', status: 'shipped'},
+      {label: 'view models · IVM', status: 'shipped'},
       {label: 'reactive queries', status: 'shipped'},
     ],
     link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
@@ -146,7 +146,7 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'Meta and core in one architecture.',
-    body: 'Inventory, progression and economy live in persistent tables. Units, projectiles and hit events live in per-frame tables with declared systems, at 0 B per frame. Same schema, same compiler, and a planner that joins the two — so the weapon in the inventory is the weapon in the fight without a second data model.',
+    body: "Inventory and progression live in persistent tables; units, projectiles and hit events live in per-frame tables, in the same schema with the same compiler. The weapon in the inventory is the weapon in the fight, without a second data model.",
     badges: [
       {label: 'frame state', status: 'shipped'},
       {label: 'persistent + frame joins', status: 'shipped'},
@@ -157,7 +157,7 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'A feature is a schema, not a sprint.',
-    body: 'A battle pass or a store is a module of the schema: its tables, commands and queries in one place, for both sides. Override it instead of forking it. Change rules through liveops without a release. And because the language is small and typed, an assistant can draft a feature and the compiler rejects what is wrong.',
+    body: "A battle pass or a store is a module of the schema: tables, commands and queries in one place, for both sides. Override it instead of forking it, change rules through liveops without a release, and let an assistant draft the first version — the compiler rejects what is wrong.",
     badges: [
       {label: 'modules & overrides', status: 'shipped'},
       {label: 'liveops', status: 'prototype'},
@@ -218,7 +218,7 @@ const SHIPPED: Shipped[] = [
   },
   {
     title: 'Frame state and systems',
-    line: 'Chunked storage, generational handles, systems scheduled per phase, 0 B per frame.',
+    line: 'Per-frame tables and systems scheduled per phase, 0 B per frame.',
     to: '/docs/advanced/ephemeral-tables',
   },
   {
