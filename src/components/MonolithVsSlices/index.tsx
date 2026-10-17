@@ -1,5 +1,6 @@
-import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import type {CSSProperties, ReactNode} from 'react';
 import clsx from 'clsx';
+import DemoStage, {type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
 // "Vertical slices": the same four features drawn as a layered monolith
@@ -204,7 +205,7 @@ function Column({L, i, at, art}: {L: Layout; i: number; at?: {x: number; y: numb
         {f.screen}
       </text>
       <text className={styles.small} x={lx} y={c.y + s.screen[0] + (L.narrow ? 31 : 39)}>
-        {art ? 'new UI art' : 'binds the view model'}
+        {art ? 'new UI art' : 'binds view model'}
       </text>
       <rect className={styles.module} x={c.x} y={mod} width={c.w} height={s.module[1]} rx={8} />
       <text className={styles.code} x={lx} y={mod + (L.narrow ? 20 : 24)}>
@@ -337,75 +338,53 @@ function Scene({L, view, action, className}: {L: Layout; view: View; action: Act
   );
 }
 
+const STEPS: DemoStep[] = [
+  {
+    id: 'monolith',
+    label: 'today: a monolith',
+    alt: true,
+    narration:
+      'Today: four layers, and every feature smeared across all of them, wired to the others at every layer. Removing one leaves holes in four layers.',
+  },
+  {
+    id: 'slices',
+    label: 'with slices',
+    narration:
+      'With slices, each feature is one column — UI view, module, optional systems — over a generated floor. Only declared references cross between them.',
+  },
+  {
+    id: 'remove',
+    label: 'remove Battle pass',
+    narration: 'Remove Battle pass and the other three stay whole: nothing else is edited, and its two references are checked by the compiler.',
+  },
+  {
+    id: 'copy',
+    label: 'copy Shop to another game',
+    narration: 'Copy Shop to another game: the same module, new art for the UI view, overrides for balance.',
+  },
+];
+const COST: Record<string, string> = {
+  monolith: `${WIRES.length} cross-feature calls across 4 layers`,
+  slices: `${REFS.length} declared references · by id or by command`,
+  remove: MESSAGES.remove,
+  copy: MESSAGES.copy,
+};
+
 export default function MonolithVsSlices(): ReactNode {
-  const [view, setView] = useState<View>('monolith');
-  const [action, setAction] = useState<Action>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const touched = useRef(false);
-  const reset = useRef<number | undefined>(undefined);
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      touched.current = true;
-      setView('slices');
-      return;
-    }
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    let t: number | undefined;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        io.disconnect();
-        // Let the monolith register first, then switch once.
-        t = window.setTimeout(() => {
-          if (!touched.current) setView('slices');
-        }, 1600);
-      },
-      {threshold: 0.5},
-    );
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      window.clearTimeout(t);
-    };
-  }, []);
-  useEffect(() => () => window.clearTimeout(reset.current), []);
-
-  const pick = (v: View) => {
-    touched.current = true;
-    setView(v);
-    setAction(null);
-  };
-  const act = (a: Exclude<Action, null>) => {
-    window.clearTimeout(reset.current);
-    setAction(a);
-    reset.current = window.setTimeout(() => setAction(null), 4500);
-  };
-
   return (
-    <div ref={rootRef} className={styles.root}>
-      <div className={styles.seg} role="group" aria-label="Architecture">
-        <button type="button" aria-pressed={view === 'monolith'} className={clsx(view === 'monolith' && styles.onRed)} onClick={() => pick('monolith')}>
-          today · monolith
-        </button>
-        <button type="button" aria-pressed={view === 'slices'} className={clsx(view === 'slices' && styles.on)} onClick={() => pick('slices')}>
-          with Conjure · slices
-        </button>
-      </div>
-      <Scene L={WIDE} view={view} action={action} className={styles.wide} />
-      <Scene L={NARROW} view={view} action={action} className={styles.narrow} />
-      <div className={clsx(styles.actions, view !== 'slices' && styles.actionsHidden)}>
-        <button type="button" className={clsx(styles.action, action === 'remove' && styles.actionOn)} disabled={view !== 'slices'} onClick={() => act('remove')}>
-          remove Battle pass
-        </button>
-        <button type="button" className={clsx(styles.action, action === 'copy' && styles.actionOn)} disabled={view !== 'slices'} onClick={() => act('copy')}>
-          copy Shop to another game
-        </button>
-        <p className={styles.message} aria-live="polite">
-          {action ? MESSAGES[action] : ' '}
-        </p>
-      </div>
+    <div className={styles.root}>
+      <DemoStage title="four features, two shapes" steps={STEPS} costLine={({step}) => COST[step]}>
+        {({step}) => {
+          const view: View = step === 'monolith' ? 'monolith' : 'slices';
+          const action: Action = step === 'remove' ? 'remove' : step === 'copy' ? 'copy' : null;
+          return (
+            <>
+              <Scene L={WIDE} view={view} action={action} className={styles.wide} />
+              <Scene L={NARROW} view={view} action={action} className={styles.narrow} />
+            </>
+          );
+        }}
+      </DemoStage>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import {useEffect, useId, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
 import Steps from '@site/src/components/Steps';
+import {DemoHeader, DemoNarration} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
 // Hero visual: today's two hand-wired programs (client + server, muted
@@ -19,6 +20,12 @@ const PHASE_CLASS: Record<Phase, string | undefined> = {
   tangle: undefined,
   schema: styles.isSchema,
   generated: styles.isGenerated,
+};
+
+const NARRATION: Record<Phase, string> = {
+  tangle: 'Today a game is two programs — the client and the server — wired to each other by hand, and every feature is written twice.',
+  schema: 'With Conjure you write one file: the state, the commands and the questions your UI views ask.',
+  generated: 'The compiler builds both sides from it — the client and the server-side logic — and the server replays what the client did.',
 };
 
 const STEPS: {key: Phase; n: string; label: string; alt?: boolean; live?: string}[] = [
@@ -421,9 +428,14 @@ export default function TangleToSchema(): ReactNode {
     setAuto(false);
     setPhase(p);
   };
+  const replay = () => {
+    setPhase('tangle');
+    setAuto(!window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  };
 
   return (
     <div ref={rootRef} className={clsx(styles.root, PHASE_CLASS[phase])}>
+      <DemoHeader title="two programs, one schema" onReplay={replay} seen={visible} />
       <div className={styles.stage}>
         <Scene layout={WIDE} phase={phase} className={styles.wide} />
         <Scene layout={NARROW} phase={phase} className={styles.narrow} />
@@ -435,7 +447,9 @@ export default function TangleToSchema(): ReactNode {
         timerMs={auto && visible ? HOLD_MS[phase] : undefined}
         label="Show stage"
         columns={3}
+        silent
       />
+      <DemoNarration>{NARRATION[phase]}</DemoNarration>
     </div>
   );
 }

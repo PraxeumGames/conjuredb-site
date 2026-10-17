@@ -12,37 +12,6 @@
   text-align: left;
 }
 
-.seg {
-  display: inline-flex;
-  margin-bottom: var(--gap-md);
-  border: 1px solid var(--cdb-line);
-  border-radius: var(--r-md);
-}
-.seg button {
-  padding: 0.38rem 0.85rem;
-  border: none;
-  background: transparent;
-  color: var(--cdb-muted);
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
-}
-.seg button:first-child {
-  border-radius: var(--r-md) 0 0 var(--r-md);
-}
-.seg button:last-child {
-  border-radius: 0 var(--r-md) var(--r-md) 0;
-  border-left: 1px solid var(--cdb-line);
-}
-.seg .on {
-  color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
-}
-.seg .onRed {
-  color: var(--cdb-wire);
-  background: rgba(224, 132, 116, 0.09);
-}
 
 .wide,
 .narrow {
@@ -268,47 +237,6 @@
   fill: var(--cdb-muted);
 }
 
-/* Actions */
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: var(--gap-md);
-  transition: opacity var(--dur) var(--ease);
-}
-.actionsHidden {
-  opacity: 0.35;
-}
-.action {
-  padding: 0.42rem 0.8rem;
-  border: 1px solid var(--cdb-line);
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--cdb-ink);
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
-}
-.action:hover:not(:disabled) {
-  border-color: rgba(236, 194, 92, 0.45);
-}
-.action:disabled {
-  cursor: default;
-}
-.actionOn {
-  border-color: var(--ifm-color-primary);
-  background: rgba(236, 194, 92, 0.1);
-}
-.message {
-  flex: 1 1 20rem;
-  margin: 0;
-  min-height: 1.5em;
-  font-family: var(--cdb-mono);
-  font-size: var(--fs-xs);
-  color: var(--ifm-color-primary);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .root * {

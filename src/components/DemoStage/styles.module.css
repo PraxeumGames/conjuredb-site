@@ -116,6 +116,7 @@
 }
 
 /* e. Narration */
+.narration,
 .root .narration {
   min-height: 3em;
   margin: var(--gap-sm) auto 0;

@@ -144,33 +144,7 @@ export default function DemoStage({
 
   return (
     <div ref={rootRef} className={clsx(styles.root, seen && styles.seen)}>
-      <div className={styles.header}>
-        <span className={styles.title}>
-          <span className={styles.play} aria-hidden="true">
-            ▶
-          </span>{' '}
-          interactive · {title}
-        </span>
-        <div className={styles.controls}>
-          {modes && modes.length > 0 && (
-            <div className={styles.modes} role="group" aria-label={`${title}: mode`}>
-              {modes.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  aria-pressed={m.id === mode}
-                  className={clsx(styles.mode, m.id === mode && styles.modeOn)}
-                  onClick={() => pickMode(m.id)}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <button type="button" className={styles.replay} onClick={replay}>
-            ↺ replay
-          </button>
-        </div>
-      </div>
+      <DemoHeader title={title} modes={modes} mode={mode} onMode={pickMode} onReplay={replay} />
 
       <div className={clsx(styles.stage, stageClassName)} style={stageStyle}>
         {typeof children === 'function' ? children(ctx) : children}
@@ -188,9 +162,7 @@ export default function DemoStage({
         narrowColumns={Math.min(narrowColumns, steps.length)}
         silent
       />
-      <p className={styles.narration} aria-live="polite">
-        {steps[index].narration}
-      </p>
+      <DemoNarration>{steps[index].narration}</DemoNarration>
 
       {codeTabs && codeTabs.length > 0 && (
         <div className={styles.code}>
@@ -219,6 +191,62 @@ export default function DemoStage({
         </div>
       )}
     </div>
+  );
+}
+
+/** The shell's header row on its own (the hero uses it without the surface). */
+export function DemoHeader({
+  title,
+  modes,
+  mode,
+  onMode,
+  onReplay,
+  seen,
+}: {
+  title: string;
+  seen?: boolean; // pulses the ▶ twice, once (DemoStage sets it on its root instead)
+  modes?: DemoMode[];
+  mode?: string;
+  onMode?: (id: string) => void;
+  onReplay: () => void;
+}): ReactNode {
+  return (
+    <div className={clsx(styles.header, seen && styles.seen)}>
+      <span className={styles.title}>
+        <span className={styles.play} aria-hidden="true">
+          ▶
+        </span>{' '}
+        interactive · {title}
+      </span>
+      <div className={styles.controls}>
+        {modes && modes.length > 0 && (
+          <div className={styles.modes} role="group" aria-label={`${title}: mode`}>
+            {modes.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={m.id === mode}
+                className={clsx(styles.mode, m.id === mode && styles.modeOn)}
+                onClick={() => onMode?.(m.id)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <button type="button" className={styles.replay} onClick={onReplay}>
+          ↺ replay
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The narration line under a step rail. */
+export function DemoNarration({children}: {children: ReactNode}): ReactNode {
+  return (
+    <p className={styles.narration} aria-live="polite">
+      {children}
+    </p>
   );
 }
 
