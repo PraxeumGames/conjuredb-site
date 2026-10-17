@@ -271,6 +271,14 @@
 .claimFlip .claimText {
   order: 2;
 }
+/* Claims with a larger, interactive visual split 50/50. */
+.claimWide {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+.claimWide .claimVisual {
+  max-width: none;
+}
 .claimText {
   display: flex;
   flex-direction: column;

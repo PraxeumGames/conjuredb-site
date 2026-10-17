@@ -55,31 +55,6 @@ export function OfflineCheck(): ReactNode {
   );
 }
 
-/** Claim 2: a 16.6 ms frame with a sliver for the data layer; replay is shorter still. */
-export function FrameBudget(): ReactNode {
-  return (
-    <Svg label="A 16.6 millisecond frame bar with a small slice for the data layer at 0 bytes allocated, and a much shorter bar for replay at microseconds per command.">
-      <text className={styles.label} x={14} y={40}>
-        frame
-      </text>
-      <text className={styles.label} x={306} y={40} textAnchor="end">
-        16.6 ms
-      </text>
-      <rect className={styles.track} x={14} y={50} width={292} height={14} rx={7} />
-      <rect className={styles.gold} x={14} y={50} width={26} height={14} rx={7} />
-      <path className={styles.tickLine} d="M27 66 V80" />
-      <text className={styles.goldLabel} x={22} y={93}>
-        data layer · 0 B
-      </text>
-
-      <rect className={styles.serverBar} x={14} y={124} width={30} height={10} rx={5} />
-      <text className={styles.serverLabel} x={54} y={133}>
-        replay · µs per command
-      </text>
-    </Svg>
-  );
-}
-
 /** Claim 3: one module of the schema feeding both sides. */
 export function ModuleSlice(): ReactNode {
   return (

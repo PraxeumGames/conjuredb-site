@@ -51,7 +51,7 @@ export const PARTS: Part[] = [
     body: "Compiled queries, commands and mutations over your game's persistent state. Declared indexes, screens that update themselves by applying only what changed, local persistence with snapshots and a write-ahead journal.",
     items: [
       'Index-aware, zero-allocation query paths',
-      'Reactive views maintained by delta',
+      'Materialized views maintained by delta; reactive queries subscribe to them',
       'Transactions, snapshots, backup and restore',
     ],
     links: [

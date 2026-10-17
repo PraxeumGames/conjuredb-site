@@ -33,36 +33,6 @@
   stroke-linejoin: round;
 }
 
-.label {
-  font-family: var(--cdb-mono);
-  font-size: 0.85em;
-  fill: var(--cdb-muted);
-}
-.track {
-  fill: none;
-  stroke: var(--cdb-muted);
-  stroke-opacity: 0.5;
-}
-.gold {
-  fill: var(--ifm-color-primary);
-}
-.tickLine {
-  stroke: var(--ifm-color-primary);
-  stroke-opacity: 0.6;
-}
-.goldLabel {
-  font-family: var(--cdb-mono);
-  font-size: 0.9em;
-  fill: var(--ifm-color-primary);
-}
-.serverBar {
-  fill: var(--cdb-server);
-}
-.serverLabel {
-  font-family: var(--cdb-mono);
-  font-size: 0.9em;
-  fill: var(--cdb-server);
-}
 
 .wire {
   fill: none;

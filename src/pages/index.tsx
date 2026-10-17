@@ -5,7 +5,9 @@ import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
 import TangleToSchema from '@site/src/components/TangleToSchema';
 import ReplayVerify from '@site/src/components/ReplayVerify';
 import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
-import {FrameBudget, ModuleSlice, OfflineCheck} from '@site/src/components/ClaimVisuals';
+import {ModuleSlice, OfflineCheck} from '@site/src/components/ClaimVisuals';
+import ReactiveScreen from '@site/src/components/ReactiveScreen';
+import MetaCore from '@site/src/components/MetaCore';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -120,9 +122,21 @@ type Claim = {
   badges: {label: string; status: Status}[];
   link: {label: string; to: string};
   visual: ReactNode;
+  wide?: boolean; // larger visual: a 50/50 split
 };
 
 const CLAIMS: Claim[] = [
+  {
+    title: 'Screens update themselves.',
+    body: "Declare a materialized view and the compiler keeps it current by applying only the change — through filters, joins, grouped aggregates and bounded Top-K, with unsupported shapes rejected at compile time. A reactive query is the screen's subscription to that view: the current rows plus per-row changes. No OnChanged wiring, no refresh-order bugs, no stale UI.",
+    badges: [
+      {label: 'materialized views · IVM', status: 'shipped'},
+      {label: 'reactive queries', status: 'shipped'},
+    ],
+    link: {label: 'Reactive queries →', to: '/docs/advanced/reactive-queries'},
+    visual: <ReactiveScreen />,
+    wide: true,
+  },
   {
     title: 'Play offline. The server still checks.',
     body: 'The device runs the game with no connection and writes down what the player did. The server replays that command journal with the same compiled logic and either accepts the state or rolls it back. No request per tap, no latency, no trust in the client.',
@@ -134,14 +148,15 @@ const CLAIMS: Claim[] = [
     visual: <OfflineCheck />,
   },
   {
-    title: 'Fast by default — on the frame and on the server.',
-    body: 'Everything is compiled and proven before it ships. On the device: index-aware, allocation-free queries and reactive views that update by delta, with nothing allocated on the query hot path. On the server: microsecond commands, so the backend replays a whole session in less time than a frame. The frame budget stops being a fight and verification stops being a cost.',
+    title: 'Meta and core in one architecture.',
+    body: 'Inventory, progression and economy live in persistent tables. Units, projectiles and hit events live in per-frame tables with declared systems, at 0 B per frame. Same schema, same compiler, and a planner that joins the two — so the weapon in the inventory is the weapon in the fight without a second data model.',
     badges: [
-      {label: 'device', status: 'shipped'},
-      {label: 'server replay', status: 'prototype'},
+      {label: 'frame state', status: 'shipped'},
+      {label: 'persistent + frame joins', status: 'shipped'},
     ],
-    link: {label: 'See the benchmarks →', to: '/data-layer#benchmarks'},
-    visual: <FrameBudget />,
+    link: {label: 'Ephemeral tables →', to: '/docs/advanced/ephemeral-tables'},
+    visual: <MetaCore />,
+    wide: true,
   },
   {
     title: 'A feature is a schema, not a sprint.',
@@ -161,10 +176,12 @@ function Claims(): ReactNode {
     <section className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">Why this is new</span>
-        <h2 className="cdb-h2">Three things you could not do before.</h2>
+        <h2 className="cdb-h2">Four things that change.</h2>
         <div className={styles.claims}>
           {CLAIMS.map((c, i) => (
-            <article key={c.title} className={`cdb-card ${styles.claim} ${i % 2 ? styles.claimFlip : ''}`}>
+            <article
+              key={c.title}
+              className={`cdb-card ${styles.claim} ${i % 2 ? styles.claimFlip : ''} ${c.wide ? styles.claimWide : ''}`}>
               <div className={styles.claimText}>
                 <h3>{c.title}</h3>
                 <p>{c.body}</p>
