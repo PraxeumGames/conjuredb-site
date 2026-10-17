@@ -5,26 +5,33 @@ projectiles hit or expire, units die and respawn — every tick, for a hundred t
 entities. Here it is on ephemeral tables, next to the same simulation hand-written as a
 struct-of-arrays ECS, driven by one RNG stream and cross-checked for identical results.
 
-Source: `UniMemory.Samples.EcsDemo` in the repository (domain, headless runner, Unity host).
+Source: `ConjureDB.Samples.EcsDemo` in the repository (domain, headless runner, Unity host).
 
 ## Schema (excerpt)
 
-```prql
+```conjure
 entity domain Actors { Unit, Body }
 entity domain Shots  { Projectile }
 
 ephemeral table Projectile(plural: Projectiles, capacity: 16384) {
     Id: int @id
-    TargetId: int
-    TargetGeneration: uint      // never hit a recycled id
-    X: float  Y: float  Vx: float  Vy: float
+    Target: ref Body           // generational handle — never hits a recycled id
+    X: float
+    Y: float
+    Vx: float
+    Vy: float
     Damage: int
     TtlTicks: int
 }
 
+event table HitEvent(capacity: 4096, lifetime: next_frame) {
+    Target: ref Unit
+    Damage: int
+}
+
 system IntegrateProjectiles(phase: fixed_update) {
-    update Projectile p
-    | set p.X += p.Vx * @dt, p.Y += p.Vy * @dt, p.TtlTicks -= 1
+    from Projectile p
+    | set { p.X += p.Vx * @dt, p.Y += p.Vy * @dt, p.TtlTicks -= 1 }
 }
 ```
 
@@ -33,11 +40,11 @@ system IntegrateProjectiles(phase: fixed_update) {
 | Phase | System | What it does |
 |---|---|---|
 | FrameStart | ResolveRespawns | turns last frame's provisional spawn handles into real ones |
-| FrameStart | `ApplyHits` (schema-declared) | drives the `HitEvent` front buffer, `join Unit u on handle`, `set u.Health -= h.Damage`, `match { u.Health <= 0 => emit DeadSlot … destroy entity u }` |
-| FixedUpdate | Fire | 256 random shots per tick: two lease probes, one `Commands.Create` |
-| FixedUpdate | `Collision` (schema-declared) | `join Body b on handle (p.TargetId, p.TargetGeneration)` then one `match` arm per projectile: miss → lost target, in radius → `emit HitEvent` + `destroy p`, ttl → expired |
+| FrameStart | `ApplyHits` (schema-declared) | drives the `HitEvent` front buffer, `join Unit u on ref (h.Target)`, `set { u.Health -= h.Damage }`, `match { u.Health <= 0 => { event DeadSlot …  delete entity u } }` |
+| FixedUpdate | Fire | 256 random shots per tick: a counted `from generate(…)` driver, two `lookup … on id` probes, one `insert Projectile` |
+| FixedUpdate | `Collision` (schema-declared) | `join Body b on ref (p.Target)` then one `match` arm per projectile: miss → lost target, in radius → `event HitEvent` + `delete p`, ttl → expired |
 | FixedUpdate | `IntegrateBodies`, `IntegrateProjectiles` | schema-declared kernels |
-| Update | `Clock` (schema-declared) | `update ArenaClock c \| set c.Tick += 1, c.FixedDt = (float)@fixedDt` |
+| Update | `Clock` (schema-declared) | `from ArenaClock c \| set { c.Tick += 1, c.FixedDt = @fixed_dt }` |
 | LateUpdate | PresentationSync | streams positions into the slot-indexed presentation buffer (a `TransformAccessArray` in Unity) |
 | FrameEnd | Respawn | refills dead slots through the command buffers; resolves next frame |
 
@@ -131,7 +138,7 @@ What it taught us:
   design (generation-checked probes into another table, event appends).
 - **Burst codegen is the Mono escape hatch** (3.7× on the kernel there), not an IL2CPP one.
 
-Full steps, logs and the research notes: `UniMemory.Samples.EcsDemo.Unity/README.md` in the repository.
+Full steps, logs and the research notes: the `ConjureDB.Samples.EcsDemo.Unity` sample in the repository.
 
 ## DOTS baseline
 

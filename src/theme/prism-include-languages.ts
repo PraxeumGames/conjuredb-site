@@ -35,11 +35,11 @@ export default function prismIncludeLanguages(
 
   // ── ConjureDB query DSL ──────────────────────────────────────────────────
   // PRQL-flavoured, pipe-based: `from … | filter … | select …`, plus schema
-  // (`table`), `query`/`mutation` declarations, `@param` refs and `@@index`
-  // attributes, `#` comments. Used in docs as ```dsl (and historically ```prql).
+  // (`table`), `query`/`mutation`/`system` declarations, `@param` refs and
+  // `@@index` attributes, `//` comments. Used in docs as ```conjure.
   PrismObject.languages.dsl = {
     comment: {
-      pattern: /#.*/,
+      pattern: /\/\/.*/,
       greedy: true,
     },
     string: {
@@ -51,7 +51,7 @@ export default function prismIncludeLanguages(
     // Query parameters (@minLevel) and field attributes (@id).
     variable: /@[a-zA-Z_]\w*/,
     keyword:
-      /\b(?:aggregate|and|as|by|collect|distinct|except|filter|from|group|having|in|intersect|into|join|let|limit|mutation|not|offset|or|order|over|query|return|select|skip|sort|table|take|union|where|window)\b/,
+      /\b(?:aggregate|as|checked|command|delete|derive|distinct|ephemeral|enum|event|except|exists|filter|first|first_or_default|from|full|generate|group|import|in|insert|intersect|join|left|let|map|module|mutation|not|over|pooled|query|range|reactive|require|return|right|rows|sample|select|seq|shuffle|single|single_or_default|singleton|skip|sort|struct|system|table|take|type|union|unchecked|upsert|using|view|where)\b/,
     boolean: /\b(?:false|null|true)\b/,
     // Built-in scalar types in signatures / schema fields.
     'class-name':

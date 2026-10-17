@@ -8,7 +8,7 @@ Complete reference for all ConjureDB configuration parameters.
 
 ## Overview
 
-ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance is intended to be used once: `BuildAsync()` throws `InvalidOperationException` if the builder is reused, while `Build()` currently has no reuse guard — do not call it twice on the same builder.
+ConjureDB is configured entirely through the `DbContextBuilder<TContext>` fluent API. All settings are applied at database creation time and **cannot be changed after `Build()` / `BuildAsync()` is called**. Each builder instance may be used exactly once — calling `Build()` or `BuildAsync()` a second time throws `InvalidOperationException`.
 
 ```csharp
 var db = DbContextBuilder<GameDb>.Create()
@@ -26,13 +26,14 @@ var db = DbContextBuilder<GameDb>.Create()
 
 ### Configuration Hierarchy
 
-```
+```text
 DbContextBuilder<TContext>
 ├── WithDataDirectory(string)
 ├── WithSerializer(IBinarySerializer)
 ├── WithSettingsLoaderFactory(SettingsLoaderFactory)
 ├── WithLoggerFactory(ILoggerFactory) / WithNullLogger()
 ├── WithMemoryBudget(long) / WithMemoryBudgetMB(int)
+├── WithChangeLogRetainedCapacity(int)
 ├── WithBatteryStatusProvider(IBatteryStatusProvider)
 ├── WithDurabilityPolicy(DurabilityPolicy)
 ├── WithNoPersistence()
@@ -70,7 +71,8 @@ DbContextBuilder<TContext>
 │   ├── RequestTimeout(TimeSpan)
 │   ├── MaxRetryAttempts(int)
 │   ├── ResolutionStrategy(StateResolutionStrategy)
-│   └── RemoteHandler(IRemoteSnapshotHandler)
+│   ├── OwnedByContext(IRemoteSnapshotHandler)
+│   └── BorrowedByCaller(IRemoteSnapshotHandler)
 └── WithMigration(Action<MigrationOptionsBuilder>)
     ├── SnapshotAfterMigration(bool)
     └── VerboseLogging(bool)
@@ -93,8 +95,8 @@ var db = DbContextBuilder<GameDb>.Create().Build();
 
 | Method | Description |
 |--------|-------------|
-| `Build()` | Synchronous. Blocks (sync-over-async) until recovery (snapshot + journal replay) completes. Convenient for Unity's synchronous init, but avoid calling it from code with an active `SynchronizationContext` to prevent deadlocks. |
-| `BuildAsync()` | Asynchronous. Recommended in async contexts — it `await`s recovery and is deadlock-safe under a `SynchronizationContext`. |
+| `Build()` | Synchronous. Blocks until recovery (snapshot + journal replay) completes. Safe for Unity's synchronous init. |
+| `BuildAsync()` | Asynchronous. Preferred in async contexts. Avoid calling from code with a `SynchronizationContext` to prevent deadlocks. |
 
 ---
 
@@ -150,7 +152,7 @@ public interface IBinarySerializer
 | **Default** | Default factory (uses `DefaultSettingsAccessProvider` and `MessagePackBinarySerializer`) |
 | **Builder method** | `WithSettingsLoaderFactory(SettingsLoaderFactory)` |
 
-Factory for creating settings loaders used to hydrate non-persistent `DbSet`s declared as settings sets in the schema (identified at runtime by their `SettingsName`). Override to provide custom settings data sources.
+Factory for creating settings loaders used to hydrate non-persistent `DbSet`s that carry a `[Settings]` attribute. Override to provide custom settings data sources.
 
 ```csharp
 .WithSettingsLoaderFactory(new SettingsLoaderFactory(customLoaders, accessProvider, serializerFactory))
@@ -203,7 +205,7 @@ Sets a maximum memory allocation budget. When enabled, all allocations are track
 | `Warning` | ≥ 90% of budget | `MemoryPressureChanged` event fired |
 | `Critical` | ≥ 100% of budget | New allocations rejected, event fired |
 
-The `MemoryBudget` instance is not exposed publicly on the built context. It can only be captured inside your derived `DbContext(DbConfiguration config)` constructor via `config.MemoryBudget`, which exposes:
+The `MemoryBudget` instance is accessible via `DbConfiguration.MemoryBudget` after build and exposes:
 
 | Property / Method | Type | Description |
 |-------------------|------|-------------|
@@ -214,6 +216,27 @@ The `MemoryBudget` instance is not exposed publicly on the built context. It can
 | `MemoryPressureChanged` | `event` | Fired on level transitions |
 | `TryAllocate(long, string)` | `bool` | Attempt allocation; returns false if over budget |
 | `Release(long)` | `void` | Release previously allocated bytes |
+
+### ChangeLogRetainedCapacity
+
+| Property | Value |
+|----------|-------|
+| **Type** | `int` (changes per table per transaction) |
+| **Default** | `1024` (`ChangeLogRetention.DefaultRetainedCapacity`) |
+| **Valid values** | A power of two, at least 64 |
+| **Builder method** | `WithChangeLogRetainedCapacity(int)` |
+
+How many changes one transaction can stage into one table and still allocate nothing once that
+table's change log has grown to hold them. When a transaction ends, each table's log keeps its
+growth segments up to this capacity and releases the rest to the GC, so a one-off large transaction
+leaves at most this much behind per table (960 slots beyond the fixed 64-slot first segment by
+default, about 75 KB for a reference-type row). Raise it for a schema that commits larger
+transactions every frame; lower it to bound retained memory more tightly. `DbContext.TrimMemory()`
+releases what is retained; `DbSetMemoryReport.ChangeLogBytes` reports it.
+
+```csharp
+.WithChangeLogRetainedCapacity(8192) // frames stage up to 8 192 changes per table without allocating
+```
 
 ### BatteryStatusProvider
 
@@ -265,7 +288,7 @@ storage.
 
 | Value | Behavior |
 |-------|----------|
-| `FastMobile` | Mobile-first default. Journal writes are flushed by the adaptive background policy. Use `CommitAsync(forceFlush: true)` when a specific commit must wait for durable journal flush. |
+| `FastMobile` | Mobile-first default. The journal thread writes each committed transaction through to the OS in the background, without a physical sync. Use `CommitAsync(forceFlush: true)` when a specific commit must wait for durable journal flush. |
 | `CriticalState` | Every committed transaction must force the journal to stable storage. Use for purchases, currency, inventory, entitlements, or other state that must fail closed. |
 | `ForceFlushEveryCommit` | Alias for the strictest policy. Every committed transaction forces durable journal flush before the commit completes. |
 
@@ -308,7 +331,7 @@ Overrides the runtime mode for the current context.
 | Value | Behavior |
 |-------|----------|
 | `Client` | Client-oriented runtime mode. This is the default when no server override is active. |
-| `Server` | Server-oriented runtime mode. Only stores the mode on the context; it does not mutate any process-level `AppContext` switch. |
+| `Server` | Server-oriented runtime mode. Also sets the process-level `ConjureDB.ServerMode` AppContext switch. |
 
 ```csharp
 .WithRuntimeMode(ConjureDBRuntimeMode.Server)
@@ -359,7 +382,7 @@ Snapshot settings are configured via `WithSnapshot(Action<SnapshotOptionsBuilder
 | **Default** | `TimeSpan.FromMinutes(5)` |
 | **Builder method** | `AutomaticSnapshotInterval(TimeSpan)` |
 
-Interval between automatic periodic snapshots. Snapshots are taken on the background worker thread after pending commits are applied. Set to `TimeSpan.Zero` to disable automatic snapshots (manual-only via `DbContext.SaveAsync()`).
+Interval between automatic periodic snapshots. Snapshots are taken on the serialized background worker lane after pending commits are applied. Set to `TimeSpan.Zero` to disable automatic snapshots (manual-only via `DbContext.SaveAsync()`).
 
 ```csharp
 .WithSnapshot(s => s.AutomaticSnapshotInterval(TimeSpan.FromMinutes(10)))
@@ -504,7 +527,7 @@ There are two ways to enable the journal:
     .FlushInterval(TimeSpan.FromMilliseconds(500))))
 ```
 
-Journaling is disabled by default. When enabled, the journal is written by the background worker thread after each committed transaction.
+Journaling is disabled by default. When enabled, the journal is written by the serialized background worker lane after each committed transaction.
 
 ### Journal Parameters
 
@@ -738,7 +761,7 @@ Maximum flush interval for the adaptive flush logic. The journal will flush at l
 
 The journal uses an adaptive flush strategy that adjusts the flush interval based on write activity:
 
-```
+```text
 Write Rate ─────────────────────────────────────────────►
                 │                    │
   MaxFlushIntervalMs          MinFlushIntervalMs
@@ -760,7 +783,7 @@ The `JournalCorruptionPolicy` controls how the recovery handler responds to corr
 | Value | Behavior |
 |-------|----------|
 | `StopAtCorruption` | Stop replaying at the first corrupted entry. Recovers all valid entries up to corruption point. **(Default)** |
-| `SkipCorrupted` | Skip corrupted entries and continue replaying subsequent valid entries. |
+| `SkipCorrupted` | Resynchronize at a later frame, discard all pending and first post-gap end-delimited transaction changes, then replay only versions after the clean boundary. |
 | `Fail` | Throw an exception immediately on encountering corruption. |
 
 `DurabilityPolicy.CriticalState` and `DurabilityPolicy.ForceFlushEveryCommit`
@@ -894,7 +917,7 @@ Remote snapshot sync enables cloud save / backup functionality. Configured via `
 
 ```csharp
 .WithRemoteSnapshot(remote => remote
-    .RemoteHandler(new CloudSaveHandler())
+    .OwnedByContext(new CloudSaveHandler())
     .RequestTimeout(TimeSpan.FromSeconds(30))
     .MaxRetryAttempts(5)
     .ResolutionStrategy(StateResolutionStrategy.RemoteFirst))
@@ -902,15 +925,16 @@ Remote snapshot sync enables cloud save / backup functionality. Configured via `
 
 ### Remote Sync Parameters
 
-#### RemoteHandler
+#### Remote Snapshot Handler Lifetime
 
-| Property | Value |
-|----------|-------|
-| **Type** | `IRemoteSnapshotHandler` |
-| **Default** | `null` (required for remote sync) |
-| **Builder method** | `RemoteHandler(IRemoteSnapshotHandler)` |
+| Registration | Builder method | Disposal owner |
+|--------------|----------------|----------------|
+| Context-owned | `OwnedByContext(IRemoteSnapshotHandler)` | The created `DbContext` after snapshot work drains |
+| Caller-borrowed | `BorrowedByCaller(IRemoteSnapshotHandler)` | The caller, after its context has stopped using the handler |
 
-Handler implementation responsible for uploading and downloading remote snapshots. The handler must implement:
+Handler implementations upload and download remote snapshots. Choose ownership deliberately: inline
+handlers normally use `OwnedByContext`, while a handler shared with other services uses
+`BorrowedByCaller` and remains the caller's responsibility to dispose.
 
 ```csharp
 public interface IRemoteSnapshotHandler : IAsyncDisposable
@@ -918,11 +942,9 @@ public interface IRemoteSnapshotHandler : IAsyncDisposable
     Task<ulong?> GetRemoteVersionAsync();
     Task LoadSnapshotAsync(DbContext context);
     Task UploadSnapshotAsync(DbContext context, ulong version);
-    // plus ValueTask DisposeAsync() from IAsyncDisposable
+    ValueTask DisposeAsync();
 }
 ```
-
-The handler extends `IAsyncDisposable`, so implementers must also provide `ValueTask DisposeAsync()`.
 
 #### RequestTimeout
 
@@ -977,7 +999,8 @@ Conflict resolution strategy when local and remote snapshot versions diverge.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `RemoteHandler` | `IRemoteSnapshotHandler` | `null` (required) | Upload/download handler |
+| `OwnedByContext` | `IRemoteSnapshotHandler` | — | Upload/download handler disposed by the created context |
+| `BorrowedByCaller` | `IRemoteSnapshotHandler` | — | Upload/download handler retained and disposed by its caller |
 | `RequestTimeout` | `TimeSpan?` | `null` | HTTP request timeout |
 | `MaxRetryAttempts` | `int` | 3 | Max retries on failure |
 | `ResolutionStrategy` | `StateResolutionStrategy` | `RemoteFirst` | Conflict resolution strategy |
@@ -1174,9 +1197,9 @@ var db = DbContextBuilder<GameDb>.Create()
     .WithSnapshot(s => s
         .AutomaticSnapshotInterval(TimeSpan.FromMinutes(5))
         .MaxSnapshotsToKeep(5)
-        .WithJournaling())
+    .WithJournaling())
     .WithRemoteSnapshot(r => r
-        .RemoteHandler(new MyCloudSaveHandler(httpClient))
+        .OwnedByContext(new MyCloudSaveHandler(httpClient))
         .RequestTimeout(TimeSpan.FromSeconds(30))
         .MaxRetryAttempts(5)
         .ResolutionStrategy(StateResolutionStrategy.RemoteFirst))
@@ -1210,25 +1233,16 @@ var db = DbContextBuilder<GameDb>.Create()
 | Desktop game client | 256–512 MB |
 | Desktop simulation | 512 MB–2 GB |
 
-Capture the budget inside your derived `DbContext` constructor and subscribe to `MemoryPressureChanged` to react to pressure levels:
+Subscribe to `MemoryPressureChanged` to react to pressure levels:
 
 ```csharp
-public class GameDb : DbContext
+budget.MemoryPressureChanged += (sender, args) =>
 {
-    public GameDb(DbConfiguration config) : base(config)
-    {
-        if (config.MemoryBudget is { } budget)
-        {
-            budget.MemoryPressureChanged += (sender, args) =>
-            {
-                if (args.Level == MemoryPressureLevel.Warning)
-                    EvictCaches();
-                else if (args.Level == MemoryPressureLevel.Critical)
-                    ReduceEntityPools();
-            };
-        }
-    }
-}
+    if (args.Level == MemoryPressureLevel.Warning)
+        EvictCaches();
+    else if (args.Level == MemoryPressureLevel.Critical)
+        ReduceEntityPools();
+};
 ```
 
 ### Encryption Performance Impact
@@ -1327,7 +1341,8 @@ The chunked 4 KB encryption means overhead scales linearly with data size. For m
 
 | Parameter | Default | Builder Method |
 |-----------|---------|----------------|
-| RemoteHandler | null (required) | `RemoteHandler(IRemoteSnapshotHandler)` |
+| Context-owned handler | null | `OwnedByContext(IRemoteSnapshotHandler)` |
+| Caller-borrowed handler | null | `BorrowedByCaller(IRemoteSnapshotHandler)` |
 | RequestTimeout | null | `RequestTimeout(TimeSpan)` |
 | MaxRetryAttempts | 3 | `MaxRetryAttempts(int)` |
 | ResolutionStrategy | RemoteFirst | `ResolutionStrategy(StateResolutionStrategy)` |

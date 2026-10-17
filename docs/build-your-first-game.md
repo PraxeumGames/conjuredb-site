@@ -1,7 +1,7 @@
 # Build Your First Game
 
 This walkthrough uses the schema-first frontend. The game domain lives in
-`.conjure` files; generated C# is build output.
+`.conjure` files; generated C# is committed output from the manual compiler.
 
 ## Project Shape
 
@@ -14,14 +14,17 @@ MyGame/
 └── MyGame.Unity/
 ```
 
-`MyGame.Domain.csproj` should reference ConjureDB runtime packages and
-`ConjureDB.CodeGen` as an analyzer/source-generator package.
+`MyGame.Domain.csproj` references the ConjureDB runtime packages. It includes the
+committed `Generated/` sources as ordinary C#; no compiler analyzer is installed in
+the consumer build. Set `<ConjureDBSyntaxVersion>2</ConjureDBSyntaxVersion>` in
+that project before invoking the manual compiler; format 2 is not inferred from
+the source text.
 
 ## Schema
 
 Create `schema/game.conjure`:
 
-```prql
+```conjure
 table PlayerProfile(plural: PlayerProfiles, persistence: local, capacity: 1024, type_id: 1) {
     Id: int @id
     DisplayName: string
@@ -50,7 +53,7 @@ table QuestProgress(plural: QuestProgressRows, persistence: local, capacity: 204
 
 ## Queries
 
-```prql
+```conjure
 query GetInventory(playerId: int) -> InventorySlot[] {
     from InventorySlots
     | filter PlayerId == @playerId
@@ -67,32 +70,46 @@ query GetPlayerGold(playerId: int) -> long {
 
 ## Commands
 
-```prql
-module Inventory
+```conjure
+module Inventory {
+    type GrantItemResult {
+        itemId: int
+        amountAfter: int
+    }
 
-command GrantItem(playerId: int, itemId: int, amount: int) -> GrantItemResult
-kind local
-{
-    require amount > 0 else InvalidAmount
+    command GrantItem(playerId: int, itemId: int, amount: int) -> GrantItemResult
+    kind: local
+    {
+        require @amount > 0 else InvalidAmount
 
-    upsert InventorySlots
-    | key { PlayerId: playerId, ItemId: itemId }
-    | set Amount += amount
-    | returning { amountAfter: Amount } into slotAfter
+        upsert InventorySlot
+        | key { PlayerId = @playerId, ItemId = @itemId }
+        | set { Amount += @amount }
+        | returning { amountAfter = Amount } into slotAfter
 
-    return {
-        itemId: itemId,
-        amountAfter: slotAfter.amountAfter
+        return {
+            itemId = @itemId,
+            amountAfter = slotAfter.AmountAfter
+        }
     }
 }
 ```
 
-> Note: This `GrantItem` is the compiled-command form (`require`/`upsert`/`returning`); it is distinct from the like-named [`GrantItem` mutation](/docs/query-language/mutations#upsert) in Mutations.md and the one in GettingStarted.md, which have different bodies.
+> Note: This `GrantItem` is the compiled-command form (`require`/`upsert`/`returning`); it is distinct from the like-named [`GrantItem` mutation](/docs/query-language/mutations#upsert) in Mutations and the one in Getting Started, which have different bodies.
 
 Compiled commands are state transitions. External dispatch owns transactions;
 subcommands compile to direct `ExecuteCore` calls.
 
 ## Use The Generated Context
+
+Generate the AOT pack explicitly after schema or project-semantic changes:
+
+```bash
+dotnet run --project ConjureDB.Compiler -- generate MyGame.Domain/MyGame.Domain.csproj \
+  --context GameDbContext --namespace MyGame.Domain
+```
+
+Normal `dotnet build` consumes that committed pack and does not run schema compilation.
 
 ```csharp
 using ConjureDB;
@@ -119,7 +136,7 @@ context.Commit();
 
 Copy runtime DLLs and the generated domain assembly into the Unity project. The
 Unity player consumes generated runtime artifacts; schema parsing and generation
-happen during the .NET build step.
+happen only when the manual compiler is invoked.
 
 ## Next Steps
 

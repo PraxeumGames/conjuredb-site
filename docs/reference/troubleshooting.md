@@ -32,10 +32,13 @@ Solutions for common issues when working with ConjureDB.
 **Solution:**
 
 ```bash
-# Add the core package and source generator
+# Add the runtime package
 dotnet add package ConjureDB
-dotnet add package ConjureDB.CodeGen
 ```
+
+Compiled schema/query packs are produced separately by the manual
+`ConjureDB.Compiler` CLI on the build host. There is no Roslyn build integration
+or generator package to add to a consumer project.
 
 If you use a private feed, ensure it is listed in your `nuget.config`:
 
@@ -49,33 +52,26 @@ If you use a private feed, ensure it is listed in your `nuget.config`:
 
 ---
 
-### Analyzer version conflicts
+### Stale Roslyn analyzer references
 
-**Problem:** Build warnings or errors about incompatible analyzer versions when ConjureDB.CodeGen and other source generators coexist.
+**Problem:** The build tries to load ConjureDB compiler assemblies as analyzers,
+or reports an incompatible `Microsoft.CodeAnalysis` version before compiling the
+consumer sources.
 
-**Cause:** Multiple generators targeting different versions of `Microsoft.CodeAnalysis` APIs.
+**Cause:** The project still contains legacy analyzer `ProjectReference` /
+`PackageReference` entries or analyzer-only MSBuild properties from the retired
+in-build generator path.
 
 **Solution:**
 
-1. Ensure all analyzer packages target the same .NET SDK version.
-2. Pin the SDK version in `global.json`:
-
-```json
-{
-  "sdk": {
-    "version": "9.0.300",
-    "rollForward": "latestPatch"
-  }
-}
-```
-
-3. If conflicts persist, verify that `ConjureDB.CodeGen` is referenced as an analyzer, not a regular dependency:
-
-```xml
-<PackageReference Include="ConjureDB.CodeGen"
-                  OutputItemType="Analyzer"
-                  ReferenceOutputAssembly="false" />
-```
+1. Remove ConjureDB compiler references whose `OutputItemType` is `Analyzer`.
+2. Remove schema `AdditionalFiles`, `CompilerVisibleProperty`, and
+   `EmitCompilerGeneratedFiles` wiring that existed only for the retired build
+   integration.
+3. Run the manual generation command exposed by `ConjureDB.Compiler` against
+   the consumer project and commit the complete generated pack.
+4. Compile the committed `Generated/*.g.cs` sources normally and run the
+   generator-drift gate in CI.
 
 ---
 
@@ -87,10 +83,11 @@ If you use a private feed, ensure it is listed in your `nuget.config`:
 
 **Solution:**
 
-1. Place `ConjureDB.dll` and `ConjureDB.CodeGen.dll` under `Assets/Plugins/ConjureDB/`.
-2. Place `ConjureDB.CodeGen.dll` under `Assets/Plugins/ConjureDB/Analyzers/` — set its `.meta` to **exclude from all platforms** (it runs at compile time only via Roslyn).
-3. Verify each `.meta` file has the correct platform include/exclude flags in the Inspector.
-4. If using the Unity package, run the provided `build-unity-package.sh` to populate the correct structure.
+1. Place the ConjureDB runtime DLLs under `Assets/Plugins/ConjureDB/Runtime/`.
+2. Place the compiler-produced `.g.cs` pack under a source folder owned by the
+   consumer assembly, for example `Assets/Generated/ConjureDB/`.
+3. Verify each runtime DLL `.meta` file has the correct platform include/exclude flags in the Inspector.
+4. If using the Unity package, run the provided `build-unity-package.sh` to populate the runtime structure. Compiler assemblies are not Unity plugins.
 
 ---
 
@@ -100,14 +97,15 @@ If you use a private feed, ensure it is listed in your `nuget.config`:
 
 **Problem:** The build succeeds but the expected generated method implementations are missing. Calling the query results in `NotImplementedException` or a missing member error.
 
-**Cause:** The source generator is not activated.
+**Cause:** The manual compiler was not rerun after the schema change, the
+generated pack was not committed, or the consumer project does not compile the
+committed pack.
 
 **Solution:**
 
-1. Confirm `ConjureDB.CodeGen` is referenced as an **analyzer** (see [Analyzer version conflicts](#analyzer-version-conflicts)).
-2. Queries are declared in a `.conjure` schema file with the `query` keyword — there is no C# attribute. The generator emits a method on the entity's generated set (and on the `I<Entity>Queries` interface it implements), which you call as `context.<EntitySet>.<QueryName>(args)`:
+1. Queries are declared in a `.conjure` schema file with the `query` keyword — there is no C# attribute. The compiler emits a method on the entity's generated set (and on the `I<Entity>Queries` interface it implements), which you call as `context.<EntitySet>.<QueryName>(args)`:
 
-```text
+```conjure
 // In a .conjure schema file
 query GetHighLevel(minLevel: int) -> Player[] {
     from Players | filter Level > @minLevel
@@ -119,9 +117,15 @@ query GetHighLevel(minLevel: int) -> Player[] {
 Player[] result = db.Players.GetHighLevel(minLevel);
 ```
 
-If the query is missing, confirm it is declared in a `.conjure` file that is included in the build (the schema is the only source of truth — a method on a plain C# interface or class is never generated).
+If the query is missing, confirm it is declared in a `.conjure` file owned by the
+compiler input project (the schema is the only source of truth — a method on a
+plain C# interface or class is never generated).
 
-3. Rebuild the project (`dotnet build`). Check the `obj/` directory for generated `.g.cs` files.
+2. Run the manual generation command exposed by `ConjureDB.Compiler` and target
+the project's committed `Generated/` directory.
+3. Confirm the project compiles `Generated/*.g.cs`, then run the generator-drift
+gate. A normal `dotnet build` consumes the committed pack; it does not generate
+or refresh it.
 
 ---
 
@@ -133,11 +137,9 @@ If the query is missing, confirm it is declared in a `.conjure` file that is inc
 
 **Solution:**
 
-1. Clean and rebuild:
-
-```bash
-dotnet clean && dotnet build
-```
+1. Rerun the manual `ConjureDB.Compiler` generation command. Generation validates
+   the complete source pack before replacing the committed output; do not edit a
+   generated file by hand.
 
 2. Ensure every persisted property on your entity has a `[Key(n)]` attribute with a unique ordinal:
 
@@ -150,7 +152,9 @@ public record Player(
 );
 ```
 
-3. If you renamed or removed a property, confirm the compiled query DSL text matches the current schema.
+3. If you renamed or removed a property, confirm the compiled query DSL text
+   matches the current schema, regenerate the pack, and run the drift gate before
+   rebuilding the consumer.
 
 ---
 
@@ -164,17 +168,19 @@ public record Player(
 
 **Solution:** The table name in the DSL must match the schema table name or its declared plural/table alias.
 
-```prql
+```conjure
 table Player(plural: Players, persistence: none) {
   id    : int @id
   level : int
 }
 ```
 
-```text
+```conjure
 // Both 'from Player' (table name) and 'from Players' (plural alias) resolve.
 // UM1007 fires only when the source matches NEITHER the table name nor its plural alias.
-query GetHigh() -> Player[] = from Players | filter Level > 10
+query GetHigh() -> Player[] {
+    from Players | filter Level > 10
+}
 ```
 
 ```csharp
@@ -199,12 +205,16 @@ public record Player([property: Key(0)] int Id,
                      [property: Key(1)] string Name);
 ```
 
-```text
+```conjure
 // ❌ Wrong — property is "Name", not "PlayerName"
-query FindByName(name: string) -> Player[] = from Players | filter PlayerName == @name
+query FindByName(name: string) -> Player[] {
+    from Players | filter PlayerName == @name
+}
 
 // ✅ Correct
-query FindByName(name: string) -> Player[] = from Players | filter Name == @name
+query FindByName(name: string) -> Player[] {
+    from Players | filter Name == @name
+}
 ```
 
 **See also:** [UM1008 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -217,16 +227,22 @@ query FindByName(name: string) -> Player[] = from Players | filter Name == @name
 
 **Cause:** Multiple tables in the query define a column with the same name and no table qualifier is used.
 
-**Solution:** Prefix the column with the table alias:
+**Solution:** Qualify shared column references with their table aliases. Multiple selected fields use a named object block:
 
-```text
-// ❌ Ambiguous — both Players and Guilds have "Id"
-query PlayerGuilds() -> PlayerGuildView[] =
-    from Players | join Guilds g (GuildId == Id) | select Id, g.Name
+```conjure
+// ❌ The bare Id is ambiguous because both joined tables define it.
+query PlayerGuilds() -> PlayerGuildView[] {
+    from Players p
+    | join Guilds g (p.GuildId == Id)
+    | select { Id = p.Id, Name = p.Name, Level = p.Level, GuildName = g.Name }
+}
 
-// ✅ Qualified — use alias prefix
-query PlayerGuilds() -> PlayerGuildView[] =
-    from Players p | join Guilds g (p.GuildId == g.Id) | select p.Id, g.Name
+// ✅ Qualify references and name the projected fields.
+query PlayerGuilds() -> PlayerGuildView[] {
+    from Players p
+    | join Guilds g (p.GuildId == g.Id)
+    | select { Id = p.Id, Name = p.Name, Level = p.Level, GuildName = g.Name }
+}
 ```
 
 **See also:** [UM1002 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -239,14 +255,20 @@ query PlayerGuilds() -> PlayerGuildView[] =
 
 **Cause:** A `join` clause requires an alias to distinguish the joined table, especially for self-joins.
 
-**Solution:** Always provide an alias for joined tables:
+**Solution:** Give each joined table an alias and qualify the join condition:
 
-```text
+```conjure
 // ❌ Missing alias
-query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds (GuildId == Id)
+query PlayerGuilds() -> PlayerGuildView[] {
+    from Players | join Guilds (GuildId == Id)
+}
 
-// ✅ With alias
-query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildId == g.Id)
+// ✅ With aliases
+query PlayerGuilds() -> PlayerGuildView[] {
+    from Players p
+    | join Guilds g (p.GuildId == g.Id)
+    | select { Id = p.Id, Name = p.Name, Level = p.Level, GuildName = g.Name }
+}
 ```
 
 ---
@@ -255,19 +277,34 @@ query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildI
 
 **Problem:** `error UM1005: Invalid aggregate usage` — aggregate function used outside a `group` context.
 
-**Cause:** `sum()`, `count()`, `avg()`, etc. require a preceding `group` stage or must be used as a scalar aggregate over the entire table.
+**Cause:** Aggregate calls must appear in an explicit `aggregate` stage (or an admitted window invocation); an ordinary `select` is not an aggregate context. Use a scoped `group key (pipeline)` for per-key reductions. For a whole-input reduction, use `aggregate` without `group`.
 
-**Solution:**
+**Solution:** Use `count()` for a row count, and pass a value to folds such as `sum(value)` and `avg(value)`:
 
-```text
-// ❌ Wrong — aggregate without group
-query ScoreByName() -> ScoreView[] = from Players | select Name, sum(Score)
+```conjure
+using PlayerScore = (Name: string, Total: long?)
+using LevelScore = (Level: int, Total: long?)
 
-// ✅ Correct — aggregate with group
-query ScoreByLevel() -> ScoreView[] = from Players | group Level | select Level, sum(Score)
+// ❌ The aggregate is outside an aggregate stage.
+query ScoreByName() -> PlayerScore[] {
+    from Players p
+    | select { Name = p.Name, Total = sum(p.Score) }
+}
 
-// ✅ Also correct — scalar aggregate (no select of non-aggregated columns)
-query TotalScore() -> long = from Players | select sum(Score)
+// ✅ A per-level reduction runs inside the group scope.
+query ScoreByLevel() -> LevelScore[] {
+    from Players p
+    | group p.Level (aggregate Total = sum(p.Score))
+    | select { Level = Level, Total = Total }
+}
+
+// ✅ Whole-input scalar aggregates have an explicit stage and an unnamed result.
+query TotalScore() -> long? {
+    from Players p | aggregate sum(p.Score)
+}
+query PlayerCount() -> long {
+    from Players p | aggregate count()
+}
 ```
 
 **See also:** [UM1005 in Error Codes](/docs/reference/error-codes#semantic-errors-um1xxx)
@@ -282,12 +319,16 @@ query TotalScore() -> long = from Players | select sum(Score)
 
 **Solution:** Ensure both sides of an operator have compatible types:
 
-```text
+```conjure
 // ❌ Type mismatch — Level is int, "10" is string literal
-query ByLevel() -> Player[] = from Players | filter Level == "10"
+query ByLevel() -> Player[] {
+    from Players | filter Level == "10"
+}
 
 // ✅ Correct — integer literal
-query ByLevel() -> Player[] = from Players | filter Level == 10
+query ByLevel() -> Player[] {
+    from Players | filter Level == 10
+}
 ```
 
 ---
@@ -308,7 +349,7 @@ query ByLevel() -> Player[] = from Players | filter Level == 10
 
 **Workaround:** Restructure the query to use supported operators, or perform the operation in application code after the query.
 
-**See also:** [UM5xxx in Error Codes](/docs/reference/error-codes#unsupported-features-um5xxx)
+**See also:** [UM5xxx in Error Codes](/docs/reference/error-codes#unsupported-feature-errors-um5xxx)
 
 ---
 
@@ -316,16 +357,22 @@ query ByLevel() -> Player[] = from Players | filter Level == 10
 
 **Problem:** `error UM5005: Syntax error` — the query text could not be parsed.
 
-**Cause:** Malformed DSL syntax — missing pipe `|`, unclosed parentheses, invalid keywords.
+**Cause:** Malformed DSL syntax — missing pipe `|`, unclosed parentheses, invalid keywords. Inside a `.conjure` schema file the same failure is reported as `SCH1026` ("Canonical DSL.Syntax rejected schema query …"), which carries the query parser's own code and position — `P099` for the missing pipe below.
 
 **Solution:** Verify the query against the [Query Language Reference](/docs/query-language/reference):
 
-```text
+```conjure
 // ❌ Missing pipe separator
-query ByLevel() -> Player[] = from Players filter Level > 10
+query ByLevel() -> Player[] {
+    from Players filter Level > 10
+}
+```
 
+```conjure
 // ✅ Correct pipe syntax
-query ByLevel() -> Player[] = from Players | filter Level > 10
+query ByLevel() -> Player[] {
+    from Players | filter Level > 10
+}
 ```
 
 ---
@@ -339,12 +386,7 @@ query ByLevel() -> Player[] = from Players | filter Level > 10
 **Solution:**
 
 1. Simplify the query and rebuild to isolate the problematic construct.
-2. Emit a plan-diagnosis report for the query to inspect the physical plan and optimization trace:
-
-```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md
-```
-
+2. Add `[DebugGeneration]` to the query method to inspect the plan trace.
 3. If the issue persists, file a bug report with the query text, entity schema, and full diagnostic output.
 
 **See also:** [UM6xxx in Error Codes](/docs/reference/error-codes#emission-errors-um6xxx)
@@ -355,7 +397,7 @@ dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-pla
 
 ### "No active transaction" — InvalidOperationException
 
-**Problem:** `InvalidOperationException: Transaction is not started` when calling `Add()`, `Update()`, or `Remove()`.
+**Problem:** `InvalidOperationException: No active transaction` when calling `Add()`, `Update()`, or `Remove()`.
 
 **Cause:** All mutations require an explicit transaction.
 
@@ -439,7 +481,7 @@ var results = queries.GetTopPlayers(10);
 
 **Solution:** Add an index on the filtered property:
 
-```text
+```conjure
 table Player {
   Id      : int @id
   Name    : string
@@ -458,16 +500,15 @@ table Player {
 
 **Symptom:** Warning `UM7002: Cartesian product` — join without a condition.
 
-**Cause:** A `join` stage has no predicate, producing a cross product of both tables.
+**Cause:** The optimized plan contains a nested-loop join with no predicate over two large inputs, so every row of one side is paired with every row of the other. The DSL itself cannot express a predicate-less join: `join Guilds g` without the parenthesized condition is a syntax error, not a cross product.
 
-**Solution:** Add a join condition:
+**Solution:** Give the join a condition that relates the two sides:
 
-```text
-// ❌ Cartesian product
-query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g
-
+```conjure
 // ✅ With join condition
-query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildId == g.Id)
+query PlayerGuilds() -> PlayerGuildView[] {
+    from Players | join Guilds g (GuildId == g.Id)
+}
 ```
 
 ---
@@ -480,12 +521,16 @@ query PlayerGuilds() -> PlayerGuildView[] = from Players | join Guilds g (GuildI
 
 **Solution:** Add a `take` clause or use a pre-sorted index:
 
-```text
+```conjure
 // ⚠️ Sorts all players
-query TopPlayers() -> Player[] = from Players | sort -Score
+query TopPlayers() -> Player[] {
+    from Players | sort -Score
+}
 
 // ✅ Only materializes top 10
-query TopPlayers() -> Player[] = from Players | sort -Score | take 10
+query TopPlayers() -> Player[] {
+    from Players | sort -Score | take 10
+}
 ```
 
 ---
@@ -533,7 +578,7 @@ query TopPlayers() -> Player[] = from Players | sort -Score | take 10
 **Solution:**
 
 1. Keep snapshots small — snapshot only on meaningful checkpoints, not every frame.
-2. Snapshots are already compressed by default (`SnapshotOptions.CompressSnapshots = true`); there is no separate `WithSnapshotCompression()` builder method to call.
+2. Use `WithSnapshotCompression()` to reduce I/O time.
 3. Profile startup with `System.Diagnostics.Stopwatch` around `DbContext` creation to identify the bottleneck (snapshot load vs. journal replay vs. index rebuild).
 
 ---
@@ -569,7 +614,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 1. If the snapshot is intact, delete the corrupted journal file — committed data up to the last snapshot is preserved.
 2. Implement a backup strategy: keep the previous snapshot alongside the current one.
-3. Inspect the exception's `Offset` and `JournalFile` properties for diagnostic details (the read-status detail appears only in the exception message text).
+3. Inspect the exception's `Offset` and `StatusCode` properties for diagnostic details.
 
 ---
 
@@ -625,7 +670,6 @@ public record Player(
 <!-- Assets/link.xml -->
 <linker>
   <assembly fullname="ConjureDB" preserve="all" />
-  <assembly fullname="ConjureDB.CodeGen" preserve="all" />
   <assembly fullname="MessagePack" preserve="all" />
   <assembly fullname="MessagePack.Annotations" preserve="all" />
 </linker>
@@ -665,7 +709,7 @@ var db = DbContextBuilder<GameDb>.Create()
 
 1. Always test in an IL2CPP build before shipping.
 2. Avoid `dynamic`, runtime generic type construction, and stripping the public `DbConfiguration` constructor that `DbContextBuilder<T>.Create()` relies on.
-3. Use `query` — the source generator produces AOT-compatible code at build time.
+3. Include the committed compiler-generated query pack in the Unity consumer assembly; IL2CPP compiles those sources AOT.
 
 ---
 
@@ -713,7 +757,7 @@ var db = DbContextBuilder<GameDb>.Create()
 2. For **breaking changes** (field removal, type change, reordering): increment the table `schema_version` and register a migration handler.
 3. Ensure `type_id` is stable across versions - it is the entity's identity for persistence.
 
-```prql
+```conjure
 table Player(plural: Players, persistence: local, type_id: 1, schema_version: 2) {
   id        : int @id
   name      : string
@@ -820,8 +864,8 @@ A: No. ConjureDB uses a pipe-based DSL that is more expressive for game developm
 
 ---
 
-**Q: Can I use ConjureDB without the source generator?**
-A: Yes. The core engine (`DbContext`, `DbSet<T>`, transactions, persistence) works standalone. Compiled queries are opt-in via `ConjureDB.CodeGen`. You can use `FindById()`, `All()`, and index methods directly.
+**Q: Can I use ConjureDB without a compiled query pack?**
+A: Yes. The core engine (`DbContext`, `DbSet<T>`, transactions, persistence) works standalone. Compiled queries are opt-in and are produced by the manual `ConjureDB.Compiler` CLI. You can use `FindById()`, `All()`, and index methods directly.
 
 ---
 
@@ -840,9 +884,12 @@ A: You can, but it is **not recommended** for hot paths. LINQ allocates (enumera
 **Q: How do I do a LEFT JOIN?**
 A: Use the `left join` syntax in the DSL. Declare the query in a `.conjure` schema and call the generated method:
 
-```text
-query GetPlayersWithGuilds() -> PlayerGuildView[] =
-    from Players p | left join Guilds g (p.GuildId == g.Id) | select p.Name, g.Name
+```conjure
+query GetPlayersWithGuilds() -> PlayerGuildView[] {
+    from Players p
+    | left join Guilds g (p.GuildId == g.Id)
+    | select { Id = p.Id, Name = p.Name, Level = p.Level, GuildName = g.Name }
+}
 ```
 
 ```csharp
@@ -863,29 +910,26 @@ A: Common causes:
 ---
 
 **Q: How do I debug a compiled query?**
-A: The generated `.g.cs` file includes the original DSL text (`// DSL:`) and per-operator strategy comments (e.g. `// === Join Strategy: SecondaryIndexLookup ===`) under `obj/Debug/net8.0/generated/`. The full optimization trace and physical plan are **not** embedded in the generated file — emit them as a separate markdown report with `--dump-plan` / `--dump-plan-report`. Declare the query in a `.conjure` schema:
+A: The compiler emits the optimization trace and physical plan as comments in the generated `.g.cs` file. Declare the query in a `.conjure` schema:
 
-```text
-query GetTop() -> Player[] = from Players | filter Level > 10 | sort -Score | take 5
+```conjure
+query GetTop() -> Player[] {
+    from Players | filter Level > 10 | sort -Score | take 5
+}
 ```
 
-```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=GetTop --dump-plan-report=plan-report.md
-```
+Open the corresponding file in the project's committed `Generated/` pack and
+inspect the compiler diagnostics/explain artifacts produced by the same manual
+generation run.
 
 ---
 
 ### Performance
 
 **Q: How do I know if my query uses an index?**
-A: Three approaches:
-1. **Compiler warnings** — if the query does a full scan, the compiler emits `UM7001` (full scan on a large table). `UM7009` (index recommendation) is produced only when the experimental index-access analyzer is explicitly enabled (`CompilerOptions.EnableExperimentalIndexAccessAnalyzer = true`); by default it is off, so rely on the auto-index advisory below.
-2. **Plan-diagnosis report** — emit the physical plan for the query to see which index (if any) was selected for each scan node:
-
-```bash
-dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md
-```
-
+A: Two approaches:
+1. **Compiler warnings** — if the query does a full scan, the compiler emits `UM7001` (full scan) or `UM7009` (index recommendation).
+2. **`[DebugGeneration]`** — the trace shows which index (if any) was selected for each scan node.
 3. **Auto-index advisory** — if you compile with `CompilerOptions.AutoIndexing.Mode = ReportOnly`, inspect `PlanExplain.AutoIndexAdvisory` or the derived `auto-index-report.json`. This shows which missing indexes would likely help, without mutating the schema or changing the selected executable plan.
 
 ---
@@ -911,7 +955,7 @@ A: Yes. ConjureDB is designed for IL2CPP from the ground up. Use `DbContextBuild
 ---
 
 **Q: Can I use ConjureDB in a Unity ECS (DOTS)?**
-A: Two answers. Alongside DOTS: use ConjureDB for persistent game data (inventory, progression, configuration) from the main thread and copy results into ECS components. Instead of an ECS: [ephemeral tables](/docs/advanced/ephemeral-tables) give frame state its own chunked storage, frame systems and compiled queries in the same schema — on .NET 8 hosts today; Unity support arrives with the netstandard2.1 emission profile that is in progress.
+A: ConjureDB is a separate in-memory database, not an ECS replacement. You can use it alongside DOTS for persistent game data (inventory, progression, configuration) while DOTS handles simulation. Access ConjureDB from the main thread and copy results into ECS components as needed.
 
 ---
 
@@ -930,6 +974,6 @@ A: Unity 2021.3 LTS and later, targeting .NET Standard 2.1. Both Mono and IL2CPP
 If your issue is not covered here:
 
 1. Check the [Error Codes](/docs/reference/error-codes) reference for detailed explanations of every diagnostic code.
-2. Emit a plan-diagnosis report with `dotnet run --project ConjureDB.CodeGen.Manual -- <schemaDir> <outDir> --dump-plan=<QueryName> --dump-plan-report=plan-report.md` to inspect the compiler's selected plan and optimization trace.
+2. Add `[DebugGeneration]` to your query to inspect the compiler's decision trace.
 3. Review the [Performance Tips](/docs/performance/performance-tips) for optimization guidance.
 4. File a bug report with: query text, entity schema, full diagnostic output, and .NET / Unity version.

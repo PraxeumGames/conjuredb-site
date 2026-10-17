@@ -6,11 +6,10 @@ parameter types, result shape, indexes, and optimization hints.
 
 ## Basic Query
 
-```prql
+```conjure
 query GetPlayersByLevel(minLevel: int) -> Player[] {
     from Players
     | filter Level >= @minLevel
-    | select { Id, Name, Level }
     | sort -Level
 }
 ```
@@ -27,7 +26,7 @@ There is no reflection or runtime query parsing in steady state.
 
 Return a table row:
 
-```prql
+```conjure
 query GetPlayer(id: int) -> Player? {
     from Players
     | filter Id == @id
@@ -37,7 +36,7 @@ query GetPlayer(id: int) -> Player? {
 
 Return a projection:
 
-```prql
+```conjure
 query GetLeaderboard(count: int) -> LeaderboardRow[] {
     from Players
     | sort -Score
@@ -52,21 +51,45 @@ query GetLeaderboard(count: int) -> LeaderboardRow[] {
 
 Return aggregates:
 
-```prql
+```conjure
 query GetGuildScoreTotals() -> GuildScoreTotal[] {
-    from Players
-    | group GuildId (aggregate {
-        totalScore = sum(Score),
-        playerCount = count()
+    from Players p
+    | group p.GuildId (aggregate {
+        TotalScore = sum(p.Score),
+        PlayerCount = count()
       })
+    | select { GuildId = GuildId, TotalScore = TotalScore, PlayerCount = PlayerCount }
 }
 ```
+
+## NoAlloc Variants
+
+Collection queries may expose three generated execution surfaces when their physical
+plans satisfy the corresponding compiler contract:
+
+- the ordinary method materializes its result;
+- `...NoAlloc()` avoids the ordinary `List<T>` result and returns a
+  `DisposableQueryResult<T>` backed by `ArrayPool<T>`; a cold or trimmed pool rent may
+  still allocate, so this surface does not claim zero heap for the complete call. Its
+  separate compiler-execution proof rejects per-query heap collections, allocating
+  expressions, reference-result construction, and unproved index preparation inside
+  the selected physical plan;
+- `...ForEach<TConsumer>(ref consumer, ...)` streams into caller-owned storage and is
+  emitted only when the compiler proves zero heap for the generated query path. The
+  caller-owned `TConsumer.OnRow` callback is outside that proof; the complete call is
+  zero heap only when the supplied consumer is allocation-free as well.
+
+The compiler optimizes supplementary surfaces independently. An ordinary query may
+therefore keep a cheaper allocating hash plan while its `ForEach` surface selects a
+direct index lookup that satisfies the compiler-execution zero-heap constraint. If no legal plan can be
+proved, generation omits that supplementary surface rather than publishing an
+unsound allocation guarantee.
 
 ## Cardinality
 
 Use lower-case terminals in schema queries:
 
-```prql
+```text
 | single
 | single_or_default
 | first
@@ -76,15 +99,14 @@ Use lower-case terminals in schema queries:
 | to_list
 ```
 
-`first`/`first_or_default` return the first row in the pipeline's current
-order; pair them with an explicit `sort` for a deterministic result, as results
-are otherwise unordered.
+`first` and `first_or_default` should have deterministic ordering when exposed
+as generated APIs. The compiler warns when order cannot be proven.
 
 ## Parameters
 
 Parameters are declared in the query signature and referenced by name:
 
-```prql
+```conjure
 query GetItems(ownerId: int, minRarity: int) -> Item[] {
     from Items
     | filter OwnerId == @ownerId
@@ -97,7 +119,7 @@ query GetItems(ownerId: int, minRarity: int) -> Item[] {
 
 Declare indexes in the same schema so the optimizer has typed metadata:
 
-```prql
+```conjure
 table Item(plural: Items, persistence: local, capacity: 50000, type_id: 2) {
     Id: int @id
     OwnerId: int
@@ -120,7 +142,7 @@ a declared materialized index matches. Ordinary queries whose normalized body
 matches a reactive query's hidden `ReactiveAutoView` relation are planned over
 that already maintained relation/index when equivalence is proven; plan explain
 reports the hidden origin, proof kind, selected/base cost, and selected
-materialized access. See [Schema Language](/docs/schema/schema-language#65--views-and-materialized-views)
+materialized access. See [Schema Language](/docs/schema/schema-language#66--views-and-materialized-views)
 for materialized-view declaration semantics, the `rewrite` option, in-memory
 derivation, and `ReactiveAutoView` visibility rules.
 
@@ -138,7 +160,7 @@ materialized relation or materialized index slice. Unsupported reactive shapes
 fail before emission rather than producing generated code without a supported
 Z-set materialized maintainer.
 
-```prql
+```conjure
 reactive query TopPlayers(count: int) -> Player[] {
     from Players
     | sort -Score
@@ -150,7 +172,7 @@ reactive query TopPlayers(count: int) -> Player[] {
 
 Register external pure functions in schema:
 
-```prql
+```conjure
 extern function calculateDamage(level: int, power: int) -> int =
     Game.Rules.Combat.CalculateDamage
 ```

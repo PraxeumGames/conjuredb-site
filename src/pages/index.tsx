@@ -37,6 +37,7 @@ function Hero(): ReactNode {
             <span className={styles.chip}>.NET 8 · .NET Standard 2.1</span>
             <span className={styles.chip}>Index-aware optimizer</span>
             <span className={styles.chip}>Reactive views · IVM</span>
+            <span className={styles.chip}>Ephemeral tables · frame systems</span>
           </div>
         </div>
         <div className={styles.heroCode}>
@@ -153,6 +154,13 @@ const BENEFITS: Benefit[] = [
     cta: 'Reactive queries →',
   },
   {
+    tag: 'Frame state · ECS',
+    title: 'ECS-class frame state, same schema file',
+    body: 'Ephemeral tables give per-frame state — positions, projectiles, hit events — chunked struct-of-arrays storage, generational handles and declarative systems scheduled per phase, with 0 B/frame. And one thing no ECS has: a planner that joins live frame state to your persistent tables and their indexes.',
+    link: '/docs/advanced/ephemeral-tables',
+    cta: 'Ephemeral tables →',
+  },
+  {
     tag: 'Frame budget',
     title: 'AOT-safe, allocation-lean C#',
     body: 'It compiles to plain C# — no runtime codegen, no reflection on the query path — so it survives IL2CPP and a tight mobile frame. The query hot path is allocation-free; if you do not trust it, read the generated code.',
@@ -166,7 +174,7 @@ function Benefits(): ReactNode {
     <section className="cdb-section">
       <div className="container">
         <span className="cdb-kicker">What that one move buys you</span>
-        <h2 className="cdb-h2">Four wins from the same decision</h2>
+        <h2 className="cdb-h2">Five wins from the same decision</h2>
         <div className="cdb-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '2rem'}}>
           {BENEFITS.map((b) => (
             <div className={`cdb-card ${styles.benefit}`} key={b.title}>

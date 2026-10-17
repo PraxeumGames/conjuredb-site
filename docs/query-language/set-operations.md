@@ -1,12 +1,24 @@
 # Set Operations & Composition Reference
 
-> **Version**: 1.0 — ConjureDB Compiler
+> **Source format**: current canonical `.conjure` syntax (owning format marker `2`)
 > **Audience**: Developers writing compiled queries via `query`
 > **See also:** [Query Language](/docs/query-language/reference) · [SQL Reference](/docs/query-language/sql-reference) · [Functions Reference](/docs/query-language/functions)
 
 ---
 
-This document covers set-level operations that combine multiple pipelines, reusable named sub-query bindings (`let` / `into`), and subquery expressions.
+This document covers set-level operations that combine multiple pipelines,
+reusable named-subquery bindings (`let`), and
+subquery expressions. Examples show fragments for a braced `query` body;
+declare `min: decimal` in the containing query's typed header where `@min` is used.
+Tables and columns in a fragment must be declared by the containing schema; the
+examples use `Players` (`Id`, `Name`, `Level`, `Score`, `GuildId`, `MiddleName`,
+`OptionalScore`), `Guilds` (`Id`, `GuildName`, `IsActive`), `Customers` (`Id`,
+`Name`, `IsVip`), `Orders` (`Id`, `PlayerId`, `CustomerId`, `Total`, `TotalAmount`,
+`Amount`, `Status`), `OrderItems` (`OrderId`, `Qty`), and `Products` (`Id`,
+`CategoryId`, `Discontinued`). IDs and levels are integers, amounts are decimal,
+names/status are strings, and flags are Boolean; `MiddleName` and `OptionalScore`
+are nullable string and numeric columns. Adapt both the declarations and result
+shape together rather than treating these names as built-in data sources.
 
 ## Table of Contents
 
@@ -29,8 +41,8 @@ Combines results from multiple pipelines.
 
 ```ebnf
 set_op = "union" ["all"] "(" pipeline ")"
-       | "intersect" ["all"] "(" pipeline ")" ["by" column_list]
-       | "except" ["all"] "(" pipeline ")" ["by" column_list] ;
+       | "intersect" ["all"] "(" pipeline ")"
+       | "except" ["all"] "(" pipeline ")" ;
 ```
 
 | Operator | Description | Duplicates |
@@ -42,11 +54,15 @@ set_op = "union" ["all"] "(" pipeline ")"
 | `except` | Left rows not present in right | Removed |
 | `except all` | Left rows not present in right | Kept |
 
-The optional `by` clause specifies which columns to use for matching (for `intersect` and `except`).
+Both operands must publish compatible result shapes. Matching uses the projected
+values. Project the intended keys before a set operation; to retain a complete
+left row while testing a key, use correlated existence instead of a `by` clause.
+`intersect all` keeps the minimum multiplicity on the two sides; `except all`
+subtracts right-side multiplicity, stopping at zero.
 
 **Examples — union:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | union (from Players | filter Score > 1000 | select Id)
 | sort Id
@@ -54,7 +70,7 @@ from Players | filter Level > 10 | select Id
 
 **Examples — union all:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | union all (from Players | filter Score >= 2000 | select Id)
 | sort Id
@@ -62,7 +78,7 @@ from Players | filter Level > 10 | select Id
 
 **Examples — intersect:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | intersect (from Players | filter Score > 1000 | select Id)
 | sort Id
@@ -70,24 +86,24 @@ from Players | filter Level > 10 | select Id
 
 **Examples — intersect all:**
 
-```
+```conjure
 from Players p | filter p.Level >= 10 | select { p.MiddleName, p.OptionalScore }
-| intersect all (from Players x | filter x.OptionalScore is null || x.MiddleName is null | select { x.MiddleName, x.OptionalScore })
+| intersect all (from Players x | filter x.OptionalScore == null || x.MiddleName == null | select { x.MiddleName, x.OptionalScore })
 ```
 
 **Examples — except:**
 
-```
+```conjure
 from Players | filter Score > 1000 | select Id
 | except (from Players | filter Level > 10 | select Id)
 | sort Id
 ```
 
-**Examples — except with by:**
+**Example — key-based exclusion while retaining the left row:**
 
-```
-from Products | filter CategoryId == 1
-| except (from Products | filter Discontinued == true) by Id
+```conjure
+from Products p | filter p.CategoryId == 1
+| filter !exists(from Products other | filter other.Discontinued && other.Id == p.Id)
 ```
 
 **SQL equivalent:**
@@ -106,7 +122,9 @@ SELECT Id FROM Players WHERE Level > 10;
 
 ## LET Bindings (CTEs)
 
-Defines reusable named sub-queries at the module level. This is conceptually similar to a non-recursive SQL `WITH` binding, but `let` is the supported DSL surface.
+Defines reusable named pipelines inside a query body, before its main pipeline.
+Bindings are query-local and non-recursive; they are not module-level variables.
+SQL-style `with` is not an alternative DSL spelling.
 
 **Syntax:**
 
@@ -116,72 +134,82 @@ let_decl = "let" IDENT "=" "(" pipeline ")" ;
 
 **Examples — single binding:**
 
-```
-let top_players = (from Players | filter Score > 1000 | select Id, Name, Score)
+```conjure
+let top_players = (from Players | filter Score > 1000 | select { Id, Name, Score, GuildId })
 
 from top_players t
 | join Guilds g (t.GuildId == g.Id)
-| select t.Name, g.GuildName
+| select { t.Name, g.GuildName }
 ```
 
 **Examples — multiple bindings:**
 
-```
+```conjure
 let high_value = (from Orders | filter TotalAmount > @min)
 let vip_customers = (from Customers | filter IsVip == true)
 
 from high_value h
 | join vip_customers v (h.CustomerId == v.Id)
-| select h.Id, v.Name, h.TotalAmount
-| sort -h.TotalAmount
+| select { h.Id, v.Name, h.TotalAmount }
+| sort -TotalAmount
 ```
 
 **SQL equivalent:**
 
 ```sql
 -- let top_players = (...) from top_players ...
-WITH top_players AS (SELECT Id, Name, Score FROM Players WHERE Score > 1000)
+WITH top_players AS (SELECT Id, Name, Score, GuildId FROM Players WHERE Score > 1000)
 SELECT t.Name, g.GuildName
 FROM top_players t JOIN Guilds g ON t.GuildId = g.Id;
 ```
 
+**Bare set operations are retired.** `A union from B` (no `|`, no parentheses) is refused with `SCH2173`; write `A | union (from B)`. The retired bare form was right-associative: its operand ran to the end of the enclosing pipeline, so `A union from B union from C` meant `A | union (from B | union (from C))`, not SQL's left-to-right evaluation of a set-operation chain. The canonical stage is explicit about its operand.
+
 ---
 ## SQL-Style WITH Status
 
-Non-recursive SQL-style `with Name as (...)` IS supported: the parser maps `with` CTEs to the same internal binding as `let`, including comma-separated multi-CTE declarations and an optional column list (`Name(col1, col2) as (...)`), which is accepted but currently ignored (output column names come from the pipeline's `select`).
+SQL-style `with Name as (...)` is a retired spelling: the parser refuses it with `SCH2173`, and a fix-it rewrites a single CTE to `let Name = (...)`. A `with` that declares several CTEs is refused without a fix-it (one edit cannot rewrite them all); write one `let` per CTE. A CTE column list (`Name(col1, col2) as (...)`) used to be parsed and silently dropped; it is refused without a fix-it, because renaming the outputs needs an explicit `select` inside the `let`.
 
-- Use `let name = (pipeline)` or the equivalent `with name as (pipeline)` for named-subquery reuse.
-- Use `| into name` for a lightweight single-pipeline handoff.
-- The `recursive` keyword is accepted after `with` but ignored — there is no anchor/recursive-term handling. A `with recursive` whose body does NOT reference the CTE itself compiles as an ordinary non-recursive CTE. A genuinely recursive (self-referencing) CTE fails to bind with error BIND_RES_010 ("Let binding not found in scope"), because a CTE's own name is not in scope within its own body. So self-referencing recursive CTEs are rejected at compile time, not silently degraded to non-recursive results.
+- Use `let name = (pipeline)` for named-subquery reuse.
+- `| into name` is retired as well; write `let name = (pipeline)` and start a new `from name` pipeline.
+- `with recursive ... as (...)` is rejected with UM5003. Recursive/transitive-closure traversal is not implemented.
 
 ---
 
 ## Subquery Expressions
 
-Subqueries can appear in several expression positions.
+A parenthesized pipeline can be correlated with aliases from its enclosing query.
+An unnamed aggregate supplies a scalar reduction; collection projections and
+scalar terminals have different result contracts. An arbitrary multirow selection
+is not automatically a scalar. Declare the containing query's result type and
+cardinality accordingly. See [Query Language](/docs/query-language/reference#result-signatures-and-cardinality).
 
 **Scalar subquery (single-value result):**
 
-```
+```conjure
 from Players p
-| select p.Id, (from Orders o | filter o.PlayerId == p.Id | aggregate { Cnt = count o.Id }) as OrderCount
+| select { p.Id, OrderCount = (from Orders o | filter o.PlayerId == p.Id | aggregate count()) }
 ```
 
 **IN subquery:**
 
-```
+```conjure
 from Players
 | filter GuildId in (from Guilds | filter IsActive == true | select Id)
 ```
 
 **EXISTS subquery:**
 
-```
+```conjure
 from Players p
 | filter exists (from Orders o | filter o.PlayerId == p.Id)
 ```
 
 ---
+
+A multi-output `select` uses a named tuple (`select { ... }`); a single
+output is scalar (`select Id`). A group body has its own scope: reduce and name
+its outputs before the enclosing pipeline reads them.
 
 ## Examples
 
@@ -189,25 +217,25 @@ from Players p
 
 **Correlated EXISTS:**
 
-```
+```conjure
 from Players p
-| filter exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 100 | select o.Id)
+| filter exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 100m | select o.Id)
 | select p.Id
 | sort p.Id
 ```
 
 **Correlated NOT EXISTS:**
 
-```
+```conjure
 from Players p
-| filter not exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 100 | select o.Id)
+| filter !exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 100m | select o.Id)
 | select p.Id
 | sort p.Id
 ```
 
 **Correlated IN:**
 
-```
+```conjure
 from Orders o
 | filter o.Id in (from OrderItems i | filter i.OrderId == o.Id | select i.OrderId)
 | select o.Id
@@ -216,7 +244,10 @@ from Orders o
 
 **Correlated NOT IN:**
 
-```
+Negated membership is not interchangeable with `!exists` or `!(x in S)` in the
+presence of null values. See [nulls in membership](/docs/query-language/reference#nulls-in-membership).
+
+```conjure
 from Orders o
 | filter o.Id not in (from OrderItems i | filter i.OrderId == o.Id && i.Qty > 1 | select i.OrderId)
 | select o.Id
@@ -225,13 +256,13 @@ from Orders o
 
 **Combined EXISTS and IN:**
 
-```
+```conjure
 from Players p
-| filter exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 20 | select o.Id)
-  && not exists(from Orders n | filter n.PlayerId == p.Id && n.Total < 0 | select n.Id)
+| filter exists(from Orders o | filter o.PlayerId == p.Id && o.Total > 20m | select o.Id)
+  && !exists(from Orders n | filter n.PlayerId == p.Id && n.Total < 0m | select n.Id)
   && p.Id in (
-    from Orders a | filter a.Total >= 20 | select a.PlayerId
-    | intersect all (from Orders b | filter b.Total <= 100 | select b.PlayerId)
+    from Orders a | filter a.Total >= 20m | select a.PlayerId
+    | intersect all (from Orders b | filter b.Total <= 100m | select b.PlayerId)
   )
 ```
 
@@ -239,26 +270,23 @@ from Players p
 
 **Simple let binding:**
 
-```
+```conjure
 let high_value = (from Orders | filter TotalAmount > @min)
 
 from high_value h
 | join Customers c (h.CustomerId == c.Id)
-| select h.Id, c.Name, h.TotalAmount
-| sort -h.TotalAmount
+| select { h.Id, c.Name, h.TotalAmount }
+| sort -TotalAmount
 ```
 
-For staged composition, use `let` bindings, the equivalent non-recursive SQL-style `with name as (pipeline)`, or `| into` handoffs. Note that `with recursive` is accepted but its recursive semantics are not implemented: the `recursive` keyword is ignored, so a `with recursive` whose body references the CTE itself fails to bind (error BIND_RES_010), and one that does not reference itself behaves as a plain non-recursive CTE. It never performs transitive-closure traversal.
+For staged composition, use `let` bindings. `with recursive` is rejected with UM5003 rather than silently evaluating only an anchor pipeline.
 
-**Pipeline with into:**
+**Staged pipeline with let:**
 
-```
-from Orders
-| filter Status == "Shipped"
-| into shipped
-
+```conjure
+let shipped = (from Orders | filter Status == "Shipped")
 from shipped
-| group CustomerId (aggregate { Total = sum Amount })
+| group CustomerId (aggregate Total = sum(Amount))
 | sort -Total
 | take 10
 ```
@@ -268,7 +296,7 @@ from shipped
 
 **Union:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | union (from Players | filter Score > 1000 | select Id)
 | sort Id
@@ -276,7 +304,7 @@ from Players | filter Level > 10 | select Id
 
 **Union all:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | union all (from Players | filter Score >= 2000 | select Id)
 | sort Id
@@ -284,18 +312,18 @@ from Players | filter Level > 10 | select Id
 
 **Union with post-processing:**
 
-```
+```conjure
 from Players p | filter p.Score >= 80 | select { Tier = p.Level, ActorId = p.Id }
 | union (from Players p2 | filter p2.Level >= 2 && p2.Score >= 60 | select { Tier = p2.Level, ActorId = p2.Id })
 | filter Tier >= 2
-| group Tier (aggregate { DistinctActors = count ActorId })
+| group Tier (aggregate DistinctActors = count_distinct(ActorId))
 | select { Tier, DistinctActors }
-| sort -DistinctActors, Tier
+| sort { -DistinctActors, Tier }
 ```
 
 **Intersect:**
 
-```
+```conjure
 from Players | filter Level > 10 | select Id
 | intersect (from Players | filter Score > 1000 | select Id)
 | sort Id
@@ -303,18 +331,18 @@ from Players | filter Level > 10 | select Id
 
 **Intersect all with NULLs:**
 
-```
+```conjure
 from Players p | filter p.Level >= 10 | select { p.MiddleName, p.OptionalScore }
 | intersect all (
     from Players x
-    | filter x.OptionalScore is null || x.MiddleName is null
+    | filter x.OptionalScore == null || x.MiddleName == null
     | select { x.MiddleName, x.OptionalScore }
   )
 ```
 
 **Except:**
 
-```
+```conjure
 from Players | filter Score > 1000 | select Id
 | except (from Players | filter Level > 10 | select Id)
 | sort Id
@@ -322,11 +350,11 @@ from Players | filter Score > 1000 | select Id
 
 **Except all:**
 
-```
+```conjure
 from Players p | filter p.Level >= 10 | select { p.MiddleName, p.OptionalScore }
 | except all (
     from Players x
-    | filter x.OptionalScore is null
+    | filter x.OptionalScore == null
     | select { x.MiddleName, x.OptionalScore }
   )
 ```

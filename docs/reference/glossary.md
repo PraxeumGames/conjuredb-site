@@ -12,21 +12,24 @@ A function that computes a single result from a set of input rows. ConjureDB sup
 
 ### AggregationIndex
 
-A secondary index (`kind: aggregation`) that maintains per-group (per-key) running scalar aggregates (Sum, Count, Avg, Min, Max), O(1) per key. Updates are applied incrementally on each commit. Whole-table/global aggregation is a distinct, runtime-only `GlobalAggregationIndex` that is not declarable via `@index kind:`.
+A secondary index that maintains running scalar aggregates (Sum, Count, Avg, Min, Max) over an entire table in O(1) time. Updates are applied incrementally on each commit, avoiding full-table scans for global metrics.
 
-**See also:** [Indexing — Aggregation](/docs/schema/indexing#aggregationindex)
+**See also:** [Indexing — Aggregation](/docs/schema/indexing#globalaggregationindextvalue-indextypeaggregation)
 
 ### AOT (Ahead-of-Time) Compilation
 
-The process by which ConjureDB compiles DSL queries into optimized C# source code at build time via a Roslyn source generator. AOT compilation eliminates runtime parsing, expression-tree construction, and reflection — producing code that uses `Span<T>`, `ref readonly`, and `stackalloc` for zero-allocation execution.
+The explicit process by which `ConjureDB.Compiler` compiles a project's DSL queries
+into optimized C# before the normal build. The committed generated pack eliminates
+runtime parsing, expression-tree construction, and reflection, producing code that
+uses `Span<T>`, `ref readonly`, and `stackalloc` for zero-allocation execution.
 
-**See also:** [Compiled Queries](/docs/query-language/compiled-queries), [Getting Started](/docs/getting-started#what-is-conjuredb)
+**See also:** [Compiled Queries](/docs/query-language/compiled-queries), [Getting Started](/docs/getting-started)
 
 ### ASSERT (Mutation)
 
 A mutation statement that validates a condition against the database and aborts the enclosing transaction if the condition fails. Used to express preconditions in multi-statement mutation pipelines (e.g., `assert all(materials, Quantity >= RequiredQuantity)`).
 
-**See also:** [Mutations — ASSERT](/docs/query-language/mutations#assert)
+**See also:** [Mutations — ASSERT](/docs/query-language/mutations)
 
 ### Binding / Binder
 
@@ -48,13 +51,13 @@ The operation that atomically applies all buffered mutations in the current tran
 
 ### Compiled Mutation
 
-A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method. Declared schema-first with the `mutation` keyword in a `.conjure` file (e.g. `mutation DeductGold(pid: string, amount: long) -> int = update PlayerProfiles | filter PlayerId == @pid | set SoftCurrency = SoftCurrency - @amount`); the generator emits a method on the target entity's set, called as `context.PlayerProfiles.DeductGold(pid, amount)` and returning the affected-row count. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
+A DSL mutation pipeline compiled ahead-of-time into a zero-allocation C# method. Declared schema-first with the `mutation` keyword in a `.conjure` file (e.g. `mutation DeductGold(pid: string, amount: long) -> int { update PlayerProfiles | filter PlayerId == @pid | set { SoftCurrency = SoftCurrency - @amount } }`); the generator emits a method on the target entity's set, called as `context.PlayerProfiles.DeductGold(pid, amount)` and returning the affected-row count. Supports `update`, `delete`, `insert`, `upsert`, and `assert` statements executing atomically within a single `TransactionScope`.
 
 **See also:** [Mutations](/docs/query-language/mutations)
 
 ### Compiled Query
 
-A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method. Declared schema-first with the `query` keyword in a `.conjure` file (e.g. `query GetTopPlayersByScore(limit: int) -> Player[] { from Player | sort -Score | take @limit }`); the generator emits a method on the entity's generated set (also exposed on the `I<Entity>Queries` interface), called as `context.Players.GetTopPlayersByScore(limit)`. The compiler selects optimal indexes, applies predicate pushdown, and emits zero-allocation code.
+A DSL query compiled ahead-of-time into an optimized, strongly-typed C# method. Declared schema-first with the `query` keyword in a `.conjure` file (e.g. `query GetTopPlayersByScore(limit: int) -> Player[] { from Player | sort -Score | take @limit }`); the generator emits a method on the entity's generated set (also exposed on the `I<Entity>Queries` interface), called as `context.Players.GetTopPlayersByScore(limit)`. The compiler selects indexes and applies predicate pushdown. Result allocation depends on the selected surface: the ordinary method materializes, `NoAlloc` is pool-backed, and `ForEach` can prove zero heap for compiler-owned execution. A complete `ForEach` call is zero heap only when the caller's consumer is allocation-free too.
 
 **See also:** [Compiled Queries](/docs/query-language/compiled-queries)
 
@@ -66,13 +69,13 @@ An index defined over multiple columns (a composite key). Declared via the table
 
 ### CrossTableArrayIndex
 
-`IndexType.CrossTableArray` is a reserved, unimplemented enum value: there is no runtime index class and no schema `kind:` keyword for it, so it cannot be declared. Foreign-key access is served by [LookupIndex](#lookupindex) plus generated [Navigation Editors](#navigation-editor).
+A dense-array secondary index that maintains O(1) foreign-key lookups across tables. Indexed by parent entity ID, it provides direct array access to related child entities without hash-map overhead.
 
-**See also:** [LookupIndex](#lookupindex), [Navigation Editors](/docs/advanced/navigation-editors)
+**See also:** [Indexing — CrossTableArray](/docs/schema/indexing#index-types)
 
 ### CTE (Common Table Expression)
 
-A named subquery that can be referenced later in the main pipeline. In ConjureDB, the supported equivalent is a `let name = (pipeline)` binding or a `| into name` handoff; raw SQL-style `with ... as (...)` text is not part of the supported DSL contract today.
+A named subquery that can be referenced later in the main pipeline. In ConjureDB, the supported equivalent is a `let name = (pipeline)` binding; raw SQL-style `with ... as (...)` text and the `| into name` handoff are retired spellings.
 
 **See also:** [Set Operations — LET Bindings](/docs/query-language/set-operations#let-bindings-ctes)
 
@@ -84,19 +87,19 @@ The central entry point for a ConjureDB database instance. `DbContext` is an abs
 
 ### DbContextBuilder
 
-A fluent API for configuring and constructing a `DbContext` instance. Allows setting persistence options, encryption, memory budgets, and migration registrations before calling `Build()`.
+A fluent API for configuring and constructing a `DbContext` instance. Allows setting persistence options, encryption, memory budgets, profiling, and migration registrations before calling `Build()`.
 
 **See also:** [Database Engine](/docs/engine/database-engine)
 
 ### DbSet\<T\>
 
-A typed collection representing a single entity table within a `DbContext`. Provides CRUD operations (`Add`, `Update`, `Remove`), primary-key lookup, secondary index access, change subscriptions, and full-collection access via `All()` (returns `ReadOnlyMemory<T>`).
+A typed collection representing a single entity table within a `DbContext`. Provides CRUD operations (`Add`, `Update`, `Remove`), primary-key lookup, secondary index access, change subscriptions, and `IEnumerable<T>` iteration over all entities.
 
 **See also:** [Database Engine — DbSet](/docs/engine/database-engine#core-types)
 
 ### DbWorker
 
-The background thread responsible for deferred secondary index synchronization, journal writes, and snapshot triggers after each transaction commit.
+The serialized background execution lane responsible for deferred secondary index synchronization, journal writes, and snapshot triggers after each transaction commit. It runs on one ConjureDB-owned thread per context (or on the committing thread in `WorkerExecutionMode.Inline`) and takes no ThreadPool work item.
 
 **See also:** [Database Engine — Architecture](/docs/engine/database-engine#architecture-overview)
 
@@ -123,7 +126,7 @@ A pipeline transform that removes duplicate rows from the result set, equivalent
 
 ### DSL (Domain-Specific Language)
 
-ConjureDB's pipeline-based query language for defining compiled queries and mutations. Inspired by PRQL and functional data transformation patterns, it uses pipe syntax (`|`) where data flows through a linear chain of transforms. DSL queries are compiled to C# at build time.
+ConjureDB's pipeline-based query language for defining compiled queries and mutations. Inspired by PRQL and functional data transformation patterns, it uses pipe syntax (`|`) where data flows through a linear chain of transforms. DSL queries are compiled to C# by the explicit manual compiler step.
 
 **See also:** [Query Language Reference](/docs/query-language/reference)
 
@@ -131,7 +134,7 @@ ConjureDB's pipeline-based query language for defining compiled queries and muta
 
 A C# record generated from a `table` declaration in a `.conjure` schema, representing a row in a ConjureDB table. Entities are identified by an `int` primary key (`Id`) and serialized via MessagePack attributes. Each entity type occupies a dedicated `DbSet<T>`.
 
-**See also:** [Getting Started — Defining Entities](/docs/getting-started#defining-entities)
+**See also:** [Getting Started — Defining Entities](/docs/getting-started#define-tables)
 
 ### Expression DAG
 
@@ -179,7 +182,7 @@ A pipeline transform that partitions rows by one or more key expressions and app
 
 A secondary index that maintains per-group sorted lists, optimized for "Top-N per group" access patterns. Rows are partitioned by a group key and sorted within each partition, enabling O(1) group lookup followed by ordered iteration.
 
-**See also:** [Indexing — GroupedSorted](/docs/schema/indexing#groupedsortedindex)
+**See also:** [Indexing — GroupedSorted](/docs/schema/indexing#groupedsortedindextrangekey)
 
 ### Inline Aggregate
 
@@ -205,7 +208,7 @@ A data structure that provides sub-linear access paths (O(1) or O(log n)) to ent
 
 ### JOIN (Transform)
 
-A pipeline transform that combines rows from two tables based on a join predicate. ConjureDB supports `inner`, `left`, `right`, `full`, `semi`, and `anti` join types. The syntax is `join Table alias (predicate)` with an optional join-type prefix. The optimizer selects join strategies (hash, nested-loop, index) based on available indexes and PGO data.
+A pipeline transform that combines rows from two tables based on a join predicate. ConjureDB supports `inner`, `left`, `right`, `semi`, and `anti` join types. The syntax is `join Table alias (predicate)` with an optional join-type prefix. The optimizer selects join strategies (hash, nested-loop, index) based on available indexes and PGO data.
 
 **See also:** [Query Language — JOIN](/docs/query-language/reference#join)
 
@@ -225,7 +228,7 @@ A named subquery declaration at the top of a query module (`let name = (pipeline
 
 A hash-based secondary index for non-unique equality lookups. The workhorse for `filter Column == value` queries, providing O(1) amortized access. LookupIndex is type-specialized to avoid boxing (e.g., Fibonacci hashing for `int` keys).
 
-**See also:** [Indexing — LookupIndex](/docs/schema/indexing#lookupindex)
+**See also:** [Indexing — LookupIndex](/docs/schema/indexing#lookupindextkey)
 
 ### Materialized View
 
@@ -261,7 +264,7 @@ A generated `ref struct` type that provides zero-allocation, type-safe access to
 
 ### NoAlloc
 
-A variant of compiled query or mutation that guarantees zero heap allocations during execution. NoAlloc methods use `Span<T>`, `stackalloc`, and `ref struct` patterns to keep all data on the stack. `NoAlloc` is a method-name suffix (e.g. `GetTopPlayersNoAlloc`) on the generated entity set, returning `DisposableQueryResult<T>`; it is generated on the concrete set, not declared on the `I<Entity>Queries` interface.
+A pool-backed compiled-query surface whose compiler proof admits zero heap for compiler-owned query execution and returns a `DisposableQueryResult<T>`. It avoids an ordinary `List<T>` result and rejects plans that require per-query heap operator state, allocating expressions or result-element construction, or unproved index preparation. The outer `ArrayPool<T>.Shared.Rent` may still allocate on a cold or trimmed pool, so `NoAlloc` is not a complete-call zero-heap guarantee. Use a compiler-proved `ForEach<TConsumer>` surface with an allocation-free caller-owned consumer, and measure the complete call, when zero heap is required.
 
 **See also:** [Compiled Queries — NoAlloc Variants](/docs/query-language/compiled-queries#noalloc-variants)
 
@@ -279,7 +282,7 @@ A query or mutation parameter, prefixed with `@` in the DSL. Parameters are decl
 
 ### PGO (Profile-Guided Optimization)
 
-A two-phase optimization strategy where runtime statistics (collected by building codegen with the `--pgo` flag, which sets the MSBuild property `ConjureDBPgoMode=Collect`) are exported as a JSON profile and fed back into the compiler. PGO data guides strategy selection for joins, aggregations, sorting, buffer sizing, and operator fusion — producing code optimized for the observed workload.
+A two-phase optimization strategy where runtime statistics (collected via `[PgoMode(PgoMode.Collect)]`) are exported as a JSON profile and fed back into the compiler. PGO data guides strategy selection for joins, aggregations, sorting, buffer sizing, and operator fusion — producing code optimized for the observed workload.
 
 **See also:** [Profile-Guided Optimization](/docs/performance/pgo)
 
@@ -293,7 +296,7 @@ The core syntactic pattern of the ConjureDB DSL. Queries are composed as a chain
 
 The automatic, always-present index for every `DbSet<T>`, keyed by the entity's `int Id`. Uses dense, contiguous storage with a separate ID-to-slot mapping for O(1) lookups. Primary index mutations take effect immediately (synchronous consistency).
 
-**See also:** [Indexing — PrimaryIndex](/docs/schema/indexing#primaryindex)
+**See also:** [Indexing — PrimaryIndex](/docs/schema/indexing#primaryindext)
 
 ### Projection / SELECT (Transform)
 
@@ -305,7 +308,7 @@ A pipeline transform that selects a subset of columns from the current row set, 
 
 A secondary index using sparse min/max arrays that answers "does any row exist where column is in range?" queries in O(1) time. Optimized for existence checks with range predicates rather than returning matching rows.
 
-**See also:** [Indexing — RangeLookup](/docs/schema/indexing#rangelookupindex)
+**See also:** [Indexing — RangeLookup](/docs/schema/indexing#rangelookupindextrangekey)
 
 ### Reactive Query
 
@@ -337,7 +340,7 @@ An explicit version number assigned to a table via the `schema_version: N` table
 
 ### Secondary Index
 
-Any index beyond the automatic `PrimaryIndex<T>`. Secondary indexes use a deferred-commit consistency model: they are maintained by the background worker thread after each transaction commit. Types include Lookup, Unique, SortedSet, SortedList, RangeLookup, GroupedSorted, Aggregation, UniversalAggregation, and SpatialGrid.
+Any index beyond the automatic `PrimaryIndex<T>`. Secondary indexes use a deferred-commit consistency model: they are maintained by the serialized background worker lane after each transaction commit. Types include Lookup, Unique, SortedSet, SortedList, RangeLookup, GroupedSorted, Aggregation, UniversalAggregation, and CrossTableArray.
 
 **See also:** [Indexing — Overview](/docs/schema/indexing#overview)
 
@@ -353,7 +356,7 @@ A full-state binary dump of the entire database written to disk by the persisten
 
 ### SORT (Transform)
 
-A pipeline transform that orders rows by one or more expressions, equivalent to SQL `ORDER BY`. Prefix a column with `-` for descending order. The optimizer fuses adjacent `sort` and `take` into a TopN operator when possible.
+A pipeline transform that orders rows by one or more column or output-alias keys, equivalent to SQL `ORDER BY`. Prefix a key with `-` for descending order. The optimizer fuses adjacent `sort` and `take` into a TopN operator when possible.
 
 **See also:** [Query Language — SORT](/docs/query-language/reference#sort)
 
@@ -361,7 +364,7 @@ A pipeline transform that orders rows by one or more expressions, equivalent to 
 
 A secondary index backed by a `SortedSet<Group>` with cached arrays, providing O(log n) lookups for equality, range, and ordering queries. Ideal for range scans and `ORDER BY` access patterns.
 
-**See also:** [Indexing — SortedSet](/docs/schema/indexing#sortedsetindex)
+**See also:** [Indexing — SortedSet](/docs/schema/indexing#sortedsetindextkey)
 
 ### Subquery
 
@@ -373,7 +376,7 @@ A nested pipeline expression used as a data source, a scalar value, or a set mem
 
 The schema-first declaration that defines a ConjureDB entity table in a `.conjure` file. Specifies the table name, persistence type, capacity, and `type_id`. Example: `table Player(plural: Players, persistence: local, capacity: 1024, type_id: 1) { ... }`.
 
-**See also:** [Getting Started — Defining Entities](/docs/getting-started#defining-entities), [Database Engine](/docs/engine/database-engine)
+**See also:** [Getting Started — Defining Entities](/docs/getting-started#define-tables), [Database Engine](/docs/engine/database-engine)
 
 ### TAKE / SKIP
 
@@ -407,15 +410,15 @@ A high-performance NoSQL in-memory database designed for game clients, embedded 
 
 ### UniqueIndex
 
-A secondary index that enforces a uniqueness constraint on a column or composite key. Backed by a custom key→id hash map (`NullableKeyDictionary<TKey, int>`) with O(1) lookup. Insert or update operations that violate uniqueness produce an error at commit time.
+A secondary index that enforces a uniqueness constraint on a column or composite key. Backed by `Dictionary<TKey, int>` with O(1) lookup. Insert or update operations that violate uniqueness produce an error at commit time.
 
-**See also:** [Indexing — UniqueIndex](/docs/schema/indexing#uniqueindex)
+**See also:** [Indexing — UniqueIndex](/docs/schema/indexing#uniqueindextkey)
 
 ### UniversalAggregationIndex
 
 A secondary index that maintains per-group aggregation statistics (Sum, Avg, Count, Min, Max) using `Dictionary<TKey, Stats>`. Provides O(1) lookup for grouped aggregate values without requiring a full-table scan.
 
-**See also:** [Indexing — UniversalAggregation](/docs/schema/indexing#universalaggregationindex)
+**See also:** [Indexing — UniversalAggregation](/docs/schema/indexing#universalaggregationindextkey-tvalue-indextypeuniversalaggregation)
 
 ### UPSERT
 
@@ -431,6 +434,6 @@ A function that computes a value across a set of rows related to the current row
 
 ### Zero-Allocation
 
-A design constraint enforced throughout ConjureDB's runtime and generated code. Hot-path operations must produce no heap allocations, using `Span<T>`, `stackalloc`, `ref struct`, `ref readonly` returns, and value types to eliminate GC pressure. Compiler-time allocations are acceptable when they improve maintainability.
+A property of a complete measured runtime path, not a blanket implication of a method name. The compiler can prove its owned operators, expressions, result shaping, and index preparation; it cannot prove arbitrary caller code such as `TConsumer.OnRow`. Complete zero-heap paths therefore combine a successful compiler proof with allocation-free caller-owned storage and a whole-call allocation test. Pool-backed `NoAlloc` results target steady-state GC reduction but may allocate on a cold or trimmed pool. Compiler-time allocations are outside this runtime contract.
 
 **See also:** [Compiled Queries — NoAlloc Variants](/docs/query-language/compiled-queries#noalloc-variants), [Navigation Editors](/docs/advanced/navigation-editors)

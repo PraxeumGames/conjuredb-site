@@ -79,7 +79,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Reference',
-      items: ['reference/error-codes', 'reference/ephemeral-tables-reference', 'reference/glossary', 'reference/troubleshooting'],
+      items: ['reference/error-codes', 'reference/glossary', 'reference/troubleshooting'],
     },
   ],
 };

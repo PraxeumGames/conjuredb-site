@@ -26,23 +26,23 @@ ConjureDB computes a **schema fingerprint** (FNV-1a hash) from the `TypeId`, `Sc
 
 ## Automatic Handling
 
-Some schema changes need no hand-written migration code. But note that whenever ConjureDB has schema descriptors for an entity — which the code generator **always** emits — any change to the field set also changes the schema fingerprint. A fingerprint change at an **unchanged** `schema_version` is classified `Incompatible`, and startup fails with `SchemaMigrationException` ("Schema fingerprint mismatch without version bump"). So the changes below still require you to **increment `schema_version`**; what makes them "automatic" is that, once the version is bumped, the analyzer classifies them `BackwardCompatible` and MessagePack tolerance handles the load with no migration code.
-
-> The pure "no version bump needed" behavior applies only when no descriptors participate — e.g. a hand-written context that never overrides `GetSchemaDescriptorsCore()`, or a legacy snapshot with no schema section. The generated workflow always registers descriptors, so assume a version bump is required.
+Many common schema changes are handled automatically without any migration code.
 
 ### Adding a New Field
 
-When you add a nullable/defaultable field **and bump `schema_version`**, MessagePack deserialization assigns the type's default value to any field absent from the stored payload — no migration code needed.
+When you add a new nullable/defaultable field to a schema table, MessagePack deserialization assigns
+the type's default value to any field absent from the stored payload. No version bump is required if
+the new field is nullable or has a safe default.
 
-```prql
+```conjure
 // Version 1
-table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1, schema_version: 1) {
+table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1) {
   id   : int @id
   name : string
 }
 
-// Version 2 - added field + bumped schema_version; old snapshots load fine (email defaults to null)
-table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1, schema_version: 2) {
+// Version 2 - added field; old snapshots load fine (email defaults to null)
+table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1) {
   id    : int @id
   name  : string
   email : string?
@@ -51,11 +51,11 @@ table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1, s
 
 ### Removing a Field
 
-If a stored snapshot contains fields that no longer exist in the current entity, MessagePack silently skips them during deserialization. Bump `schema_version`; as long as you do not reassign the removed field's `[Key]` ordinal to a different field with a different type, the load is `BackwardCompatible`.
+If a stored snapshot contains fields that no longer exist in the current entity, MessagePack silently skips them during deserialization. As long as you do not reassign the removed field's `[Key]` ordinal to a different field with a different type, this is backward-compatible.
 
 ### Widening Nullability
 
-Changing a non-nullable field to nullable (e.g., `string` → `string?`) is classified as `BackwardCompatible` (after a `schema_version` bump) and requires no migration code.
+Changing a non-nullable field to nullable (e.g., `string` → `string?`) is classified as `BackwardCompatible` and requires no migration.
 
 ## Manual Migration
 
@@ -68,7 +68,7 @@ Breaking schema changes require explicit migration code. A change is **breaking*
 
 Set `schema_version` on the table and increment it with each breaking change:
 
-```prql
+```conjure
 table Player(plural: Players, persistence: local, capacity: 10000, type_id: 1, schema_version: 2) {
   id    : int @id
   score : long // was int
@@ -171,7 +171,7 @@ MigrationRegistry.Register(new PlayerV1ToV2Migration());
 
 Mark each persisted table with its current schema version:
 
-```prql
+```conjure
 table Player(plural: Players, persistence: local, type_id: 1, schema_version: 3) {
   id : int @id
 }
@@ -183,7 +183,7 @@ The version must be a positive `uint` (≥ 1). Increment it each time you make a
 
 ConjureDB computes a deterministic FNV-1a fingerprint from the `TypeId`, `SchemaVersion`, and all field descriptors. Two entities with the same version but different field layouts produce different fingerprints. If the fingerprint changes without a version bump, the snapshot is classified as **Incompatible** and loading fails:
 
-```
+```text
 Schema fingerprint mismatch without version bump for typeId 1.
 ```
 
@@ -311,7 +311,7 @@ Use verbose migration logging during development to verify the compatibility ana
 .WithMigration(m => m.VerboseLogging(true))
 ```
 
-The logs report the detected `CompatibilityVerdict` and the stored/current schema versions for each persisted entity type.
+The logs report the detected `CompatibilityVerdict`, list of `SchemaChange` entries, and migration chain resolution for each entity type.
 
 ## Error Reference
 

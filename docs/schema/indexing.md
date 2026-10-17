@@ -10,7 +10,18 @@ ConjureDB provides a rich set of index structures that turn O(n) table scans int
 
 ConjureDB is an in-memory database for game clients. Even though data lives in RAM, scanning every row in a `DbSet<T>` for each query wastes CPU budget that should go to rendering and gameplay. Indexes provide sub-linear access paths that the compiled query engine uses to answer queries without full-table scans.
 
-When no suitable index exists, the compiler falls back to a full-table scan and may emit the `UM7001` (`FullScanOnLargeTable`) **warning** for large tables — it does not hard-error on unindexed access.
+**You declare which access paths exist; the compiler decides which one a query uses.** A query
+never names an index: there is no `lookup`, no `on index`, no plan pin and no per-query index hint
+in the language. The cost-based optimizer proves that a filter, join or ordering matches a declared
+index and routes to it, or falls back to a scan — and the plan explain shows you which it picked.
+(Frame `system` bodies are the one place an access path is written explicitly — `join … on ref`,
+`join … on index`, `lookup … on id`; see [Ephemeral Tables](/docs/advanced/ephemeral-tables).)
+When no index covers a filter over a table PGO knows to be large, the compiler emits the `UM7001`
+(`FullScanOnLargeTable`) **warning**; unindexed access is not a hard error.
+
+Declaring the index set is still yours. The compiler's auto-index advisor is deliberately
+report-only — it recommends candidates from profile evidence and never creates, mutates or
+silently materializes an index. See [Auto-index governance](/docs/performance/pgo#auto-index-governance).
 
 ### Index Categories
 
@@ -19,7 +30,7 @@ ConjureDB organizes indexes into two categories with distinct consistency models
 | Category | Consistency | Lifecycle |
 |----------|-------------|-----------|
 | **PrimaryIndex** | Immediate (synchronous) | Automatically created for every `DbSet<T>`. Mutations take effect instantly. |
-| **SecondaryIndex** | Deferred-commit | Declared via `@index` on a field or `@@index` at the table level in `.conjure` schema files. Maintained by the background worker thread after each transaction commit. Secondary index reads always reflect committed data. |
+| **SecondaryIndex** | Deferred-commit | Declared via `@index` on a field or `@@index` at the table level in `.conjure` schema files. Maintained by the serialized background worker lane after each transaction commit. Secondary index reads always reflect committed data. |
 
 ### Index Types at a Glance
 
@@ -32,8 +43,9 @@ ConjureDB organizes indexes into two categories with distinct consistency models
 | **SortedList** | Sorted dense array | O(log n) | O(n) | Equality, range, ordering | Small ordered sets |
 | **RangeLookup** | Sparse min/max arrays | O(1) | O(1) | EXISTS with range predicates | "Does any X exist where Y > Z?" |
 | **GroupedSorted** | Sparse sorted lists | O(1) group | O(log n) insert | Group + sort pattern | Top-N per group |
-| **Aggregation** | Per-key stats map | O(1) | O(1) | Grouped Sum, Avg, Count, Min, Max | Per-group metrics (alias of UniversalAggregation) |
+| **Aggregation** | Running scalars | O(1) | O(1) | Global Sum, Count, Min, Max | Table-wide metrics |
 | **UniversalAggregation** | `Dictionary<TKey, Stats>` | O(1) | O(1) | Grouped Sum, Avg, Count, Min, Max | Per-group metrics |
+| **CrossTableArray** | Dense array cross-reference | O(1) | O(1) | Foreign-key array access | Cross-table lookups |
 | **SpatialGrid** | Uniform spatial hash grid | O(cells × ents/cell) | O(1) | Radius, bounds, nearest-K | 2D/3D proximity queries |
 
 ---
@@ -60,11 +72,27 @@ The primary index uses dense, contiguous storage for entities with a separate ID
 | `Upsert(objectId, item)` | O(1) amort. | Insert or update. |
 | `Remove(objectId)` | O(1) | Swap-and-pop removal — no compaction needed. |
 
+Direct `foreach` over `PrimaryIndex<T>` uses the same stable transaction-visible
+enumeration contract as `All`: it selects its source on the first movement. If
+an eligible synchronized committed shadow is available, the enumerator retains
+that shadow and fails closed if a later commit changes its generation. Every
+other source, including uncommitted, shadowless, or stale-shadow state, is copied
+into an owned snapshot that remains stable across later changes. The current row
+is returned by value; enumeration never grants writable access to the primary
+storage slot. Perform every row change through the owning `DbSet<T>` mutation
+API inside its transaction contract.
+
+`AsMemory` is the explicit zero-copy alternative, and `DenseIndexById` is its
+sparse-map counterpart. Both are **borrows** of live primary storage: they allocate
+nothing, they are invalidated by the next mutation of the owning table, and they must
+not be retained across a mutation boundary or written through with
+`MemoryMarshal`/`Unsafe`. Call `ToArray()` on either result for an owned snapshot.
+
 #### Capacity Growth
 
 When storage is exhausted, capacity is **doubled**. Set an accurate `capacity` in the `table` options to avoid resizing in steady state:
 
-```text
+```conjure
 table Player(persistence: local, capacity: 10000) {
     // fields...
 }
@@ -73,6 +101,15 @@ table Player(persistence: local, capacity: 10000) {
 #### Thread Safety
 
 `PrimaryIndex<T>` is **not** thread-safe. All mutations must be serialized by the caller — typically through the `DbContext` transaction model (`BeginTransaction()` / `Commit()`).
+
+#### Complexity
+
+| Operation | Time | Space per entry |
+|-----------|------|-----------------|
+| Lookup | O(1) average | 4 bytes (objectId in list) + hash map overhead |
+| Insert | O(1) amortized | — |
+| Remove | O(1) (swap in group list) | — |
+| Update (key change) | O(1) remove + O(1) insert | — |
 
 #### When to Use
 
@@ -90,7 +127,7 @@ A hash-based equality index for non-unique keys. The workhorse for `filter Colum
 
 #### Declaration
 
-```
+```conjure
 // Field-level (.conjure)
 table Player {
   guild_id: int @index(name: "PlayersByGuild", kind: lookup)
@@ -133,24 +170,60 @@ Entities with `null` keys are tracked separately, avoiding null-key issues in ha
 
 #### Partial Index Support
 
-An optional filter predicate can restrict which entities are indexed:
+An index can declare a typed predicate over fields of its table. The predicate
+is a .conjure expression (not a quoted C# lambda), and binding derives its
+column dependencies from the resolved expression:
 
-```
+```conjure
 table Player {
-  guild_id: int @index(name: "ActivePlayersByGuild", kind: lookup, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
+  id: int @id
+  guild_id: int
+  status: int
+  is_active: bool
+  is_deleted: bool
+  region: string
+
+  @@index(fields: [guild_id], name: "ActivePlayersByGuild",
+          kind: lookup, filter: is_active == true)
 }
 ```
 
-Only entities passing the predicate are inserted, reducing index size and update cost.
+The maintenance-supported predicate is a conjunction of typed equality,
+boolean, and not-boolean facts on declared scalar columns:
 
-#### Complexity
+| Form | Example |
+| --- | --- |
+| Column equality to a compatible literal | status == 1 |
+| Boolean column (equivalent to true) | is_active |
+| Negated boolean column (equivalent to false) | `!is_deleted` |
+| Conjunction of supported terms | `is_active && region == "EU"` |
 
-| Operation | Time | Space per entry |
-|-----------|------|-----------------|
-| Lookup | O(1) average | 4 bytes (objectId in list) + hash map overhead |
-| Insert | O(1) amortized | — |
-| Remove | O(1) (swap in group list) | — |
-| Update (key change) | O(1) remove + O(1) insert | — |
+Parameters, navigation/member paths, functions, subqueries, arithmetic,
+inequalities, and disjunction are rejected with SCH2022. Do not add a separate
+list of predicate columns: the binder derives typed dependencies from the
+predicate itself.
+
+The optimizer uses the bound equality facts to prove whether a query filter
+implies the partial-index predicate. When it cannot prove the implication,
+the index is not eligible. Only rows for which the predicate is true belong to
+the index; updates that change the predicate reevaluate membership. A filter on
+the index predicate itself is a straightforward example:
+
+```conjure
+query ActivePlayers() -> Player[] {
+  from Player
+  | filter is_active == true
+}
+```
+
+Unique and SortedList indexes reject partial predicates because they do not
+have filtered-membership maintenance. Other kinds remain subject to their
+kind-specific binding and maintenance contracts.
+
+This makes the supported fragment deliberately narrow. For a condition such
+as amount >= 100, index the column and let the query's range filter do the
+work, or introduce a derived boolean column such as is_large_order and index
+that fact.
 
 #### When to Use
 
@@ -173,7 +246,7 @@ A uniqueness-constrained equality index. Guarantees exactly one entity per key v
 
 #### Declaration
 
-```
+```conjure
 table Player {
   username: string @index(name: "PlayerByUsername", kind: unique)
 }
@@ -204,7 +277,7 @@ table Player {
 
 #### Example
 
-```
+```conjure
 table Player(plural: Players, persistence: local, capacity: 1000) {
   Id: int @id
   Email: string @index(name: "PlayerByEmail", kind: unique)
@@ -234,14 +307,16 @@ An ordered index supporting equality lookups, range predicates, and ordered iter
 
 #### Declaration
 
-```
+```conjure
 table Player {
   level: int @index(name: "Level_Sorted", kind: sorted_set)
 }
 
 // With partial filter
 table Player {
-  level: int @index(name: "ActivePlayersByLevel", kind: sorted_set, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
+  id: int @id
+  level: int @index(name: "ActivePlayersByLevel", kind: sorted_set, filter: is_active == true)
+  is_active: bool
 }
 ```
 
@@ -279,6 +354,32 @@ table Player {
 
 *(Where n = number of distinct key values, k = number of matching entities.)*
 
+#### What a by-ref view promises
+
+Every `...ByRef` method on a sorted index returns the same kind of value: a view that has not read
+anything yet. It resolves the window it describes on FIRST USE — the first `foreach`, the first
+`Count`, the first positional read — and not at the call that produced it. A view created before a
+commit and read after it sees the state at first use.
+
+**A started view is a snapshot.** Once resolved, it does not change and it does not throw
+mid-read:
+
+- A `foreach` over it copies its rows into a POOLED buffer that the loop returns when it ends. A
+  commit that happens while you are iterating cannot be observed through that loop, and the copy
+  costs nothing after the pool is warm — this is what makes an emitted by-ref loop allocate zero
+  bytes in steady state. A `ref readonly` taken from the loop is valid only INSIDE it: when the
+  loop ends the buffer goes back to the pool.
+- `Count` and the positional reads answer from the window itself, without copying it. Asking a
+  window how large it is costs nothing however large the index is.
+
+Rows are handed out as `ref readonly`, so a caller can read a large struct entity without copying
+it and cannot replace an indexed slot through the view.
+
+```csharp
+foreach (ref readonly var item in ctx.Items.ByPriceIndex.QueryGreaterThanByRef(100))
+    total += item.Price;   // no enumerator allocation, no row copy, no per-row branch
+```
+
 #### Complexity
 
 | Operation | Time |
@@ -291,7 +392,7 @@ table Player {
 
 #### Example
 
-```
+```conjure
 table Item(plural: Items, persistence: local, capacity: 50000) {
   Id: int @id
   Name: string
@@ -299,14 +400,14 @@ table Item(plural: Items, persistence: local, capacity: 50000) {
 }
 
 // DSL queries that use this index:
-// Range: from Items | filter Price >= 100 and Price <= 500
+// Range: from Items | filter Price >= 100 && Price <= 500
 // Top-K: from Items | sort -Price | take 10
 // Minimum: from Items | sort Price | take 1
 ```
 
 #### When to Use
 
-- Range filters: `filter Level >= 10 and Level <= 50`
+- Range filters: `filter Level >= 10 && Level <= 50`
 - ORDER BY queries: `sort -Price`
 - Min/Max queries (via ordered access)
 - Any query combining equality, range, and ordering on the same column
@@ -324,7 +425,7 @@ Functionally similar to `SortedSet`, using a dense sorted array instead of a tre
 
 #### Declaration
 
-```
+```conjure
 table Player {
   score: int @index(name: "PlayersByScore", kind: sorted_list)
 }
@@ -377,7 +478,7 @@ Answers **O(1) EXISTS queries** for group-specific range predicates. Designed fo
 
 #### Declaration
 
-```
+```conjure
 table OrderItem {
   OrderId: int @index(name: "OrderQuantityRange", kind: range_lookup, range: Quantity)
 }
@@ -414,7 +515,7 @@ All query methods are O(1):
 
 #### Example
 
-```
+```conjure
 table OrderItem(plural: OrderItems, persistence: local, capacity: 50000) {
   Id: int @id
   OrderId: int @index(name: "OrderQuantityRange", kind: range_lookup, range: Quantity)
@@ -445,7 +546,7 @@ Optimized for the common game-client pattern: **group by an integer key, then it
 
 #### Declaration
 
-```
+```conjure
 table Score {
   guild_id: int
   score: int
@@ -455,9 +556,22 @@ table Score {
 
 #### Data Structure
 
-`List<Entry>?[]` — a sparse array indexed by `int` group key. Each non-null slot is a sorted list kept in **descending** order by `TRangeKey`.
+Each group is a list kept in **descending** order by `TRangeKey`. Insertion uses binary search for
+O(log k) placement within a group of k elements, and a parallel tracking array maps each entity to
+its position for O(1) removal.
 
-Insertion uses binary search for O(log k) placement within a group of k elements. A parallel tracking array maps each entity to its position for O(1) removal.
+How a group key reaches its list is the one thing the two published shapes differ in, and it is a
+struct policy on one shared implementation rather than two implementations:
+
+| Shape | Group storage | Materialized-list cache |
+|-------|---------------|-------------------------|
+| `GroupedSortedIndex<TRangeKey>` (int key) | sparse `List<Entry>?[]` — the key IS the slot | yes, addressed by that same slot |
+| `GroupedSortedIndex<TKey, TRangeKey>` (composite key) | `Dictionary<TKey, List<Entry>>` | no |
+
+Both inherit one declaration of the whole query surface, so every method below — and every by-ref
+view type it returns — behaves identically on both, except where the int key's domain differs: a
+NEGATIVE int group key is outside the dense store's domain and holds no rows, where any composite
+key is admissible.
 
 #### API
 
@@ -470,9 +584,37 @@ Insertion uses binary search for O(log k) placement within a group of k elements
 
 All enumerables are zero-allocation struct types supporting `foreach`.
 
+#### What a grouped by-ref view promises
+
+A grouped by-ref view resolves its group on FIRST USE, like the sorted-index views above, and a
+started view is a snapshot of what it resolved. It differs from them in two ways, both deliberate:
+it reads the group's rows **in place** rather than copying them into a pooled buffer, and a walk
+**fails closed** — it throws `InvalidOperationException` if committed state changes under it, rather
+than continuing over a snapshot of what was there.
+
+Those two are why this family publishes its own by-ref views instead of the
+`OrderedWindowRefEnumerable` the two global-order sorted families share:
+
+- **Copy-own does not amortise for this shape.** The window cursor copies the whole window into a
+  pooled buffer on its first move. That is the right trade for one large ordered read, which is what
+  a sorted-set or sorted-list range is. Generated join code walks a *grouped* group once **per outer
+  row**, and a Top-1 or Top-8 lookup measures in tens of nanoseconds end to end — there is no room in
+  it for a pool rent, k struct copies and a return, where the grouped cursor does zero copies.
+- **It would turn a fail-fast contract into a snapshot.** The window family deliberately removed
+  per-read revalidation and replaced it with ownership: a cursor that owns its rows cannot be
+  invalidated, so it never throws. Moving the grouped views onto it would silently downgrade the
+  guard above to "you get a copy of what was there", which is a semantics change on a public
+  surface, not a refactor.
+
+There is no impossibility here, and a future reader should not conclude one. If the families are
+ever merged, the concrete route is a maintained `int[] denseSlots` per group — patched in the same
+places `_indexInGroup` already is — which is exactly the permutation an ordered window wants; the
+cost is one int per row plus a dense→entry map so a row move can find the slot to patch. The
+argument above is that the trade is not worth taking, not that it cannot be taken.
+
 #### Target Query Pattern
 
-```dsl
+```conjure
 from Scores
 | filter GuildId == @guildId
 | sort -Score
@@ -483,7 +625,7 @@ The compiler recognizes this filter + sort + take pattern and routes it to a `Gr
 
 #### Example
 
-```
+```conjure
 table Score(plural: Scores, persistence: local, capacity: 100000) {
   Id: int @id
   GuildId: int @index(name: "ScoresByGuild", kind: grouped_sorted, range: Points)
@@ -508,28 +650,51 @@ table Score(plural: Scores, persistence: local, capacity: 100000) {
 
 ---
 
-### Aggregation Index (`kind: aggregation`)
+### GlobalAggregationIndex\<TValue\> (IndexType.Aggregation)
 
-Pre-computed **per-key (grouped)** aggregations over a `DbSet` — O(1) per metric per group. `kind: aggregation` is equivalent to `kind: universal_aggregation`: both compile to the same runtime aggregation-variant class (by default `AllStatsAggregationIndex<TKey, TValue>`), keyed by the declared index field and aggregating the `value:` column as entities are added, updated, and removed. The full variant list and API are documented in the **Universal Aggregation Index** section below.
+O(1) **global** (ungrouped) aggregations over an entire `DbSet`. Pre-computes Sum, Count, Min, Max as entities are added, updated, and removed.
 
 #### Declaration
 
-```
+```conjure
 table Player {
-  GuildId: int @index(name: "GoldByGuild", kind: aggregation, value: Gold)
+  Gold: int @index(name: "GlobalGold", kind: aggregation, value: Gold)
 }
 ```
 
-This keys by `GuildId` and maintains running Sum, Count, Min, and Max of `Gold` per guild, exposed through the per-key getters `GetSum(key)`, `GetAverage(key)`, `GetCount(key)`, `GetMin(key)`, and `GetMax(key)`.
+#### Data Structure
 
-#### No Schema-Declarable Global Aggregation
+Maintains running `sum`, `count`, `min`, and `max` values that are updated incrementally as entities are added, updated, and removed.
 
-There is **no** `@index kind:` keyword that produces a global (ungrouped, table-wide) aggregation index. A runtime `GlobalAggregationIndex<TValue>` type does exist — exposing `GetGlobalSum()`, `GetGlobalAverage()`, `GetGlobalCount()`, `GetGlobalMin()`, `GetGlobalMax()`, and `GetAllGlobalStats()` — but it is **never emitted by codegen**. It is reachable only by manually calling the protected `DbSet.CreateGlobalAggregationIndex<TValue>` factory from a `DbSet` subclass. To compute a table-wide aggregate through schema alone, use a per-key aggregation index or accept a full-table scan.
+#### API
+
+| Method | Complexity | Description |
+|--------|------------|-------------|
+| `GetGlobalSum()` | O(1) | Sum of all values. |
+| `GetGlobalAverage()` | O(1) | `Sum / Count`. |
+| `GetGlobalCount()` | O(1) | Number of entities. |
+| `GetGlobalMin()` | O(1) amort. | Minimum value. |
+| `GetGlobalMax()` | O(1) amort. | Maximum value. |
+| `GetAllGlobalStats()` | O(1) amort. | Returns `(sum, avg, min, max, count)` tuple. |
+
+#### Min/Max Tracking
+
+Min/Max tracking is **lazy**: the frequency map (`SortedDictionary<TValue, int>`) is only materialized when a removal hits the current min or max. This avoids the cost of maintaining a sorted structure for workloads dominated by inserts.
+
+Once materialized, the sorted dictionary provides O(log n) min/max recomputation via its first/last key.
+
+#### Example
+
+```csharp
+// O(1) access to the total gold in the game economy:
+var totalGold = goldIndex.GetGlobalSum();
+var avgGold = goldIndex.GetGlobalAverage();
+```
 
 #### When to Use
 
-- Per-group metrics: total gold per guild, average level per region, per-category counts.
-- Any grouped aggregate that would otherwise require a `GROUP BY` + aggregation scan.
+- Dashboard metrics: total currency, average player level, global min/max score.
+- Any ungrouped aggregate that would otherwise require a full-table scan.
 
 #### Limitations
 
@@ -539,22 +704,21 @@ There is **no** `@index kind:` keyword that produces a global (ungrouped, table-
 
 ---
 
-### Universal Aggregation Index (`kind: universal_aggregation`)
+### UniversalAggregationIndex\<TKey, TValue\> (IndexType.UniversalAggregation)
 
-Pre-computed **grouped (per-key)** aggregations — O(1) per metric per group. `kind: universal_aggregation` compiles to one of four runtime aggregation-variant classes (there is no C# type literally named `UniversalAggregationIndex`); the default is `AllStatsAggregationIndex<TKey, TValue>`. It is equivalent to `kind: aggregation`.
+Pre-computed **grouped** aggregations — O(1) per metric per group. The grouped equivalent of `GlobalAggregationIndex`.
 
-ConjureDB provides four aggregation index variants, automatically selected based on the query's aggregation needs:
+ConjureDB provides three aggregation index variants, automatically selected based on the query's aggregation needs:
 
 | Variant | Class | Per-Key Footprint | Aggregations |
 |---------|-------|-------------------|--------------|
 | Full stats | `AllStatsAggregationIndex<TKey, TValue>` | ~40 bytes | Sum, Avg, Count, Min, Max |
 | Sum + Count | `SumCountAggregationIndex<TKey>` | 12 bytes | Sum, Avg, Count |
 | Count only | `CountOnlyAggregationIndex<TKey>` | 4 bytes | Count |
-| Distinct count | `DistinctCountAggregationIndex<TKey, TValue>` | Variable (per-group distinct-value set) | Distinct-value count per group |
 
 #### Declaration
 
-```
+```conjure
 table Score {
   GuildId: int @index(name: "TotalScoreByGuild", kind: universal_aggregation, value: Score)
 }
@@ -591,7 +755,7 @@ When `enableRanking` is true (default), the index maintains a pre-sorted ranking
 
 #### Example
 
-```
+```conjure
 table Score(plural: Scores, persistence: local, capacity: 100000) {
   Id: int @id
   GuildId: int @index(name: "ScoreStatsByGuild", kind: universal_aggregation, value: Points)
@@ -622,7 +786,7 @@ table Score(plural: Scores, persistence: local, capacity: 100000) {
 
 Composite indexes use multiple columns as the key. Declared via the `fields:` list on a table-level `@@index`:
 
-```
+```conjure
 table Player {
   guild_id: int
   role: string
@@ -632,7 +796,7 @@ table Player {
 
 In schema files, use `@@index` at the table level:
 
-```
+```conjure
 table Player {
   id: int @id
   guild_id: int
@@ -657,7 +821,7 @@ For composite keys with low-cardinality string components, packed encodings elim
 
 Packed encodings map the string portion to a dense integer via an interning table, then bit-pack it with the integer portion. This enables the composite key to use integer-specialized hash maps for maximum performance.
 
-```text
+```conjure
 table Player {
   GuildId: int
   Role: string
@@ -675,7 +839,7 @@ table Player {
 
 Indexes are declared in `.conjure` schema files, either at the field level with `@index` or at the table level with `@@index`. Multiple indexes can be declared on the same field by chaining `@index(...)` annotations:
 
-```
+```conjure
 table Player(plural: Players, persistence: local, capacity: 10000) {
   Id: int @id
   GuildId: int @index(name: "PlayersByGuild", kind: lookup) @index(name: "GuildScoreAgg", kind: universal_aggregation, value: Score)
@@ -689,14 +853,14 @@ table Player(plural: Players, persistence: local, capacity: 10000) {
 
 | Option | Applies to | Description |
 |--------|------------|-------------|
-| `name:` | both | Required. Unique index name within the table. |
+| `name:` | both | Optional. Defaults to the field or key columns; explicit names must be unique within the table. |
 | `kind:` | both | Index kind: `lookup`, `unique`, `sorted_set`, `sorted_list`, `range_lookup`, `grouped_sorted`, `aggregation`, `universal_aggregation`, `spatial_grid`. |
 | `fields: [...]` | `@@index` | Key columns (composite keys). |
 | `keys: [...]` | both | Additional group/key columns. |
 | `value:` | both | Value column for aggregation indexes (bare identifier). |
 | `range:` | both | Range column for `range_lookup` / `grouped_sorted` (bare identifier). |
 | `included: [...]` | both | Covering columns for index-only scans. |
-| `filter:` / `filter_columns: [...]` | both | Partial index predicate and the columns it references. |
+| `filter:` | both | Unquoted .conjure boolean expression for a partial index; bound field dependencies are derived from the expression. |
 | `encoding:` | both | Composite key packing strategy. |
 | `dimensions:` / `cell_size:` / `coordinates: [...]` | both | `spatial_grid` layout, cell size, and coordinate columns. |
 
@@ -705,7 +869,7 @@ table Player(plural: Players, persistence: local, capacity: 10000) {
 In schema files, indexes can be declared at the field level or table level:
 
 **Field-level:**
-```
+```conjure
 table Player {
   name: string @index(name: "Name_Idx", kind: lookup)
   level: int   @index(name: "Level_Sorted", kind: sorted_set)
@@ -713,7 +877,7 @@ table Player {
 ```
 
 **Table-level (`@@index`):**
-```
+```conjure
 table Player {
   id: int @id
   guild_id: int
@@ -729,18 +893,17 @@ table Player {
 
 ## Covering Indexes and Index-Only Scans
 
-An `included: [...]` list duplicates those columns into the secondary index so that a query touching only the index key plus the included columns *can* be answered from the index without a separate lookup into the primary store.
+When a query only accesses columns that are part of the index key plus `IncludedColumns`, the optimizer can perform an **index-only scan** — reading data directly from the index without dereferencing the main table. This is significant I/O savings on mobile devices.
 
-```
+```conjure
 table Player {
   GuildId: int @index(name: "PlayersByGuild", kind: lookup, included: [Name, Level])
 }
 
-// from Players | filter GuildId == 42 | select Name, Level
-// Name and Level live in the index, so no separate primary-store lookup is needed.
+// This query can use an index-only scan:
+// from Players | filter GuildId == 42 | select { Name, Level }
+// No table dereference needed — Name and Level are in the index.
 ```
-
-Unlike a disk-based database, this is **not** an I/O optimization on ConjureDB. Entities are immutable structs resident in RAM, and the "table dereference" you avoid is an O(1) index into a dense array — not a page fetch — so there is no read I/O to save (the only disk I/O is snapshot/journal *writes*). The `included` columns also **cost extra memory** — they are copied into the index, and memory is the scarce resource for an in-memory database — and the projection still materializes a new row either way. The planner currently costs an index-only scan the **same** as a full/dense scan (a native covered-row read path is not yet in place), so treat `included` as a niche memory/shaping tool, not a read-throughput optimization.
 
 ---
 
@@ -748,15 +911,20 @@ Unlike a disk-based database, this is **not** an I/O optimization on ConjureDB. 
 
 Partial indexes include only a subset of rows, reducing memory footprint and maintenance cost:
 
-```
+```conjure
 table Player {
-  Level: int @index(name: "ActivePlayersByLevel", kind: sorted_set, filter: "static (Player x) => x.IsActive", filter_columns: [IsActive])
+  Id: int @id
+  Level: int
+  IsActive: bool
+
+  @@index(fields: [Level], name: "ActivePlayersByLevel",
+          kind: sorted_set, filter: IsActive == true)
 }
 ```
 
-The optimizer uses `filter_columns` to determine if a query's `WHERE` clause implies the index predicate. If the query filters on `IsActive == true`, the partial index is eligible; otherwise it is not.
+The optimizer uses the typed facts derived from `filter:` to determine whether a query's `filter` predicate implies the index predicate. If the query filters on `IsActive == true`, the partial index is eligible; otherwise it is not.
 
-**Supported on all secondary index types** — Lookup, SortedSet, RangeLookup, GroupedSorted, and aggregation indexes all accept filter predicates.
+Unique and SortedList indexes reject partial predicates because they have no filtered-membership maintenance; other kinds retain their kind-specific admission contract.
 
 ---
 
@@ -774,8 +942,8 @@ The `ScanStrategyPlanner` generates multiple physical alternatives for every tab
 | `PrimaryKeyLookup` | Direct `TryFindById()` via PrimaryIndex | `filter Id == @param` |
 | `SecondaryIndexScan` | Hash lookup via LookupIndex | `filter Column == value` |
 | `SortedSetScan` | Ordered iteration via SortedSetIndex | `sort Column` without filter |
-| `IndexedScan` | Range scan via SortedSetIndex | `filter Column >= X and Column <= Y` |
-| `IndexOnlyScan` | Covering scan over indexed + included columns (currently cost-neutral vs full scan) | Query uses only indexed + included columns |
+| `IndexedScan` | Range scan via SortedSetIndex | `filter Column >= X && Column <= Y` |
+| `IndexOnlyScan` | Covering index scan (no table dereference) | Query uses only indexed + included columns |
 
 ### Filter Index Selection
 
@@ -807,7 +975,7 @@ The optimizer generates **all viable alternatives** and uses a cost model to sel
 
 - **Selectivity estimates** guide filter strategy ranking.
 - **PGO hints** (Profile-Guided Optimization) can override strategy selection based on runtime profiling.
-- The `OptimizationKernelStage` performs logical and physical optimization via the Cascades/Volcano framework, exploring alternatives and selecting the cheapest plan.
+- The `CascadesOptimizationStage` explores the full search space before the `PhysicalPlanningStage` selects a winner.
 
 ---
 
@@ -817,7 +985,7 @@ The optimizer generates **all viable alternatives** and uses a cost model to sel
 
 A `@relation` annotation declares a foreign-key relationship used by the optimizer for join strategy selection:
 
-```
+```conjure
 table Item {
   Id: int @id
   PlayerId: int @relation(references: Player.Id)
@@ -833,7 +1001,7 @@ The compiler uses relation declarations to:
 
 For read-only config tables, declare a `@relation` to the target; the compiler resolves the reference through the target's `PrimaryIndex` as an O(1) pointer chase rather than a join:
 
-```text
+```conjure
 TemplateId: int @relation(references: ItemTemplate.Id)
 ```
 
@@ -849,7 +1017,7 @@ Uniform spatial hash grid for nearby-object queries in 2D or 3D worlds. Space is
 
 **Schema (`.conjure`):**
 
-```
+```conjure
 table GameObject(plural: GameObjects, persistence: local, capacity: 50000) {
   Id: int @id
   PosX: float
@@ -863,7 +1031,7 @@ table GameObject(plural: GameObjects, persistence: local, capacity: 50000) {
 
 **Schema (`.conjure`):**
 
-```
+```conjure
 table GameObjects {
   id: int @id
   pos_x: float
@@ -905,29 +1073,35 @@ All query methods accept a caller-provided `Span<int>` buffer and return the cou
 
 Spatial queries use built-in functions in `filter` expressions. The compiler detects these patterns and plans a `PhysicalSpatialScan` instead of a full table scan.
 
-```
+```conjure
 // Find all objects within 50 units of a point
 from GameObjects
 | filter within_radius(PosX, PosY, @centerX, @centerY, 50.0)
-| select Name, PosX, PosY
+| select { Name, PosX, PosY }
+```
 
+```conjure
 // Find all objects in a bounding box
 from GameObjects
 | filter within_bounds(PosX, PosY, @minX, @minY, @maxX, @maxY)
-| select Name, PosX, PosY
+| select { Name, PosX, PosY }
+```
 
+```conjure
 // 3D radius query
 from GameObjects
 | filter within_radius(PosX, PosY, PosZ, @cx, @cy, @cz, @radius)
-| select Name, PosX, PosY, PosZ
-
-// Combine spatial filter with other predicates
-from GameObjects
-| filter within_radius(PosX, PosY, @cx, @cy, @radius) and IsActive == true
-| select Name, PosX, PosY
+| select { Name, PosX, PosY, PosZ }
 ```
 
-When a spatial predicate is combined with non-spatial predicates (e.g., `and IsActive == true`), the optimizer applies the spatial index for candidate selection and evaluates the remaining predicate as a residual post-filter.
+```conjure
+// Combine spatial filter with other predicates
+from GameObjects
+| filter within_radius(PosX, PosY, @cx, @cy, @radius) && IsActive == true
+| select { Name, PosX, PosY }
+```
+
+When a spatial predicate is combined with non-spatial predicates (e.g., `&& IsActive == true`), the optimizer applies the spatial index for candidate selection and evaluates the remaining predicate as a residual post-filter.
 
 ### Complexity
 
@@ -1002,6 +1176,9 @@ Augmented red-black tree with per-node `size` field:
 | Select(k) | O(log n) — k-th smallest element |
 | Rank(key) | O(log n) — position of a key |
 
+The tree is a multiset: each insert adds one occurrence and delete removes one matching
+occurrence. For duplicate keys, `Rank(key)` returns the first occurrence's 1-based rank.
+
 Useful for leaderboard queries with positional lookups.
 
 ### Pooled Hash Maps
@@ -1022,7 +1199,7 @@ Useful for leaderboard queries with positional lookups.
 | SortedSet | 4 bytes (objectId in group) | ~80 bytes (tree node + group) | Plus cached snapshot arrays |
 | RangeLookup | — | ~17 bytes (min + max + hasData) | Sparse arrays; empty groups cost nothing |
 | GroupedSorted | ~8 bytes (Entry + indexInGroup) | List overhead per group | Sparse array of lists |
-| Aggregation | — | ~48 bytes (stats fields) | Per-group stats; equivalent to UniversalAggregation |
+| Aggregation | — | ~48 bytes (stats fields) | Global only — no per-entity overhead |
 | UniversalAggregation | — | 12–40 bytes per group (variant-dependent) | Dictionary + stats struct |
 | SpatialGrid | 4 bytes (objectId in cell list) | Hash bucket per occupied cell | Only occupied cells consume memory |
 
@@ -1097,13 +1274,13 @@ what-if metadata in structured output.
 
 ### Accepting Recommendations
 
-The `AutoIndexingMode.ReportOnly` advisor mechanism and the `auto-index analyze / show / patch / decide` CLI review loop are documented canonically in [Profile-Guided Optimization](/docs/performance/pgo#safe-auto-index-advisor). That advisor is report-only: it never auto-creates indexes, mutates schema, or routes candidates into runtime/codegen.
+The `AutoIndexingMode.ReportOnly` advisor mechanism and the `auto-index analyze / show / patch / decide` CLI review loop are documented canonically in [Profile-Guided Optimization](/docs/performance/pgo#auto-index-governance). That advisor is report-only: it never auto-creates indexes, mutates schema, or routes candidates into runtime/codegen.
 
-Index-selection-specific note: PGO advisory candidates are accepted through **explicit schema ownership** — once you decide to take a recommendation, add the chosen `@index` / `@@index` declaration to your `.conjure` schema yourself, then re-compile and re-profile to verify the improvement. See the [CLI-first review loop](/docs/performance/pgo#cli-first-review-loop) for evidence inspection and patch/decision workflow.
+Index-selection-specific note: PGO advisory candidates are accepted through **explicit schema ownership** — once you decide to take a recommendation, add the chosen `@index` / `@@index` declaration to your `.conjure` schema yourself, then re-compile and re-profile to verify the improvement. See the [CLI-first review loop](/docs/performance/pgo#auto-index-governance) for evidence inspection and patch/decision workflow.
 
 ### Profile-Driven Index Lifecycle
 
-```
+```text
 Profile query workload  →  PGO/runtime advisor surfaces canonical candidates
       ↓
 Compile with ReportOnly  →  what-if planning ranks candidates
@@ -1125,12 +1302,13 @@ Re-profile  →  Verify improvement, remove unused indexes
 |---------------|-------------------|-----|
 | `filter X == value` | **Lookup** | O(1) hash lookup |
 | `filter X == value` (unique) | **Unique** | O(1) + integrity guarantee |
-| `filter X >= lo and X <= hi` | **SortedSet** | O(log n + k) range scan |
+| `filter X >= lo && X <= hi` | **SortedSet** | O(log n + k) range scan |
 | `sort X` / `sort -X` | **SortedSet** | Cached ordered arrays |
 | `sort X \| take 1` (min/max) | **SortedSet** | First/last element of cached array |
 | `filter GroupKey == x \| sort -Y \| take N` | **GroupedSorted** | Pre-sorted groups, O(1) access |
 | "Does group X have any Y > Z?" | **RangeLookup** | O(1) EXISTS check |
-| `select sum(X), count(X) group by Y` | **UniversalAggregation** | Pre-computed O(1) per group |
+| `group Y (aggregate { Total = sum(X), C = count() })` | **UniversalAggregation** | Pre-computed O(1) per group |
+| `aggregate Total = sum(X)` | **Aggregation** | Pre-computed O(1) global |
 | Unique constraint enforcement | **Unique** | Throws on duplicate |
 | `filter within_radius(X, Y, ...)` | **SpatialGrid** | Spatial hash grid, O(cells × ents/cell) |
 | `filter within_bounds(X, Y, ...)` | **SpatialGrid** | Spatial hash grid, AABB candidate selection |
@@ -1147,7 +1325,7 @@ Re-profile  →  Verify improvement, remove unused indexes
 
 #### Inventory System
 
-```
+```conjure
 table Item(plural: Items, persistence: local, capacity: 5000) {
   Id: int @id
   PlayerId: int @relation(references: Player.Id) @index(name: "ItemsByPlayer", kind: lookup) @index(name: "ItemsByPlayerSortedByRarity", kind: grouped_sorted, range: Rarity)
@@ -1163,7 +1341,7 @@ table Item(plural: Items, persistence: local, capacity: 5000) {
 
 #### Leaderboard
 
-```
+```conjure
 table Score(plural: Scores, persistence: local, capacity: 100000) {
   Id: int @id
   PlayerId: int @index(name: "ScoresByPlayer", kind: lookup)
@@ -1179,7 +1357,7 @@ table Score(plural: Scores, persistence: local, capacity: 100000) {
 
 #### Config Lookup
 
-```
+```conjure
 table ItemTemplate(plural: ItemTemplates, persistence: none, capacity: 1000) {
   Id: int @id
   Code: string @index(name: "TemplateByCode", kind: unique)

@@ -1,1046 +1,577 @@
 # Data Types
 
-This document is a comprehensive reference for all data types supported in ConjureDB — in schema
-definitions (`.conjure` files), the query DSL, and at runtime. Each type is described with its size,
-range, schema name, C# mapping, and usage examples.
-
-> **See also:**
-> [Schema Language](/docs/schema/schema-language) — defining types in `.conjure` files •
-> [Query Language](/docs/query-language/reference) — using types in queries •
-> [Custom Functions](/docs/query-language/functions) — type conversion and string functions
-
----
+Types describe values, declared storage, and query results. Use schema type names
+in `.conjure` source; a generated C# carrier is not an alternative source grammar.
+See [Schema Language](/docs/schema/schema-language) for declarations and
+[Query Language](/docs/query-language/reference) for expressions and pipelines.
 
 ## Type System Overview
 
-ConjureDB's type system is built on .NET's Common Type System (CTS) with additional structure for
-query compilation and optimization. Every value in ConjureDB belongs to one of the following
-**type categories**:
+There are three distinct choices:
 
-| Category       | Description                                      | Examples                         |
-|----------------|--------------------------------------------------|----------------------------------|
-| **Scalar**     | Primitive types with no internal structure        | `int`, `string`, `DateTime`      |
-| **Struct**     | Value types with named members                   | User-defined `type` declarations |
-| **Class**      | Reference types with named members               | User-defined `table` declarations|
-| **Enum**       | Enumeration types with named constants            | `enum PlayerStatus { ... }`      |
-| **Collection** | Ordered sequences of a single element type        | `int[]`, `list<string>`          |
-| **Dictionary** | Map types with distinct key and value descriptors | `IReadOnlyDictionary<string, int>` |
-| **Nullable**   | Wrapper indicating a value type may be absent     | `int?`, `DateTime?`              |
-| **Unknown**    | Placeholder for unresolved or untyped external values | Internal compiler use only   |
-| **Error**      | Sentinel for type errors (compatible with all)    | Internal compiler use only       |
+1. **Value type:** a scalar, enum, declared record, entity reference, or collection
+   element.
+2. **Absence:** `T?` admits an absent value; `T` does not silently discard absence
+   at a declared assignment boundary.
+3. **Query result surface:** `T[]`, `pooled<T>`, `seq<T>`, and `map<K, V>` choose
+   different ownership and generated API contracts.
 
-The compiler tracks types through a unified `TypeDescriptor` system. All type descriptors are
-**immutable** and scalar singletons are **cached** for identity comparison, which enables efficient
-type checks throughout the compilation pipeline.
-
----
+A nominal type alias does not create a new type. A collection result constructor
+does not make that result type valid as a stored field.
 
 ## Numeric Types
 
 ### Integer Types
 
-ConjureDB supports six integer types as field/scalar types — `byte`, `short`, `int`, `uint`, `long`,
-and `ulong`. The signed 8-bit (`sbyte`) and unsigned 16-bit (`ushort`) types are available **only as
-enum backing types** (see [Backing Types](#backing-types)), not as field or scalar types.
+| Schema type | Width | Range |
+|---|---|---|
+| `sbyte` | Signed 8-bit | −128 to 127 |
+| `byte` | Unsigned 8-bit | 0 to 255 |
+| `short` | Signed 16-bit | −32,768 to 32,767 |
+| `ushort` | Unsigned 16-bit | 0 to 65,535 |
+| `int` | Signed 32-bit | −2³¹ to 2³¹−1 |
+| `uint` | Unsigned 32-bit | 0 to 2³²−1 |
+| `long` | Signed 64-bit | −2⁶³ to 2⁶³−1 |
+| `ulong` | Unsigned 64-bit | 0 to 2⁶⁴−1 |
 
-| Schema Name | C# Type         | Size    | Minimum                    | Maximum                     | Notes           |
-|-------------|-----------------|---------|----------------------------|-----------------------------|-----------------|
-| `sbyte`     | `System.SByte`  | 1 byte  | −128                       | 127                         | Signed 8-bit — enum backing only |
-| `byte`      | `System.Byte`   | 1 byte  | 0                          | 255                         | Unsigned 8-bit  |
-| `short`     | `System.Int16`  | 2 bytes | −32,768                    | 32,767                      | Signed 16-bit   |
-| `ushort`    | `System.UInt16` | 2 bytes | 0                          | 65,535                      | Unsigned 16-bit — enum backing only |
-| `int`       | `System.Int32`  | 4 bytes | −2,147,483,648             | 2,147,483,647               | **Default integer type** |
-| `uint`      | `System.UInt32` | 4 bytes | 0                          | 4,294,967,295               | Unsigned 32-bit |
-| `long`      | `System.Int64`  | 8 bytes | −9,223,372,036,854,775,808 | 9,223,372,036,854,775,807   | Signed 64-bit   |
-| `ulong`     | `System.UInt64` | 8 bytes | 0                          | 18,446,744,073,709,551,615  | Unsigned 64-bit |
-
-**Integer literals** in queries are typed as `int` (Int32) by default. If the value exceeds the
-Int32 range, the compiler promotes the literal to `long` (Int64).
-
-**Arithmetic promotion:** Sub-`int` types (`sbyte`, `byte`, `short`, `ushort`) are automatically
-widened to `int` for arithmetic operations. Mixed `int`/`uint` operations promote to `long`.
-Multiplication applies additional widening: `int × int → long`, `uint × uint → ulong`.
-
-```
-// Schema
-table Inventory {
-    slot: byte
-    quantity: int
-    total_value: long
-}
-
-// Query — byte is widened to int for arithmetic
-from Inventory | select slot * quantity
-```
+Use suffixes to select a literal's type: `1u`, `1L`, and `1ul`. A sign is an
+expression operator, as in `-1L`. A constant assignment may fit a smaller declared
+integral type; a runtime narrowing is not justified merely because the value
+usually fits.
 
 ### Floating-Point Types
 
-| Schema Name | C# Type          | Size    | Approximate Range                   | Precision         | Notes       |
-|-------------|------------------|---------|-------------------------------------|--------------------|-------------|
-| `float`     | `System.Single`  | 4 bytes | ±1.5 × 10⁻⁴⁵ to ±3.4 × 10³⁸      | ~6–9 digits        | IEEE 754    |
-| `double`    | `System.Double`  | 8 bytes | ±5.0 × 10⁻³²⁴ to ±1.7 × 10³⁰⁸    | ~15–17 digits      | IEEE 754    |
-
-Floating-point literals with a decimal point (e.g., `3.14`) are typed as `double` by default.
-
-> **⚠ Precision warning:** Floating-point types use binary representation and cannot exactly
-> represent all decimal fractions. For financial or other precision-critical calculations, use
-> `decimal` instead.
+`float` is IEEE 754 binary32; `double` is IEEE 754 binary64. An unsuffixed decimal
+real literal is `double`. Use `1f` or `0.5f` for `float`, and `1d` for an explicit
+`double` literal. Do not rely on a `double` literal implicitly narrowing to `float`.
 
 ### Decimal Type
 
-| Schema Name | C# Type           | Size     | Range                                        | Precision    |
-|-------------|--------------------|----------|----------------------------------------------|--------------|
-| `decimal`   | `System.Decimal`   | 16 bytes | ±1.0 × 10⁻²⁸ to ±7.9228 × 10²⁸             | 28–29 digits |
-
-Decimal provides exact representation of base-10 fractions, making it the correct choice for:
-
-- Currency and monetary values
-- Financial calculations requiring exact rounding
-- Any domain where `0.1 + 0.2 == 0.3` must hold
-
-```
-// Schema
-table Transaction {
-    amount: decimal
-    tax_rate: decimal
-}
-```
+`decimal` is the CLR decimal value type. Use `m`, as in `12.50m`. Decimal and
+binary floating-point arithmetic are not interchangeable numeric families;
+choose conversions deliberately rather than assuming a common numeric rank.
 
 ### Fixed-Point Types
 
-ConjureDB provides deterministic binary fixed-point types for game logic that must produce
-bit-identical results across platforms (e.g. lockstep simulation, replay verification). Unlike
-`float`/`double`, they have no rounding drift.
+| Schema type | Carrier | Format | Literal example |
+|---|---|---|---|
+| `fixed32` | `ConjureDB.Numerics.Fixed32` | Q16.16 | `1.5fx32` |
+| `fixed64` | `ConjureDB.Numerics.Fixed64` | Q32.32 | `1.5fx64` |
 
-| Schema Name          | C# Type                        | Size    | Format  | Backing | Notes                    |
-|----------------------|--------------------------------|---------|---------|---------|--------------------------|
-| `fixed` / `fixed64`  | `ConjureDB.Numerics.Fixed64`   | 8 bytes | Q32.32  | `long`  | 32 integer + 32 fractional bits |
-| `fixed32`            | `ConjureDB.Numerics.Fixed32`   | 4 bytes | Q16.16  | `int`   | 16 integer + 16 fractional bits (range ±32,768) |
-
-`fixed` is an alias for the Q32.32 `fixed64` type.
-
-**Literals** use the suffixes `fx` / `fx64` for `Fixed64` and `fx32` for `Fixed32`
-(e.g. `10.5fx`, `3fx32`). **C-style and SQL-style casts** accept the targets `fixed`, `fixed64`,
-and `fixed32` (e.g. `(fixed)x`, `cast(x as fixed32)`).
-
-Fixed-point types are numeric, but they form their own family: they do **not** implicitly promote
-to or from `int`, `float`, `double`, or `decimal`. Converting between fixed-point and other numeric
-families requires an explicit cast.
-
-```
-// Schema
-table PhysicsBody {
-    position_x: fixed
-    velocity:   fixed32
-}
-```
+Fixed-point values do not silently mix with integer or IEEE floating-point values.
+Use their supported typed operations and explicit conversions. The exact
+`fixed32` to `fixed64` widening is supported; the reverse is not implicit.
+`fixed` is not a canonical substitute for `fixed64`.
 
 ### Numeric Promotion Hierarchy
 
-When two numeric values of different types appear in the same expression (comparison, arithmetic,
-`CASE` branches), the compiler promotes the narrower type to the wider type according to this
-ranking:
-
-| Rank | Types                   |
-|------|-------------------------|
-| 1    | `byte`, `sbyte`         |
-| 2    | `short`, `ushort`       |
-| 3    | `int`, `uint`           |
-| 4    | `long`, `ulong`         |
-| 5    | `float`                 |
-| 6    | `double`                |
-| 7    | `decimal`               |
-
-The promoted type is the one with the higher rank. The result inherits nullability if either
-operand is nullable.
-
-> **Note:** Mixing `decimal` with `float` or `double` in arithmetic or comparison is allowed. Because
-> `decimal` is the highest-ranked numeric type, the expression promotes to `decimal` and the
-> `float`/`double` operand is coerced to `decimal` automatically — no explicit cast is required.
+Promotion is governed by the actual operand types and the operation. It is not
+simply “the larger width wins”: signed/unsigned ranges, decimal, fixed point,
+nullability, and potentially lossy conversions matter. Typical lossless writes
+include `int` to `long` and `float` to `double`; a `long` result cannot be assigned
+to `int` without an explicit admitted conversion.
 
 ### Aggregate Type Inference
 
-Aggregate functions infer their result type from the input:
+An aggregate's result type and empty-input behavior are part of its contract.
+`count()` returns `long`, including zero for empty input. Value folds such as
+`sum`, `min`, `max`, and `avg` can be absent on empty input; do not declare a
+non-nullable result unless the actual operation and input prove non-absence.
 
-| Input Type               | `sum()` Result | `avg()` Result |
-|--------------------------|----------------|----------------|
-| Any integer type         | `long`         | `double`       |
-| `decimal`                | `decimal`      | `decimal`      |
-| `float`                  | `double`       | `double`       |
-| `double`                 | `double`       | `double`       |
+```conjure
+table Sale(persistence: none) {
+    Id: int @id
+    Amount: int
+}
 
-Nullability rules differ by aggregate. `avg`, `min`, and `max` **always** return a nullable type,
-because an empty group yields NULL regardless of input nullability (e.g. `avg(nonnull_int) → double?`).
-`sum` preserves its input's nullability (`sum(nullable_int) → long?`, `sum(nonnull_int) → long`), and
-`count` always returns a non-nullable `long`.
+query SaleCount() -> long {
+    from Sale s | aggregate count()
+}
 
----
+query AverageAmount() -> double? {
+    from Sale s | aggregate avg(s.Amount)
+}
+```
+
+A scalar output aggregate is unnamed. A row-member aggregate has an explicit
+assignment name. Adding a `select` to a scalar aggregate is not permission to
+use an unnamed aggregate as an authored row member.
 
 ## Boolean Type
 
-| Schema Name | C# Type          | Size   | Values         |
-|-------------|------------------|--------|----------------|
-| `bool`      | `System.Boolean` | 1 byte | `true`, `false`|
+`bool` has the values `true` and `false`; `bool?` also admits absence.
 
-### Three-Valued Logic
+### Two-Valued Boolean Logic
 
-When a boolean value is nullable (`bool?`), comparisons and logical operators follow SQL-style
-**three-valued logic** where the result may be `true`, `false`, or `null` (unknown).
-
-**AND truth table:**
-
-| `a`     | `b`     | `a AND b` |
-|---------|---------|-----------|
-| `true`  | `true`  | `true`    |
-| `true`  | `false` | `false`   |
-| `true`  | `null`  | `null`    |
-| `false` | `true`  | `false`   |
-| `false` | `false` | `false`   |
-| `false` | `null`  | `false`   |
-| `null`  | `true`  | `null`    |
-| `null`  | `false` | `false`   |
-| `null`  | `null`  | `null`    |
-
-**OR truth table:**
-
-| `a`     | `b`     | `a OR b` |
-|---------|---------|----------|
-| `true`  | `true`  | `true`   |
-| `true`  | `false` | `true`   |
-| `true`  | `null`  | `true`   |
-| `false` | `true`  | `true`   |
-| `false` | `false` | `false`  |
-| `false` | `null`  | `null`   |
-| `null`  | `true`  | `true`   |
-| `null`  | `false` | `null`   |
-| `null`  | `null`  | `null`   |
-
-**NOT truth table:**
-
-| `a`     | `NOT a` |
-|---------|---------|
-| `true`  | `false` |
-| `false` | `true`  |
-| `null`  | `null`  |
-
-> **Note:** In `filter` clauses, `null` is treated as `false` — rows where the condition evaluates
-> to `null` are excluded, consistent with SQL `WHERE` semantics.
-
----
+Comparisons use two-valued results rather than SQL `UNKNOWN`. Null equality is
+explicit: `null == null` is true, and an absent value differs from a non-absent
+one. Ordered comparisons involving absence do not make the value present.
+Use `&&`, `||`, and `!`; short-circuiting and the actual expression's effects are
+preserved. An absence-admitting boolean must be handled where a definite boolean
+is required.
 
 ## Character and String Types
 
-### Char
+`char` is one UTF-16 code unit; `string` is a reference string. String comparison
+is ordinal. The declaration distinguishes `string` from `string?`, even though
+both use a reference-type CLR carrier. A CLR reference representation does not
+make a declared non-nullable result or field nullable.
 
-| Schema Name | C# Type        | Size    | Description                  |
-|-------------|----------------|---------|------------------------------|
-| `char`      | `System.Char`  | 2 bytes | Single UTF-16 code unit      |
+```conjure
+table Player(persistence: none) {
+    Id: int @id
+    Nickname: string?
+}
 
-`char` can be implicitly converted to `string`. In practice, `string` is preferred for most
-use cases.
+query DisplayNames() -> string[] {
+    from Player p | select Name = p.Nickname ?? "anonymous"
+}
 
-### String
+query UnnamedPlayers() -> Player[] {
+    from Player p | filter p.Nickname == null
+}
+```
 
-| Schema Name | C# Type         | Size     | Max Length                | Nullability       |
-|-------------|-----------------|----------|---------------------------|--------------------|
-| `string`    | `System.String` | Variable | ~2 GB (runtime limit)     | Reference type — inherently nullable |
-
-Strings are **reference types** and therefore inherently nullable. Appending `?` in schema
-definitions is accepted for clarity but is not required.
-
-**String comparison:** Ordinal comparison by default. String comparisons in queries use
-`StringComparison.Ordinal` semantics.
-
-**String operations in queries:**
-
-| Function        | Signature                         | Description                          |
-|-----------------|-----------------------------------|--------------------------------------|
-| `length(s)`     | `(string) → int`                  | Character count                      |
-| `upper(s)`      | `(string) → string`               | Convert to uppercase                 |
-| `lower(s)`      | `(string) → string`               | Convert to lowercase                 |
-| `trim(s)`       | `(string) → string`               | Remove leading/trailing whitespace   |
-| `contains(s,t)` | `(string, string) → bool?`        | Substring search                     |
-| `startswith(s,t)`| `(string, string) → bool?`       | Prefix check                         |
-| `endswith(s,t)` | `(string, string) → bool?`        | Suffix check                         |
-| `substring(s,i)`| `(string, int) → string`          | Extract from position                |
-| `substring(s,i,n)` | `(string, int, int) → string`  | Extract with length                  |
-| `replace(s,old,new)` | `(string, string, string) → string` | Replace occurrences           |
-| `concat(a,b,…)` | `(string, string, …) → string`   | Concatenate strings                  |
-| `indexof(s,t)`  | `(string, string) → int?`         | Find position of substring           |
-
-> **See:** [Custom Functions](/docs/query-language/functions) for the complete function reference.
-
-**String concatenation type:** The `+` operator with at least one string operand produces `string`.
-If both operands are unknown/null, the result type is unknown.
-
----
+Use canonical `text.*` functions for string operations; see
+[Custom Functions](/docs/query-language/functions). Do not substitute C# instance methods or
+retired collection/string call spellings.
 
 ## Temporal Types
 
-ConjureDB supports five temporal types covering dates, times, time zones, and durations.
+| Schema type | C# carrier |
+|---|---|
+| `datetime` | `System.DateTime` |
+| `datetimeoffset` | `System.DateTimeOffset` |
+| `dateonly` | `System.DateOnly` |
+| `timeonly` | `System.TimeOnly` |
+| `timespan` | `System.TimeSpan` |
 
-| Schema Name        | C# Type                  | Size     | Description                              | Availability |
-|--------------------|--------------------------|----------|------------------------------------------|--------------|
-| `datetime`         | `System.DateTime`        | 8 bytes  | Date and time (no time zone)             | All runtimes |
-| `datetimeoffset`   | `System.DateTimeOffset`  | 10 bytes | Date, time, and UTC offset               | All runtimes |
-| `dateonly`         | `System.DateOnly`        | 4 bytes  | Date without time component              | .NET 6+      |
-| `timeonly`         | `System.TimeOnly`        | 8 bytes  | Time of day without date                 | .NET 6+      |
-| `timespan`         | `System.TimeSpan`        | 8 bytes  | Duration / elapsed time interval         | All runtimes |
+A temporal type is not a number merely because its carrier has ticks. Comparisons
+and supported arithmetic require appropriate temporal operands; different date/time
+types are not automatically interchangeable.
 
-### DateTime
+Calendar construction uses expressions such as `datetime(2024, 1, 1)`, not an
+`@`-prefixed date literal. Duration literals include `s`, `ms`, `min`, and `h`.
+Their typed value is a `timespan`.
 
-Represents a date and time without time zone information. The internal representation stores ticks
-(100-nanosecond intervals since 0001-01-01 00:00:00).
+```conjure
+const Epoch: datetime = datetime(2024, 1, 1)
+const RetryDelay: timespan = 1s + 500ms
 
-```
-// Schema
-table Event {
-    created_at: datetime
-    updated_at: datetime?
-}
-
-// Query
-from Event | filter created_at > @2024-01-01
-```
-
-### DateTimeOffset
-
-Represents a date, time, and UTC offset. Use this type when you need to preserve the original time
-zone context of a timestamp.
-
-```
-// Schema
-table AuditLog {
-    timestamp: datetimeoffset
+table EventRecord(persistence: none) {
+    Id: int @id
+    CreatedAt: datetime @default(Epoch)
 }
 ```
 
-### DateOnly and TimeOnly
-
-Available on .NET 6 and later. `DateOnly` stores a calendar date without a time component;
-`TimeOnly` stores a time of day without a date.
-
-```
-// Schema
-table Schedule {
-    day: dateonly
-    start_time: timeonly
-    end_time: timeonly
-}
-```
-
-### TimeSpan
-
-Represents a duration or time interval. Commonly used for cooldowns, session lengths, and elapsed
-time calculations.
-
-```
-// Schema
-table Session {
-    duration: timespan
-    idle_timeout: timespan?
-}
-```
-
-### Temporal Type Compatibility
-
-Temporal types are **not interchangeable**. Comparisons and promotions require both operands to be
-the same temporal type. There is no implicit conversion between `DateTime` and `DateTimeOffset`, or
-between `DateOnly` and `DateTime`.
-
-| Operation         | Requirement                              |
-|-------------------|------------------------------------------|
-| `a == b`          | Same temporal type                       |
-| `a > b`           | Same temporal type                       |
-| `CASE` branches   | All branches must be same temporal type   |
-
----
+Runtime clocks are not closed schema constants or closed range endpoints.
+Temporal conversion and date functions are described in
+[Custom Functions](/docs/query-language/functions).
 
 ## Binary Type
 
-| Schema Name | C# Type         | Size     | Description                          | Nullability       |
-|-------------|-----------------|----------|--------------------------------------|--------------------|
-| `binary`    | `System.Byte[]` | Variable | Arbitrary binary data                | Reference type — inherently nullable |
+`binary` is a binary value carried by `byte[]`. It is semantically distinct from
+the general array type `byte[]`; do not assume that equal CLR representations
+make the two source types interchangeable in every operation.
 
-Binary data is stored as byte arrays. Like `string`, `binary` is a reference type and is
-inherently nullable.
-
-**Use cases:**
-- Serialized protocol buffers or MessagePack payloads
-- Image thumbnails or small binary assets
-- Cryptographic hashes or signatures
-
-**Fixed-length constraints:** The type system supports fixed-length binary constraints through
-`TypeConstraints`. Two binary values are equality-comparable only when their fixed-length
-constraints are compatible (both unconstrained, or same length).
-
-```
-// Schema
-table Asset {
-    data: binary
-    hash: binary       // e.g., SHA-256 digest
+```conjure
+table Payload(persistence: none) {
+    Id: int @id
+    Content: binary
+    OptionalContent: binary?
 }
 ```
 
----
+Binary values support compatible equality, not general scalar ordering.
+Storage-kind restrictions still apply: a managed binary payload is not an
+arbitrary ephemeral-row field.
 
 ## Identifier Types
 
 ### Guid
 
-| Schema Name | C# Type        | Size     | Format                                      |
-|-------------|----------------|----------|----------------------------------------------|
-| `guid`      | `System.Guid`  | 16 bytes | 128-bit universally unique identifier        |
-
-Guids support **equality** and **ordering** comparisons. They can be implicitly converted to
-`string` and explicitly converted back from `string`.
-
-```
-// Schema
-table Player {
-    id: guid @id
-    session_id: guid?
-}
-
-// Query
-from Player | filter id == cast('550e8400-e29b-41d4-a716-446655440000' as guid)
-```
-
----
+`guid` maps to `System.Guid`. It is not a stringly typed entity reference. Use a
+typed parameter or the supported conversion contract when crossing a textual
+boundary. Domain-specific frame references use `ref T`, described below.
 
 ## Nullable Types
 
-Any value type can be made nullable by appending `?` to the type name. Reference types (`string`,
-`binary`) are inherently nullable and do not require the `?` suffix (though it is accepted for
-clarity).
-
 ### Syntax
 
-```
-// Schema definition
-table Player {
-    name: string          // Reference type — already nullable
-    guild_id: int?        // Nullable value type → Nullable<int>
-    score: float?         // Nullable value type → Nullable<float>
-    last_login: datetime? // Nullable value type → Nullable<DateTime>
-}
-```
+| Form | Meaning |
+|---|---|
+| `int?` | An integer or absence |
+| `string?` | A string declaration that admits absence |
+| `Player?` | An optional entity/result value |
+| `int[]` | An array of non-nullable integers |
+| `int?[]` | An array of optional integers |
 
-### NULL Semantics in Comparisons
-
-Comparisons involving `null` follow SQL semantics:
-
-| Expression       | Result  | Explanation                          |
-|------------------|---------|--------------------------------------|
-| `null == null`   | `null`  | Unknown equals unknown is unknown    |
-| `null == 42`     | `null`  | Unknown equals known is unknown      |
-| `null != 42`     | `null`  | Unknown not-equals known is unknown  |
-| `null > 42`      | `null`  | Cannot order unknown values          |
-| `null + 42`      | `null`  | Arithmetic with null propagates null |
+The suffix order matters. `T?[]` does **not** mean an absent array container.
+Do not rewrite `optional many T` mechanically to that form: it changes which
+value can be absent. Direct type syntax does not admit `T[]?` as an alternative
+spelling for optional elements.
 
 ### Null Handling Operators and Functions
 
-| Syntax                          | Description                                    |
-|---------------------------------|------------------------------------------------|
-| `coalesce(a, b)`                | Returns `a` if non-null, else `b`              |
-| `is_null(expr)`                 | Returns `true` if expression is null            |
-| `is_not_null(expr)`             | Returns `true` if expression is not null        |
+- Test absence with `value == null` or `value != null`.
+- Use `value ?? replacement` to choose an alternative for absence.
+- Use `condition ? left : right` for a conditional expression. Its branches must
+  have an admitted common type and nullability.
 
-```
-// Query — filter out null values
-from Player | filter is_not_null(guild_id)
+An explicit cast does not automatically prove that an absent value is present.
+A declared write must satisfy both the target's type and its nullability.
 
-// Query — provide default
-from Player | select coalesce(guild_id, 0) as effective_guild
-```
+### Optional Results and Row Cardinality
 
-### Nullability Propagation
+The question “can this **value** be absent?” differs from “how many **rows** does
+this query produce?” An ungrouped `avg` produces one scalar row whose value can
+be absent. A key lookup can produce zero or one entity row. The signature and
+completed pipeline are checked together.
 
-The compiler propagates nullability through expressions:
+| Completed row cardinality | Required `-> T` | Optional `-> T?` | Collection result |
+|---|---|---|---|
+| Exactly one, proved | No row terminal | No row terminal | No row terminal |
+| At most one, proved | `single` | No row terminal | No row terminal |
+| Many or not proved | `single`, or ordered `first` | `single_or_default`, or ordered `first_or_default` | No row terminal |
 
-| Operation                       | Result Nullability                              |
-|---------------------------------|-------------------------------------------------|
-| Non-null `op` non-null          | Non-nullable                                    |
-| Nullable `op` anything          | Nullable                                        |
-| Anything `op` nullable          | Nullable                                        |
-| `CASE` without `ELSE`           | Always nullable                                 |
-| `CASE` with any nullable branch | Nullable                                        |
-| Comparison (any operands)       | `bool?` if either operand is nullable            |
-| Logical AND/OR                  | `bool?` if either operand is nullable, else `bool` |
-
----
+The result value must still fit its declared type in every cell of the table.
+`first` and `first_or_default` require an actual qualifying order. A terminal that
+is redundant or conflicts with the signature is rejected, rather than silently
+changing the API. `single` checks multiplicity; it does not choose an arbitrary row.
 
 ## Enum Types
 
-Enumerations define a fixed set of named constants backed by an integer type.
-
 ### Schema Definition
 
-```
-// Simple enum (default backing type: int)
-enum PlayerStatus {
-    Active = 0
-    Banned = 1
-    Inactive = 2
+```conjure
+enum PlayerState: byte {
+    Idle = 0,
+    Active = 1,
+    Disabled = 2,
 }
 
-// Enum used in a table
-table Player {
-    status: PlayerStatus
-    role: PlayerRole?      // Nullable enum
+table Player(persistence: none) {
+    Id: int @id
+    State: PlayerState @default(PlayerState.Idle)
+}
+
+query ActivePlayers() -> Player[] {
+    from Player p | filter p.State == PlayerState.Active
 }
 ```
 
 ### Backing Types
 
-Enums can be backed by any integer scalar type. The backing type is determined by the enum
-definition and affects storage size:
-
-| Backing Type | Size    | Range          |
-|--------------|---------|----------------|
-| `byte`       | 1 byte  | 0–255          |
-| `sbyte`      | 1 byte  | −128–127       |
-| `short`      | 2 bytes | −32,768–32,767 |
-| `ushort`     | 2 bytes | 0–65,535       |
-| `int`        | 4 bytes | Full int range |
-| `uint`       | 4 bytes | Full uint range|
-| `long`       | 8 bytes | Full long range|
-| `ulong`      | 8 bytes | Full ulong range|
+The default is `int`. Explicit integral backing types are `sbyte`, `byte`,
+`short`, `ushort`, `int`, `uint`, `long`, and `ulong`. Values must fit the backing
+range. An omitted member value increments from its predecessor.
 
 ### Enum Type Compatibility
 
-| Operation                | Allowed?     | Notes                                     |
-|--------------------------|--------------|-------------------------------------------|
-| Enum == Enum (same type) | ✅ Yes       | Direct comparison                         |
-| Enum == underlying int   | ✅ Yes       | Enum compared to its backing type          |
-| Enum == different Enum   | ❌ No        | Different enum types are not comparable    |
-| Cast enum ↔ backing type | ✅ Explicit  | `(int)status` or `(PlayerStatus)0`        |
+An enum has its own nominal identity. Two independently declared enums are not
+interchangeable merely because they have identical backing types and values.
+Supported equality with an enum's backing integer type does not make that integer
+an assignable enum value or authorize an integer-to-enum cast. Enum ordering is
+not a general numeric operation.
 
-```
-// Query — filter by enum value
-from Player | filter status == PlayerStatus.Active
+### Enum Literals
 
-// Query — cast to underlying type
-from Player | select (int)status as status_code
-```
+Write a declared member, such as `PlayerState.Active`. A field/default typed as
+that enum accepts its own members, not the same-valued member of another enum.
+Do not manufacture an enum value by writing `1 as PlayerState`.
 
 ### Flags Enums
 
-Flags enums allow bitwise combinations of values. Each value should be a power of two:
+An enum can declare powers of two and named combinations, but that declaration
+does not create a separate flags-expression grammar:
 
-```
+```conjure
 enum Permissions {
-    None = 0
-    Read = 1
-    Write = 2
-    Execute = 4
-    All = 7
+    None = 0,
+    Read = 1,
+    Write = 2,
+    ReadWrite = 3,
 }
 ```
 
----
+Use the declared combination `Permissions.ReadWrite` when needed. A bare `|` is a
+pipeline separator, not an enum-combination operator. Do not infer C# `[Flags]`
+behavior from these member values.
 
 ## Collection Types
 
-ConjureDB supports several collection kinds, but **mutable collections are prohibited** in entity
-definitions. Only immutable/read-only collections are allowed.
-
 ### Collection Kinds
 
-| Kind                 | C# Type                       | Mutable? | Allowed in Entities? |
-|----------------------|-------------------------------|----------|----------------------|
-| **Array**            | `T[]`                         | Fixed    | ✅ Yes               |
-| **ReadOnlyList**     | `IReadOnlyList<T>`            | No       | ✅ Yes (preferred)   |
-| **ReadOnlyCollection** | `IReadOnlyCollection<T>`   | No       | ✅ Yes               |
-| **Sequence**         | `IEnumerable<T>`              | No       | ✅ Yes               |
-| **List**             | `List<T>`                     | Yes      | ❌ Disallowed        |
-| **Collection**       | `ICollection<T>`              | Yes      | ❌ Disallowed        |
-| **Set**              | `ISet<T>`                     | Yes      | ❌ Disallowed        |
+An ordinary query's result signature selects one generated consumer surface:
 
-> **Design rationale:** Mutable collections are forbidden in entity types because entities are
-> stored in indexed structures where mutation could violate index consistency. The compiler throws
-> `InvalidOperationException` if a mutable collection kind is used.
+| Source result | Ownership and consumption | Generated method shape |
+|---|---|---|
+| `T[]` | Owned array copy; the caller can modify that copy | `Read(...)` returns an array |
+| `pooled<T>` | Stable pooled copy, read-only, valid until `Dispose` | `Read(...)` returns `ReadOnlyPooledQueryResult<T>` |
+| `seq<T>` | Rows pushed to a typed consumer during execution | `ReadForEach<TConsumer>(..., ref consumer)` |
+| `map<K, V>` | Owned keyed result from a final scoped group | `Read(...)` returns a dictionary |
+
+Only the selected method surface is generated. An array result does not also
+request `ReadNoAlloc`, and a sequence does not add an array-returning `Read`.
+Choosing a different surface can therefore change the public C# API.
+
+A pooled result is a **copy**, not a borrowed view into mutable table storage.
+Source writes do not change that copy. Copies of a pooled result handle share
+its disposal/lifetime; do not use any copy after disposal. Its public API does
+not expose writable backing storage. A sequence is a push API, not a promise of
+an `IEnumerable<T>` object that the caller can enumerate later.
 
 ### Schema Syntax
 
+This complete example selects each supported surface explicitly:
+
+```conjure
+table Row(plural: Rows, persistence: none) {
+    Id: int @id
+    Bucket: int
+    Score: int
+}
+
+using PlayerRow = (Id: long, Score: int)
+
+query ArrayRows() -> int[] {
+    from Row r | select r.Id
+}
+
+query PooledRows() -> pooled<int> {
+    from Row r | select r.Id
+}
+
+query SequenceRows() -> seq<int> {
+    from Row r | select r.Id
+}
+
+query MapRows() -> map<int, int[]> {
+    from Row r | group r.Bucket (sort r.Id | select r.Id)
+}
+
+query MapCounts() -> map<int, long> {
+    from Row r | group r.Bucket (aggregate count())
+}
+
+query MapTuples() -> map<int, PlayerRow[]> {
+    from Row r | group r.Bucket (sort r.Id | select { r.Id, r.Score })
+}
 ```
-// Array syntax
-table Player {
-    scores: int[]              // generates: int[]
-    tags: string[]             // generates: string[]
-}
 
-// List syntax (generates IReadOnlyList<T>)
-table Player {
-    inventory: list<int>       // generates: IReadOnlyList<int>
-    friends: list<string>      // generates: IReadOnlyList<string>
-}
+A map query must end in the actual `group Key (pipeline)`. The key supplies `K`;
+the inner output supplies `V`. A collection value retains the partition's rows;
+a scalar value requires the supported scalar reduction. A nullable key, a scalar
+value manufactured from an arbitrary multi-row `select`, or a pipeline suffix
+after the final group is rejected. An inner filter can leave an existing
+partition with an empty array value.
 
-// Nullable collection
-table Player {
-    items: list<string>?       // generates: IReadOnlyList<string>?
-}
+Selected result constructors cannot be nested arbitrarily: `pooled<T>` and
+`seq<T>` require non-array elements, a map value may be an array but not another
+selected result constructor, and a map key cannot be optional or a collection.
+
+These constructors are result-only. They do not invent a storage or parameter
+ABI for `pooled<T>`, `seq<T>`, or `map<K, V>`. Stored arrays use `T[]` where the
+storage kind permits arrays. A nominal alias cannot bypass storage restrictions.
+
+### Migration from CLR Collection Signatures
+
+Use the source result constructors to state collection policy, not a CLR list
+interface. The following is an **intentional migration example**, not the
+recommended signature for a new query:
+
+```text
+-> extern System.Collections.Generic.IReadOnlyList<int>
 ```
 
-**Default initialization:** Collection fields are initialized with `Array.Empty<T>()` by default,
-avoiding null reference issues.
-
-### Collection Type Promotion
-
-When two collections appear in the same expression (e.g., `CASE` branches), the compiler checks:
-
-1. Element types must be compatible (via standard type promotion rules)
-2. Collection kinds must be the same or resolvable
-3. Fixed-length constraints (if any) must match
-
----
+There is no universally API-preserving replacement: choose `int[]`, `pooled<int>`,
+or `seq<int>` according to ownership and consumption, then review the actual
+generated return type and method set. A type alias alone does not prove equality
+of those public APIs.
 
 ## Composite Types
 
-### Struct Types (Value Semantics)
+### Declared Records
 
-Structs are value types with named members. They are defined using the `type` keyword in schema
-files.
+`type Name` declares a nominal reference record; `struct type Name` declares a
+nominal value record. Both describe named members. A named tuple alias is a
+structural tuple spelling, not a new nominal record declaration.
 
-```
-// Schema definition
-type Address {
-    city: string
-    country: string
-    zip: string?
+```conjure
+struct type Pair {
+    First: int
+    Second: int?
 }
 
-// Used as a field
-table Player {
-    home_address: Address
-    work_address: Address?
+using PairAlias = Pair
+
+table Row(persistence: none) {
+    Id: int @id
 }
-```
 
-**Characteristics:**
-- Copied by value when assigned
-- Compared by structural equality (all members must match)
-- Cannot be `null` unless explicitly nullable (`Address?`)
-- No navigation properties or identity
-
-### Class Types (Reference Semantics)
-
-Classes are reference types defined using the `table` keyword. They serve as the primary entity
-types in ConjureDB.
-
-```
-// Schema definition
-table Player {
-    id: int @id
-    name: string
-    level: int
+query Pairs() -> Pair[] {
+    from Row r | select (PairAlias { First = r.Id, Second = null })
 }
 ```
 
-**Characteristics:**
-- Reference semantics — identity-based comparison
-- Inherently nullable (reference types)
-- Support primary keys and indexes
-- Can have navigation properties to other tables
+`PairAlias { ... }` constructs the actual `Pair`. Member names, duplicates,
+required members, conversions, and nullability are checked against its declared
+shape. Source order is retained for expression evaluation; it is not an excuse
+to bind values to whichever member happens to occupy that position.
+
+A contextual record value `{ First = expression, Second = expression }` needs
+an actual declared target shape. A nominal value explicitly names that shape.
+In contrast, `select { r.Id, Score = expression }` is a named result-field
+projection. One scalar output is written without tuple braces; parenthesize a
+whole nominal record value as shown above.
 
 ### Composite Type Compatibility
 
-Two composite types are compatible if they are the **exact same type** (by full name). There is no
-structural subtyping — two types with identical member layouts but different names are not
-interchangeable.
-
-If both types have CLR type information available, .NET assignability rules are also checked
-(e.g., a derived class is assignable to its base class).
-
----
+Nominal identity matters: a different record with the same field names is not
+implicitly the same type. Aliases preserve identity. An enum, table entity,
+struct record, reference record, and named tuple are not interchangeable just
+because generated code happens to expose similar members.
 
 ## Extern Types
 
-Extern types allow referencing types defined outside the ConjureDB schema, such as Unity types or
-custom game types.
+`extern type Alias = Qualified.ClrType` declares a C# bridge type. The owning
+project must provide the actual referenced symbol; a guessed name or an unrelated
+same-named type is not sufficient. It is also possible to use an explicit
+`extern Qualified.ClrType` at an admitted type-reference boundary.
 
-### Inline Extern
+These are **syntax templates**, requiring a real project reference and actual
+host members, rather than self-contained schema examples:
 
+```text
+extern type Position = Game.Geometry.Position
+extern function project(value: Position) -> float = Game.Geometry.Project
 ```
-// Direct extern reference
-table Player {
-    position: extern Vector3
-    rotation: extern Quaternion?
-    view: extern Game.Contracts.PlayerView
+
+External construction/projection must match the real accessible C# constructor
+and members. A private or mismatched constructor is not made usable by an alias.
+For functions and project integration, see [Custom Functions](/docs/query-language/functions)
+and [Schema Workflow](/docs/schema/schema-workflow).
+
+## Entity References
+
+The source type `ref Entity` carries an ephemeral entity domain. It is an opaque
+generational reference, not a numeric key. Equality and supported domain-preserving
+uses do not imply arithmetic, ordering, or casts to/from integers.
+
+```conjure
+ephemeral table Actor(capacity: 16) {
+    Id: int @id
+    Health: int
+}
+
+event table Hit(capacity: 16, lifetime: next_frame) {
+    Target: ref Actor
+    Damage: int
 }
 ```
 
-### Extern Type Aliases
-
-Top-level aliases map short names to fully qualified types:
-
-```
-// Alias declarations
-extern type Vector3 = UnityEngine.Vector3
-extern type Quaternion = UnityEngine.Quaternion
-extern type GeoPoint = Game.Contracts.GeoPoint
-
-// Usage with alias
-table Player {
-    position: Vector3
-    spawn: Vector3?
-    data: GeoPoint[]
-}
-```
-
-Extern types are resolved as an opaque `Class` type with the specified full name and no inspectable
-members. They participate in limited type checking — the compiler tracks them for consistency (using
-nominal, exact-name compatibility) but cannot inspect their members.
-
----
+A reference must name an admitted entity/table domain. An optional reference is
+represented by the handle's `none` contract, not by adding `?` to a reference
+field. Reference arrays, persisted reference fields, and references nested into
+unsupported stored record layouts are rejected. See
+[Ephemeral Tables](/docs/advanced/ephemeral-tables).
 
 ## Type Coercion and Conversion
 
 ### Implicit Conversions
 
-Implicit conversions are applied automatically by the compiler when types are mixed in expressions.
-No cast syntax is required.
-
-| Source Type     | Target Type   | Direction    | Notes                           |
-|-----------------|---------------|-------------|---------------------------------|
-| `byte`          | `short`       | Widening    | Unsigned 8-bit → signed 16-bit  |
-| `byte`          | `int`         | Widening    | 8-bit → 32-bit                  |
-| `byte`          | `long`        | Widening    | 8-bit → 64-bit                  |
-| `sbyte`         | `short`       | Widening    | Signed 8-bit → signed 16-bit    |
-| `sbyte`         | `int`         | Widening    | 8-bit → 32-bit                  |
-| `sbyte`         | `long`        | Widening    | 8-bit → 64-bit                  |
-| `short`         | `int`         | Widening    | 16-bit → 32-bit                 |
-| `short`         | `long`        | Widening    | 16-bit → 64-bit                 |
-| `ushort`        | `int`         | Widening    | Unsigned 16-bit → signed 32-bit |
-| `ushort`        | `uint`        | Widening    | Unsigned 16-bit → unsigned 32-bit|
-| `ushort`        | `long`        | Widening    | 16-bit → 64-bit                 |
-| `int`           | `long`        | Widening    | 32-bit → 64-bit                 |
-| `uint`          | `long`        | Widening    | Unsigned 32-bit → signed 64-bit |
-| `uint`          | `ulong`       | Widening    | Unsigned 32-bit → unsigned 64-bit|
-| `float`         | `double`      | Widening    | IEEE 754 single → double        |
-| `char`          | `string`      | Expansion   | Single character → string       |
-| `guid`          | `string`      | Formatting  | GUID → string representation    |
-| Non-null `T`    | `T?`          | Nullability | Value → nullable wrapper        |
-
-**General rule:** A numeric conversion is implicit whenever both operands are numeric and
-`rank(source) ≤ rank(target)` in the numeric promotion hierarchy — spanning the integer,
-floating-point, and `decimal` families. Because the rule uses `≤` (not strictly `<`), same-rank
-cross-sign pairs (`int` ↔ `uint`, `byte` ↔ `sbyte`, `short` ↔ `ushort`, `long` ↔ `ulong`) are
-implicit in both directions. Only rank-decreasing conversions (e.g. `long → int`, `double → float`,
-`decimal → double`) require an explicit cast. (Fixed-point types are excluded — see
-[Fixed-Point Types](#fixed-point-types).)
+Declared assignments admit supported implicit conversions, not arbitrary
+reinterpretation. Non-absence is checked independently of the CLR type:
+`string?` cannot become a required `string` merely because both carriers are
+references. A narrowing aggregate result also needs explicit intent.
 
 ### Explicit Casts
 
-Explicit casts require cast syntax and may fail at runtime if the value is out of range.
+Use the expression form `value as Type`; the historical `cast(value as Type)`
+form is not the canonical syntax.
 
-**C-style syntax:**
+```conjure
+table Player(persistence: none) {
+    Id: int @id
+    Score: int
+}
+
+query WideScores() -> long[] {
+    from Player p | select Score = p.Score as long
+}
 ```
-from Player | select (long)score
-from Player | select (int)status
-```
 
-**SQL-style syntax:**
-```
-from Player | select cast(score as long)
-from Player | select cast(status as int)
-```
+Casts must belong to a supported conversion. They do not grant arbitrary
+integer-to-enum, integer-to-reference, or unrelated nominal conversions. Use
+`checked(...)` and `unchecked(...)` where the supported arithmetic/cast contract
+requires explicit overflow behavior. Function-based parsing and conversion have
+their own failure/nullability contracts; see [Custom Functions](/docs/query-language/functions).
 
-> **See:** [Query Language — Type Casting](/docs/query-language/reference#type-casting) for detailed syntax.
+## Ranges
 
-### Explicit Conversion Rules
+`lower..upper` is lower-inclusive and upper-exclusive. A predicate such as
+`Value in 0..10` includes zero and excludes ten. `@range(0..10)` declares typed
+range metadata using the same endpoint convention.
 
-| Source Type     | Target Type   | Notes                                        |
-|-----------------|---------------|----------------------------------------------|
-| Any numeric     | Any numeric   | Narrowing allowed (may lose data)            |
-| `enum`          | Backing type  | Extract underlying integer value              |
-| Backing type    | `enum`        | Assign integer to enum (unchecked)            |
-| `string`        | `guid`        | Parse GUID from string representation        |
-| `guid`          | `string`      | Format GUID as string (also implicit)        |
+Range endpoints must be ordered, closed, and compatible with the field's supported
+numeric or temporal domain. Constants and supported calendar/duration expressions
+can supply endpoints; runtime parameters and clocks cannot.
 
-### Type Conversion Functions
-
-For runtime conversions that may fail, use conversion functions instead of casts:
-
-| Function       | Signature                           | Description                            |
-|----------------|-------------------------------------|----------------------------------------|
-| `to_string(x)` | `(any) → string?`                  | Convert any value to its string form   |
-| `to_int(x)`    | `(string\|double\|long\|float\|decimal) → int?`    | Parse/convert to integer               |
-| `to_long(x)`   | `(string\|int\|double\|float\|decimal) → long?`    | Parse/convert to long                  |
-| `to_double(x)` | `(string\|int\|long\|float\|decimal) → double?`    | Parse/convert to double                |
-
-> **See:** [Custom Functions — Type Conversion](/docs/query-language/functions#type-conversion-functions) for
-> details.
-
----
-
-## Type Comparison Matrix
-
-This matrix shows which type conversions are supported and in what mode.
-
-**Legend:** ✅ Implicit · 🔶 Explicit · ❌ Unsupported · ➖ Same type
-
-### Numeric Conversions
-
-| From ↓ \ To → | `sbyte` | `byte` | `short` | `ushort` | `int`  | `uint`  | `long` | `ulong` | `float` | `double` | `decimal` |
-|----------------|---------|--------|---------|----------|--------|---------|--------|---------|---------|----------|-----------|
-| `sbyte`        | ➖      | ✅     | ✅      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `byte`         | ✅      | ➖     | ✅      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `short`        | 🔶      | 🔶     | ➖      | ✅       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `ushort`       | 🔶      | 🔶     | ✅      | ➖       | ✅     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `int`          | 🔶      | 🔶     | 🔶      | 🔶       | ➖     | ✅      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `uint`         | 🔶      | 🔶     | 🔶      | 🔶       | ✅     | ➖      | ✅     | ✅      | ✅      | ✅       | ✅        |
-| `long`         | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | ➖     | ✅      | ✅      | ✅       | ✅        |
-| `ulong`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | ✅     | ➖      | ✅      | ✅       | ✅        |
-| `float`        | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | ➖      | ✅       | ✅        |
-| `double`       | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | 🔶      | ➖       | ✅        |
-| `decimal`      | 🔶      | 🔶     | 🔶      | 🔶       | 🔶     | 🔶      | 🔶     | 🔶      | 🔶      | 🔶       | ➖        |
-
-### Cross-Category Conversions
-
-| From ↓ \ To → | `string` | `bool` | `guid` | `datetime` | `enum` |
-|----------------|----------|--------|--------|------------|--------|
-| `string`       | ➖       | ❌     | 🔶     | ❌         | ❌     |
-| `bool`         | ❌       | ➖     | ❌     | ❌         | ❌     |
-| `guid`         | ✅       | ❌     | ➖     | ❌         | ❌     |
-| `char`         | ✅       | ❌     | ❌     | ❌         | ❌     |
-| `datetime`     | ❌       | ❌     | ❌     | ➖         | ❌     |
-| `enum`         | ❌       | ❌     | ❌     | ❌         | 🔶¹    |
-| Numeric        | ❌       | ❌     | ❌     | ❌         | 🔶²    |
-
-¹ Explicit cast between enum and its backing integer type only.
-² Numeric → enum requires the numeric type to match the enum's backing type.
-
----
-
-## Equality and Ordering Support
-
-Not all types support all comparison operations. This table summarizes which operations are
-valid for each type family.
-
-| Type Family    | `==` / `!=` | `<` / `>` / `<=` / `>=` | Notes                                    |
-|----------------|-------------|--------------------------|------------------------------------------|
-| Integer types  | ✅          | ✅                       | Cross-type comparison with promotion     |
-| Floating-point | ✅          | ✅                       | Cross-type comparison with promotion     |
-| `decimal`      | ✅          | ✅                       | Mixes with float/double; promotes to decimal |
-| `bool`         | ✅          | ❌                       | Equality only                            |
-| `string`       | ✅          | ✅                       | Ordinal comparison                       |
-| `char`         | ✅          | ✅                       | Compatible with string for equality      |
-| `datetime`     | ✅          | ✅                       | Same temporal type required              |
-| `datetimeoffset` | ✅        | ✅                       | Same temporal type required              |
-| `dateonly`     | ✅          | ✅                       | Same temporal type required              |
-| `timeonly`     | ✅          | ✅                       | Same temporal type required              |
-| `timespan`     | ✅          | ✅                       | Same temporal type required              |
-| `guid`         | ✅          | ✅                       | Byte-order comparison                    |
-| `binary`       | ✅          | ❌                       | Fixed-length constraints must match      |
-| Enum           | ✅          | ❌                       | Same enum type or enum ↔ backing type    |
-| Collection     | ✅          | ❌                       | Element types must be compatible         |
-| Struct/Class   | ✅          | ❌                       | Same type required                       |
-
----
+A declared range is **not** a universal mutable-storage invariant. It does not
+prove that every host/API write was range-checked. Do not rely on the annotation
+alone to remove validation, narrow a result type, or assume an out-of-range write
+cannot occur. Query execution contracts such as a dense-sort hint are separate
+and can enforce their own range checks.
 
 ## Schema Type Names vs C# Names
 
-Quick reference for mapping between schema file syntax, C# types, and the internal type system.
+| Canonical source | C# carrier |
+|---|---|
+| `sbyte`, `byte`, `short`, `ushort` | Corresponding C# integral type |
+| `int`, `uint`, `long`, `ulong` | Corresponding C# integral type |
+| `float`, `double`, `decimal` | Corresponding C# numeric type |
+| `bool`, `char`, `string` | Corresponding C# scalar/reference type |
+| `datetime`, `datetimeoffset` | `System.DateTime`, `System.DateTimeOffset` |
+| `dateonly`, `timeonly`, `timespan` | Corresponding `System` temporal type |
+| `guid` | `System.Guid` |
+| `binary` | `byte[]`, with binary semantics |
+| `fixed32`, `fixed64` | Corresponding `ConjureDB.Numerics` fixed-point type |
+| `object` | `System.Object`, only where the operation/storage admits it |
+| Declared enum | Generated enum with its declared backing type |
+| `type Name` / `struct type Name` | Generated reference/value record |
+| `T[]` | Array of the actual element type |
+| `ref Entity` | Domain-typed ephemeral entity handle |
 
-| Schema (`.conjure`) | C# Type                 | ScalarKind          | Type Family | Value Type? |
-|---------------------|-------------------------|---------------------|-------------|-------------|
-| `sbyte`²            | `System.SByte`          | `SByte`             | Numeric     | Yes         |
-| `byte`              | `System.Byte`           | `Byte`              | Numeric     | Yes         |
-| `short`             | `System.Int16`          | `Int16`             | Numeric     | Yes         |
-| `ushort`²           | `System.UInt16`         | `UInt16`            | Numeric     | Yes         |
-| `int`               | `System.Int32`          | `Int32`             | Numeric     | Yes         |
-| `uint`              | `System.UInt32`         | `UInt32`            | Numeric     | Yes         |
-| `long`              | `System.Int64`          | `Int64`             | Numeric     | Yes         |
-| `ulong`             | `System.UInt64`         | `UInt64`            | Numeric     | Yes         |
-| `float`             | `System.Single`         | `Single`            | Numeric     | Yes         |
-| `double`            | `System.Double`         | `Double`            | Numeric     | Yes         |
-| `decimal`           | `System.Decimal`        | `Decimal`           | Numeric     | Yes         |
-| `fixed` / `fixed64` | `ConjureDB.Numerics.Fixed64` | `Fixed64`      | Numeric     | Yes         |
-| `fixed32`           | `ConjureDB.Numerics.Fixed32` | `Fixed32`      | Numeric     | Yes         |
-| `bool`              | `System.Boolean`        | `Boolean`           | Boolean     | Yes         |
-| `char`              | `System.Char`           | `Char`              | String      | Yes         |
-| `string`            | `System.String`         | `String`            | String      | No          |
-| `datetime`          | `System.DateTime`       | `DateTime`          | Temporal    | Yes         |
-| `datetimeoffset`    | `System.DateTimeOffset` | `DateTimeOffset`    | Temporal    | Yes         |
-| `dateonly`          | `System.DateOnly`       | `DateOnly`          | Temporal    | Yes         |
-| `timeonly`          | `System.TimeOnly`       | `TimeOnly`          | Temporal    | Yes         |
-| `timespan`          | `System.TimeSpan`       | `TimeSpan`          | Temporal    | Yes         |
-| `guid`              | `System.Guid`           | `Guid`              | Guid        | Yes         |
-| `binary`            | `System.Byte[]`         | `Binary`            | Binary      | No          |
-| `T[]`               | `T[]`                   | —                   | Collection  | No          |
-| `list<T>`           | `IReadOnlyList<T>`      | —                   | Collection  | No          |
-| `T?`                | `Nullable<T>`           | —                   | —           | Yes¹        |
+CLR names and carriers belong at integration boundaries. They do not replace
+canonical schema spellings or override lifetime, storage, and nullability rules.
+The owning project/runtime must support the carrier; a schema spelling alone
+does not provide an unavailable framework or external type.
 
-¹ `T?` for value types creates `Nullable<T>` (still a value type). For reference types, `?`
-is a nullability annotation only.
+## Intentional Negative Migration Examples
 
-² `sbyte` and `ushort` are usable only as [enum backing types](#backing-types), not as field or
-scalar types.
+The following old spellings are shown **only to explain rejection/migration**:
 
----
-
-## Type Families
-
-Type families group related types for compatibility checking. Two types from different families
-are generally incompatible unless an explicit exception applies.
-
-| Family         | Member Types                                                        |
-|----------------|---------------------------------------------------------------------|
-| **Numeric**    | `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `decimal` |
-| **String**     | `string`, `char`                                                    |
-| **Temporal**   | `datetime`, `datetimeoffset`, `dateonly`, `timeonly`, `timespan`     |
-| **Boolean**    | `bool`                                                              |
-| **Binary**     | `binary` (`byte[]`)                                                 |
-| **Guid**       | `guid`                                                              |
-| **Collection** | `T[]`, `list<T>`, and other collection kinds                        |
-| **Dictionary** | Map types with key and value descriptors (`IReadOnlyDictionary<K, V>`) |
-| **Object**     | Struct/class types without a specific family                        |
-| **Unknown**    | Unresolved / external placeholder (compatible with all types)        |
-| **Null**       | NULL literals (no type — compatible with all nullable types)        |
-| **Error**      | Type errors (compatible with all types to prevent cascading errors)  |
-
-### Cross-Family Compatibility
-
-The only cross-family implicit conversion is:
-
-| Source Family | Target Family | Direction        |
-|---------------|---------------|------------------|
-| Guid          | String        | Implicit (→)     |
-| String        | Guid          | Explicit only    |
-
-All other cross-family conversions are unsupported by the type system.
-
----
-
-## CASE Expression Type Resolution
-
-`CASE` (or `if`/`else` in DSL syntax) expressions require the compiler to find a common type
-across all branches. The algorithm:
-
-1. **Ignore** null literals and unknown types.
-2. **Pair** all remaining branch types and check `AreCompatible`.
-3. **Promote** to the widest compatible type.
-4. **Nullability:** The result is nullable if:
-   - There is no `ELSE` branch (missing branch implies possible null), or
-   - Any branch type is nullable.
-5. **Error:** If any two branch types are incompatible, the expression is a type error.
-
-```
-// All branches numeric — result promoted to long
-from Player | select case
-    when level < 10 then (short)1
-    when level < 50 then 2
-    else (long)3
-end
-
-// Missing ELSE — result is int? (nullable)
-from Player | select case
-    when level > 50 then level
-end
+```text
+int32       -> int
+boolean     -> bool
+single      -> float
+timestamp   -> datetime
+interval    -> timespan
+fixed       -> fixed64
+optional T  -> T?
+many T      -> T[]
 ```
 
----
+This complete **intentionally rejected** schema uses the retired wrapper/type
+spellings (`SCH2173`). Its canonical field type is `int?[]`, not an optional
+array container.
 
-## Type Descriptor Internals
-
-This section is for contributors and advanced users who need to understand the internal type
-representation.
-
-### TypeDescriptor Properties
-
-| Property           | Type                                 | Description                                |
-|--------------------|--------------------------------------|--------------------------------------------|
-| `Category`         | `TypeCategory`                       | Unknown, Scalar, Struct, Class, Enum, Collection, Dictionary, Nullable, Error |
-| `ScalarKind`       | `ScalarKind`                         | Specific scalar (valid when Category == Scalar) |
-| `FullName`         | `string?`                            | CLR type name (composite/enum types)       |
-| `IsValueType`      | `bool`                               | True for struct, enum, scalar (except String, Binary, Object) |
-| `Members`          | `ImmutableArray<MemberDescriptor>`   | Named members (composite types only)       |
-| `ElementType`      | `TypeDescriptor?`                    | Element type (collections only)            |
-| `UnderlyingType`   | `TypeDescriptor?`                    | Inner type (Nullable) or backing type (Enum)|
-| `EnumValues`       | `ImmutableArray<EnumValueDescriptor>` | Enum constants (enums only)               |
-| `Constraints`      | `TypeConstraints?`                   | Fixed length, collection kind              |
-| `ClrType`          | `Type?`                              | Cached CLR reflection type                 |
-
-### Query Methods
-
-| Method               | Returns   | Description                                           |
-|----------------------|-----------|-------------------------------------------------------|
-| `IsScalar`           | `bool`    | Category == Scalar                                    |
-| `IsComposite`        | `bool`    | Category is Struct or Class                           |
-| `IsCollection`       | `bool`    | Category == Collection                                |
-| `IsEnum`             | `bool`    | Category == Enum                                      |
-| `IsNullable`         | `bool`    | Category == Nullable OR IsReferenceType               |
-| `IsNullableValueType`| `bool`    | Category == Nullable (Nullable\<T\> wrapper)          |
-| `IsReferenceType`    | `bool`    | !IsValueType                                          |
-| `CoreType`           | `TypeDescriptor` | Self, or unwraps Nullable\<T\> → T               |
-| `IsInteger`          | `bool`    | Any of the 8 integer ScalarKinds                      |
-| `IsFloatingPoint`    | `bool`    | Single, Double, or Decimal                            |
-| `IsNumeric`          | `bool`    | IsInteger OR IsFloatingPoint                          |
-| `IsTemporal`         | `bool`    | Any of the 5 temporal ScalarKinds                     |
-| `IsBinary`           | `bool`    | ScalarKind == Binary                                  |
-| `CollectionKind`     | `CollectionKind` | From Constraints (collections only)              |
-| `FixedLength`        | `int?`    | From Constraints (binary/collections)                 |
-
-### Factory Methods
-
-```csharp
-// Scalar singletons
-TypeDescriptor.Scalar(ScalarKind.Int32)         // → cached Int32 singleton
-TypeDescriptor.FromScalarKind(ScalarKind.String) // → cached String singleton
-
-// Composite types
-TypeDescriptor.Struct("MyApp.Address", members)
-TypeDescriptor.Class("MyApp.Player", members)
-
-// Enums
-TypeDescriptor.Enum("MyApp.Status", ScalarKind.Int32, enumValues)
-
-// Collections
-TypeDescriptor.Collection(elementType, fullName, constraints)
-
-// Nullable wrapper
-TypeDescriptor.NullableOf(TypeDescriptor.Int32)  // → cached NullableInt32
-
-// From CLR reflection
-TypeDescriptor.FromClrType(typeof(int))          // → cached Int32
-
-// Parse type name string
-TypeDescriptor.ParseTypeName("int?")             // → NullableInt32
-TypeDescriptor.ParseTypeName("int[]")            // → Collection<Int32>
-TypeDescriptor.ParseTypeName("IReadOnlyList<int>") // → Collection<Int32, ReadOnlyList>
-// Note: mutable container names such as "List<int>" throw InvalidOperationException.
+```conjure
+type LegacyShape {
+    Values: many optional int32
+}
 ```
 
----
-
-## Summary of Type Categories
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     TypeDescriptor                          │
-├─────────────┬───────────────────────────────────────────────┤
-│  Scalar     │ SByte, Byte, Int16, UInt16, Int32, UInt32,   │
-│             │ Int64, UInt64, Single, Double, Decimal,       │
-│             │ Fixed64, Fixed32, Boolean, Char, String,      │
-│             │ DateTime, DateTimeOffset, DateOnly, TimeOnly, │
-│             │ TimeSpan, Guid, Binary, Object                │
-├─────────────┼───────────────────────────────────────────────┤
-│  Struct     │ User-defined value types (type keyword)       │
-├─────────────┼───────────────────────────────────────────────┤
-│  Class      │ Entity types (table keyword)                  │
-├─────────────┼───────────────────────────────────────────────┤
-│  Enum       │ Named constants with integer backing type     │
-├─────────────┼───────────────────────────────────────────────┤
-│  Collection │ Array, ReadOnlyList, ReadOnlyCollection,      │
-│             │ Sequence (mutable kinds disallowed)            │
-├─────────────┼───────────────────────────────────────────────┤
-│  Dictionary │ Map types (key + value descriptors)           │
-├─────────────┼───────────────────────────────────────────────┤
-│  Nullable   │ Nullable<T> wrapper for value types           │
-├─────────────┼───────────────────────────────────────────────┤
-│  Unknown    │ Unresolved / external placeholder             │
-├─────────────┼───────────────────────────────────────────────┤
-│  Error      │ Sentinel — compatible with all types          │
-└─────────────┴───────────────────────────────────────────────┘
-```
+Compound wrapper edits must preserve which value is optional. If that cannot be
+proved, a diagnostic may deliberately omit an automatic edit. See
+[Error Codes](/docs/reference/error-codes) and [Schema Migration](/docs/schema/schema-migration).

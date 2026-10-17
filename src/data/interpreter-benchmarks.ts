@@ -1,14 +1,14 @@
 // Hand-maintained metrics for the portable (no-JIT) interpreter lane — the ConjureDB-branded surface
 // of the project's portable-runtime benchmarks. NOT auto-generated (unlike ./benchmarks.ts); update
 // it from current BenchmarkDotNet exports. Older historical notes live in
-// UniMemory.Benchmarks/PortableRuntime/portable-perf-baseline.md.
+// ConjureDB.Benchmarks/PortableRuntime/portable-perf-baseline.md.
 //
 // Source runs (Apple M4 Max, .NET 8.0.11 Arm64, BenchmarkDotNet v0.14.0, InProcessEmitToolchain,
 // WarmupCount=4, IterationCount=8, workstation GC, default tiered JIT):
 //   - PortableVsSqliteBenchmarks     → each scenario vs equivalent SQL on an in-memory SQLite DB
 //                                       seeded with the IDENTICAL 1000/1000/500-row data (the headline table)
 //                                       current artifact:
-//                                       UniMemory_2/.ai/investigations/2026-07-02-1119-portable-interpreter-topn-fullscan-overhead-bdn-full-23.json
+//                                       ConjureDB_2/.ai/investigations/2026-07-02-1119-portable-interpreter-topn-fullscan-overhead-bdn-full-23.json
 //   - PortableInterpreterBenchmarks  → portable-only corroborating ns/query + alloc table (1000-row corpus)
 //   - ExpressionVmSuperinstructionBenchmarks and --portable-superinstructions-corpus
 //                                     → fused-vs-defused expression opcode evidence
