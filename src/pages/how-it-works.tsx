@@ -130,10 +130,6 @@ function Ivm(): ReactNode {
           Same event, three mechanisms — step through it.
         </p>
         <IvmExplainer />
-        <p className={styles.ivmSummary}>
-          10{'\u00a0'}000 rows · 60 fps · 5 changes per frame: 600{'\u00a0'}000 row evaluations per
-          second re-querying, 300 with IVM · rebuild every frame: 600{'\u00a0'}000 with zero changes
-        </p>
         <p className={styles.visualCaption}>
           IVM is not a subscription trick. The compiler lowers the query into maintainers — filter,
           join arrangements, grouped accumulators, bounded Top-K state — and each commit pushes only

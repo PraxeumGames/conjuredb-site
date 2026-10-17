@@ -1,19 +1,17 @@
-import {useEffect, useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import {useState, type CSSProperties, type ReactNode} from 'react';
 import clsx from 'clsx';
+import {DEVICE_STATUS_H, DeviceFrame} from '@site/src/components/Glyphs';
+import {CodeWindow, F, K, N, T, type CodeTab} from '@site/src/components/CodeWindow';
+import DemoStage, {CompilerNotes, Sweep, type DemoStep} from '@site/src/components/DemoStage';
 import styles from './styles.module.css';
 
-// Incremental view maintenance, step by step: the same event pushed through
-// the query's own operators as a delta (IVM), versus re-running the query for
-// every subscriber on each event (Rx-style), versus rebuilding the result every
-// frame. Maintainer names follow docs/advanced/reactive-queries.md: join
-// arrangements, sorted Top-K state.
+// One event, three mechanisms, in the DemoStage shell: a leaderboard UI view
+// kept current by rebuilding every frame, by re-running the query on every
+// event (Rx-style), or by pushing the change through the query's own
+// maintainers (IVM). Maintainer names follow docs/advanced/reactive-queries.md.
 
 type Mode = 'rebuild' | 'rx' | 'ivm';
-const MODES: {id: Mode; label: string}[] = [
-  {id: 'rebuild', label: 'rebuild every frame'},
-  {id: 'rx', label: 'Rx · re-query on event'},
-  {id: 'ivm', label: 'IVM · delta'},
-];
+type EventId = 'levelup' | 'rename' | 'leave';
 type Player = {id: string; name: string; level: number; guild: number};
 
 const BASE: Player[] = [
@@ -33,312 +31,241 @@ const BASE: Player[] = [
 ];
 const GUILDS: Record<number, string> = {1: 'Ravens', 2: 'Wolves', 3: 'Owls'};
 
-type EventId = 'levelup' | 'rename' | 'leave' | 'batch';
+function top10(ev: EventId | null) {
+  let players = BASE.map((p) => ({...p}));
+  const guilds = {...GUILDS};
+  if (ev === 'levelup') players = players.map((p) => (p.id === 'p42' ? {...p, level: 51} : p));
+  if (ev === 'leave') players = players.filter((p) => p.id !== 'p7');
+  if (ev === 'rename') guilds[3] = 'Strix';
+  return [...players]
+    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
+    .slice(0, 10)
+    .map((p) => ({...p, guildName: guilds[p.guild]}));
+}
+const BEFORE = top10(null);
+
 const EVENTS: {id: EventId; label: string}[] = [
-  {id: 'levelup', label: 'Player 42: level 48 → 51'},
+  {id: 'levelup', label: 'Player 42 levels up'},
   {id: 'rename', label: 'Guild 3 renamed'},
   {id: 'leave', label: 'Player 7 leaves'},
 ];
-const BATCH_LABEL = 'Player 42 level-up + Player 7 leaves, one commit';
 
-type World = {players: Player[]; guilds: Record<number, string>};
-function apply(ev: EventId | null): World {
-  let players = BASE.map((p) => ({...p}));
-  const guilds = {...GUILDS};
-  if (ev === 'levelup' || ev === 'batch') players = players.map((p) => (p.id === 'p42' ? {...p, level: 51} : p));
-  if (ev === 'leave' || ev === 'batch') players = players.filter((p) => p.id !== 'p7');
-  if (ev === 'rename') guilds[3] = 'Strix';
-  return {players, guilds};
-}
-function top10(w: World) {
-  return [...w.players]
-    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
-    .slice(0, 10)
-    .map((p) => ({...p, guildName: w.guilds[p.guild]}));
-}
+const NARRATION: Record<Mode, Record<EventId, string>> = {
+  rebuild: {
+    levelup:
+      'Every frame the query runs again over 10 000 rows: the level-up is picked up on the next frame, at the same cost as a frame with no change.',
+    rename: 'The rename costs nothing extra — because every frame already pays the full price.',
+    leave: 'Player 7 leaves and the next rebuild drops the row. Between events, 60 times a second, the work is the same.',
+  },
+  rx: {
+    levelup:
+      'The level-up fires an event, and every subscriber re-runs the whole query — 10 000 rows scanned, sorted and cut to ten — to change two rows.',
+    rename: 'One guild name changes, and the query runs again from scratch, once per subscriber.',
+    leave: 'A player leaves: another full re-run per subscriber. The cost follows the table, not the change.',
+  },
+  ivm: {
+    levelup:
+      'The level-up travels as one delta: probe one guild, compare with the cut-off, insert at #7. Two rows of the result change; nothing else is touched.',
+    rename: "One key changes in the join's arrangement and three rows get the new name. Nothing is re-sorted.",
+    leave: 'The row is retracted and the Top-K state promotes the next candidate it already kept. Two rows change.',
+  },
+};
 
-const OPS = [
+// The chain, collapsed (source → maintainers → result) or expanded (five operators).
+type Box = {name: string; sub: string};
+const COLLAPSED: Box[] = [
+  {name: 'source', sub: 'Players · 10 000 rows'},
+  {name: 'maintainers', sub: 'join · sort · take 10'},
+  {name: 'result', sub: 'TopPlayers · 10 rows'},
+];
+const EXPANDED: Box[] = [
   {name: 'Players', sub: '10 000 rows'},
   {name: 'join Guilds', sub: 'arrangement'},
-  {name: 'sort −Level', sub: ''},
+  {name: 'sort −Level', sub: 'sorted state'},
   {name: 'take 10', sub: 'Top-K state'},
   {name: 'TopPlayers', sub: 'materialized · 10 rows'},
 ];
-
-type Story = {ops: string[]; subs: [string, string]};
-const IVM: Record<EventId, Story> = {
-  levelup: {
-    ops: ['1 row changed', 'probe 1 key → 1 row', 'compare with boundary (level 49)', 'insert at #7, evict #10', '2 rows changed'],
-    subs: ['Add · Player 42 at #7 · Remove · #10', '— (no change)'],
+const RX = {collapsed: ['scan 10 000', '10 000 probes · sort · top 10', 'rebuilt · 10 rows'], expanded: ['scan 10 000', '10 000 probes', 'sort 10 000', 'top 10', 'rebuilt · 10 rows']};
+const STATUS: Record<'ivm' | 'rx', Record<EventId, {collapsed: string[]; expanded: string[]}>> = {
+  ivm: {
+    levelup: {
+      collapsed: ['1 row changed', 'probe 1 key · insert at #7, evict #10', '2 rows changed'],
+      expanded: ['1 row changed', 'probe 1 key → 1 row', 'compare with the cut-off', 'insert at #7, evict #10', '2 rows changed'],
+    },
+    rename: {
+      collapsed: ['0 rows', '1 key changed → 3 matching rows', '3 rows changed'],
+      expanded: ['0 rows', '1 key changed → 3 rows', 'order unchanged', 'no change', '3 rows changed'],
+    },
+    leave: {
+      collapsed: ['1 row removed', 'retract 1 · promote the next candidate', '2 rows changed'],
+      expanded: ['1 row removed', 'retract 1', '—', 'promote the next candidate', '2 rows changed'],
+    },
   },
-  rename: {
-    ops: ['0 rows', '1 key changed → 3 matching rows', 'order unchanged', 'no change', '3 rows changed'],
-    subs: ['Replace ×3', 'Replace · name'],
-  },
-  leave: {
-    ops: ['1 row removed', 'retract 1', '—', 'Remove #4 → promote next candidate from Top-K state', '2 rows changed'],
-    subs: ['Remove · #4 · Add · Jun at #10', '— (no change)'],
-  },
-  batch: {
-    ops: ['2 rows changed', 'probe 1 key, retract 1', 'compare with boundary (level 49)', 'insert at #6, remove #4', '2 rows changed · 1 consistent batch'],
-    subs: ['Add · Player 42 at #6 · Remove · Player 7', '— (no change)'],
-  },
-};
-const REBUILD: Story = {
-  ops: ['scan 10 000', '10 000 probes', 'sort 10 000', 'top 10', 'rebuilt · every frame'],
-  subs: ['redraw 10 rows · every frame', 'redraw · every frame'],
-};
-const REQUERY: Story = {
-  ops: ['scan 10 000', '10 000 probes', 'sort 10 000', 'top 10', 'rebuilt · 10 rows'],
-  subs: ['re-ran query · 10 rows', 're-ran query · 10 rows'],
-};
-const REQUERY_BATCH: Story = {
-  ops: ['scan 10 000 ×2', '10 000 probes ×2', 'sort 10 000 ×2', 'top 10 ×2', 'rebuilt twice · 10 rows'],
-  subs: ['re-ran query ×2 · 10 rows each', 're-ran query ×2 · 10 rows each'],
+  rx: {levelup: RX, rename: RX, leave: RX},
 };
 
-const HOP_MS = 250;
-
-// Steady-state load: 10 000 rows, 5 changes per frame, 2 subscribers.
-// The bar is one frame's budget, linear in rows evaluated; rebuilding the
-// whole result fills it.
+// Steady-state load per frame: 10 000 rows, 5 changes, 2 subscribers. The bar
+// is one frame's budget, linear in rows evaluated; rebuilding the result fills it.
 const BUDGET_ROWS = 10010;
-const FRAME: Record<Mode, {rows: number; text: string; alloc: string; allocFull: boolean}> = {
-  rebuild: {rows: 10010, text: '10 000 rows + redraw 10 rows, every frame, even with 0 changes', alloc: 'every frame', allocFull: true},
-  rx: {rows: 100000, text: '10 000 × 2 subscribers × 5 changes = 100 000 rows per frame', alloc: 'every re-run', allocFull: true},
-  ivm: {rows: 15, text: '≈ 3 rows × 5 changes = 15 rows per frame', alloc: '0 on the maintained path', allocFull: false},
+const FRAME: Record<Mode, {rows: number; text: string}> = {
+  rebuild: {rows: 10010, text: '10 000 rows + redraw 10, every frame, even with 0 changes'},
+  rx: {rows: 100000, text: '10 000 × 2 subscribers × 5 changes = 100 000 rows per frame'},
+  ivm: {rows: 15, text: '≈ 3 rows × 5 changes = 15 rows per frame'},
 };
+
+const SCHEMA: CodeTab[] = [
+  {
+    name: 'leaderboard.conjure',
+    lang: 'schema',
+    lines: [
+      <><K>reactive query</K> <F>TopPlayers</F>() -&gt; <T>LeaderboardRow</T>[] {'{'}</>,
+      <>    <K>from</K> <T>Players</T></>,
+      <>    | <K>join</K> <T>Guilds</T> g (GuildId == g.Id)</>,
+      <>    | <K>sort</K> {'{'} -Level, Name {'}'}</>,
+      <>    | <K>take</K> <N>10</N></>,
+      <>    | <K>select</K> {'{ … }'}</>,
+      <>{'}'}</>,
+    ],
+  },
+];
+const COMPILER = [
+  'join arrangement on Guilds, keyed by Id',
+  'sorted Top-K state that keeps the next candidates',
+  'a materialized result, consistent once per commit',
+];
+const NUMBERS = [
+  '10 000 rows · 60 fps · 5 changes per frame',
+  '600 000 row evaluations per second re-querying, 300 with IVM',
+  'rebuild every frame: 600 000 with zero changes',
+];
+
+function Budget({mode}: {mode: Mode}) {
+  const f = FRAME[mode];
+  const over = f.rows > BUDGET_ROWS;
+  return (
+    <span className={clsx(styles.budget, mode !== 'ivm' && styles.red)}>
+      <span className={clsx(styles.track, over && styles.trackOver)} aria-hidden="true">
+        <span style={over ? undefined : {width: `max(3px, ${(f.rows / BUDGET_ROWS) * 100}%)`}} />
+      </span>
+      <span className={styles.budgetText}>
+        frame budget · {f.text}
+        {over && <span className={styles.overTag}>over budget</span>}
+      </span>
+    </span>
+  );
+}
+
+function Leaderboard({ev, mode, run}: {ev: EventId; mode: Mode; run: string}) {
+  const rows = top10(ev);
+  const changed = new Set(
+    rows
+      .filter((r, i) => {
+        const b = BEFORE.find((x) => x.id === r.id);
+        return !b || b.guildName !== r.guildName || BEFORE.indexOf(b) !== i;
+      })
+      .map((r) => r.id),
+  );
+  const W = 230;
+  const H = 400;
+  const top = DEVICE_STATUS_H + 48;
+  const rowH = 30;
+  return (
+    <svg
+      className={styles.device}
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      style={{fontSize: 12.5}}
+      aria-label={`Leaderboard: ${rows.map((r, i) => `${i + 1}. ${r.name}, level ${r.level}, ${r.guildName}`).join('; ')}.`}>
+      <DeviceFrame x={1} y={1} width={W - 2} height={H - 2}>
+        <text className={styles.screenTitle} x={14} y={DEVICE_STATUS_H + 22}>
+          Top players
+        </text>
+        {/* Rebuild: a faint band travelling down the list — redrawn every frame, never a flash. */}
+        {mode === 'rebuild' && <rect className={styles.shimmer} x={6} y={top - 20} width={W - 14} height={rowH * 2} rx={6} />}
+        {rows.map((r, i) => {
+          const y = top + i * rowH;
+          const hit = mode === 'ivm' ? changed.has(r.id) : mode === 'rx';
+          return (
+            <g key={r.id}>
+              {hit && <rect key={run} className={clsx(styles.flash, mode === 'rx' && styles.flashRed)} x={6} y={y - 19} width={W - 14} height={rowH - 4} rx={5} />}
+              <text className={clsx(styles.rank, mode === 'ivm' && changed.has(r.id) && styles.gold)} x={14} y={y}>
+                {i + 1}
+              </text>
+              <text className={styles.name} x={36} y={y}>
+                {r.name}
+              </text>
+              <text className={styles.lvl} x={150} y={y} textAnchor="end">
+                {r.level}
+              </text>
+              <text className={styles.guild} x={W - 16} y={y} textAnchor="end">
+                {r.guildName}
+              </text>
+            </g>
+          );
+        })}
+      </DeviceFrame>
+    </svg>
+  );
+}
+
+function Chain({ev, mode, expanded}: {ev: EventId; mode: Mode; expanded: boolean}) {
+  const boxes = expanded ? EXPANDED : COLLAPSED;
+  const statuses =
+    mode === 'rebuild'
+      ? boxes.map((_, i) => (i === 0 ? 'scan 10 000' : i === boxes.length - 1 ? 'rebuilt · 10 rows' : 're-run'))
+      : STATUS[mode][ev][expanded ? 'expanded' : 'collapsed'];
+  return (
+    <ol className={clsx(styles.chain, mode !== 'ivm' && styles.chainRed)}>
+      {boxes.map((b, i) => (
+        <li key={b.name} className={styles.box} style={{'--i': i} as CSSProperties}>
+          <span className={styles.boxHead}>
+            <span className={styles.boxName}>{b.name}</span>
+            <span className={styles.boxSub}>{b.sub}</span>
+          </span>
+          <span className={styles.boxStatus}>{statuses[i]}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function IvmExplainer(): ReactNode {
   const [mode, setMode] = useState<Mode>('ivm');
-  const [batch, setBatch] = useState(false);
-  const [ev, setEv] = useState<EventId | null>(null);
-  const [hop, setHop] = useState(-1); // which operator the delta has reached; 5 = done
-  const [flashes, setFlashes] = useState(0); // re-query: how many times the table has flashed
-  const reduced = useRef(false);
-  const timers = useRef<number[]>([]);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const autoPlayed = useRef(false);
-
-  const clear = () => {
-    timers.current.forEach((t) => window.clearTimeout(t));
-    timers.current = [];
-  };
-  useEffect(() => clear, []);
-
-  const run = (id: EventId, m: Mode = mode) => {
-    clear();
-    setEv(id);
-    setFlashes(0);
-    if (reduced.current) {
-      setHop(5);
-      setFlashes(id === 'batch' && m === 'rx' ? 2 : 1);
-      return;
-    }
-    if (m === 'rebuild') {
-      // The chain is already running every frame; the event just lands in it.
-      setHop(5);
-      setFlashes(1);
-      return;
-    }
-    if (m === 'rx') {
-      // Every operator runs in full, for every subscriber, at once.
-      setHop(5);
-      setFlashes(1);
-      if (id === 'batch') timers.current.push(window.setTimeout(() => setFlashes(2), 1100));
-      return;
-    }
-    setHop(0);
-    for (let i = 1; i <= 5; i++) timers.current.push(window.setTimeout(() => setHop(i), i * HOP_MS));
-    timers.current.push(window.setTimeout(() => setFlashes(1), 5 * HOP_MS));
-  };
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      reduced.current = true;
-      autoPlayed.current = true;
-      setEv('levelup');
-      setHop(5);
-      setFlashes(1);
-    }
-  }, []);
-
-  // Play the first event once, when the explainer scrolls into view.
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting && !autoPlayed.current) {
-          autoPlayed.current = true;
-          io.disconnect();
-          run('levelup', 'ivm');
-        }
-      },
-      {threshold: 0.4},
-    );
-    io.observe(el);
-    return () => io.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const pickMode = (m: Mode) => {
-    setMode(m);
-    if (ev) run(ev, m);
-  };
-  const pickBatch = (b: boolean) => {
-    setBatch(b);
-    clear();
-    setEv(null);
-    setHop(-1);
-    setFlashes(0);
-  };
-
-  const rebuild = mode === 'rebuild';
-  const story: Story | null = rebuild ? REBUILD : !ev ? null : mode === 'ivm' ? IVM[ev] : ev === 'batch' ? REQUERY_BATCH : REQUERY;
-  const done = hop >= 5;
-  const before = top10(apply(null));
-  // Re-query on a batch shows the intermediate state between the two runs.
-  const intermediate = mode === 'rx' && ev === 'batch' && flashes === 1;
-  const after = !ev || !done ? before : top10(apply(intermediate ? 'levelup' : ev));
-  const changedIds = new Set(
-    after.filter((r, i) => {
-      const b = before.find((x) => x.id === r.id);
-      return !b || b.guildName !== r.guildName || before.indexOf(b) !== i;
-    }).map((r) => r.id),
-  );
-  const newIds = new Set(after.filter((r) => !before.some((b) => b.id === r.id)).map((r) => r.id));
-  const removed = done && mode === 'ivm' ? before.filter((b) => !after.some((r) => r.id === b.id)) : [];
-  const frame = FRAME[mode];
-  const over = frame.rows > BUDGET_ROWS;
-  const budgetWidth = over ? undefined : `max(3px, ${(frame.rows / BUDGET_ROWS) * 100}%)`;
-
+  const [expanded, setExpanded] = useState(false);
+  const steps: DemoStep[] = EVENTS.map((e) => ({id: e.id, label: e.label, narration: NARRATION[mode][e.id]}));
   return (
-    <div ref={rootRef} className={clsx(styles.root, mode !== 'ivm' && styles.requery)}>
-      <div className={styles.top}>
-        <pre className={styles.query}>
-          <span className={styles.kw}>reactive query</span> TopPlayers() -&gt; LeaderboardRow[] {'{'}
-          {'\n'}    <span className={styles.kw}>from</span> Players
-          {'\n'}    | <span className={styles.kw}>join</span> Guilds g (GuildId == g.Id)
-          {'\n'}    | <span className={styles.kw}>sort</span> {'{'} -Level, Name {'}'}
-          {'\n'}    | <span className={styles.kw}>take</span> 10
-          {'\n'}    | <span className={styles.kw}>select</span> {'{ … }'}
-          {'\n'}{'}'}
-        </pre>
-        <div className={styles.switches}>
-          <div className={styles.seg} role="group" aria-label="Mechanism">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                aria-pressed={mode === m.id}
-                className={clsx(mode === m.id && (m.id === 'ivm' ? styles.on : styles.onRed))}
-                onClick={() => pickMode(m.id)}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <label className={styles.check}>
-            <input type="checkbox" checked={batch} onChange={(e) => pickBatch(e.target.checked)} />
-            two events in one commit
-          </label>
-        </div>
-      </div>
-
-      <div className={styles.mid}>
-        <div className={styles.chainCol}>
-          <ol className={clsx(styles.chain, rebuild && styles.pulse)} style={{'--hop': Math.max(0, Math.min(hop, 4))} as CSSProperties}>
-            {mode === 'ivm' && hop >= 0 && !done && (
-              <span className={styles.token} aria-hidden="true">
-                {ev === 'batch' ? 'Δ×2' : 'Δ'}
-              </span>
-            )}
-            {OPS.map((op, i) => {
-              const lit = !!story && (rebuild || (mode === 'rx' ? done : hop >= i));
-              return (
-                <li key={op.name} className={clsx(styles.op, lit && styles.lit)}>
-                  <span className={styles.opName}>{op.name}</span>
-                  {op.sub && <span className={styles.opSub}>{op.sub}</span>}
-                  <span className={styles.opStatus} aria-live={i === 4 ? 'polite' : undefined}>
-                    {lit ? story!.ops[i] : ' '}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          <div className={styles.budget}>
-            <div className={styles.budgetHead}>
-              <span>frame budget · rows evaluated per frame</span>
-              {over && <span className={styles.overTag}>over budget</span>}
-            </div>
-            <div className={clsx(styles.track, over && styles.trackOver)}>
-              <span style={budgetWidth ? {width: budgetWidth} : undefined} />
-            </div>
-            <span className={styles.budgetText} aria-live="polite">
-              {frame.text}
-            </span>
-            <div className={clsx(styles.track, styles.allocTrack)}>
-              <span style={{width: frame.allocFull ? '100%' : '0%'}} />
-            </div>
-            <span className={styles.budgetText}>allocations: {frame.alloc}</span>
-          </div>
-          <div className={styles.subs}>
-            {['Leaderboard UI view', 'Guild header'].map((name, i) => (
-              <div key={name} className={clsx(styles.sub, (done || rebuild) && styles.subOn)}>
-                <span className={styles.subName}>{name}</span>
-                <span className={styles.subLine}>{(done || rebuild) && story ? story.subs[i] : 'waiting'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.tableWrap}>
-          {intermediate && <span className={styles.interTag}>intermediate state visible</span>}
-          <table className={clsx(styles.table, mode === 'rx' && done && styles.flashAll, rebuild && styles.pulseAll)} key={`${mode}-${ev}-${flashes}`}>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>name</th>
-                <th>lvl</th>
-                <th>guild</th>
-              </tr>
-            </thead>
-            <tbody>
-              {after.map((r, i) => {
-                const isNew = done && mode === 'ivm' && newIds.has(r.id);
-                const moved = done && mode === 'ivm' && !isNew && changedIds.has(r.id);
-                const guildChanged = done && mode === 'ivm' && before.find((b) => b.id === r.id)?.guildName !== r.guildName;
-                return (
-                  <tr key={r.id} className={clsx(isNew && styles.rowNew, moved && !guildChanged && styles.rowMoved)}>
-                    <td>{i + 1}</td>
-                    <td>{r.name}</td>
-                    <td>{r.level}</td>
-                    <td className={clsx(guildChanged && styles.cellNew)}>{r.guildName}</td>
-                  </tr>
-                );
-              })}
-              {removed.map((r) => (
-                <tr key={`gone-${r.id}`} className={styles.rowGone}>
-                  <td>–</td>
-                  <td>{r.name}</td>
-                  <td>{r.level}</td>
-                  <td>{r.guildName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className={styles.bottom}>
-        <div className={styles.events}>
-          {(batch ? [{id: 'batch' as EventId, label: BATCH_LABEL}] : EVENTS).map((e) => (
-            <button key={e.id} type="button" className={clsx(styles.event, ev === e.id && styles.eventOn)} onClick={() => run(e.id)}>
-              {e.label}
+    <div className={styles.wrap}>
+    <DemoStage
+      title="one event, three mechanisms"
+      modes={[
+        {id: 'rebuild', label: 'rebuild every frame'},
+        {id: 'rx', label: 'Rx · re-query'},
+        {id: 'ivm', label: 'IVM · delta'},
+      ]}
+      mode={mode}
+      onMode={(m) => setMode(m as Mode)}
+      steps={steps}
+      narrowColumns={1}
+      stageMinHeight={{wide: '27rem', narrow: '0px'}}
+      costLine={<Budget mode={mode} />}
+      codeTabs={[
+        {id: 'schema', label: 'schema', content: <CodeWindow tabs={SCHEMA} dense />},
+        {id: 'compiler', label: 'what the compiler does', content: <CompilerNotes lines={COMPILER} />},
+        {id: 'numbers', label: 'numbers', content: <CompilerNotes lines={NUMBERS} />},
+      ]}>
+      {({step, run}) => (
+        <div className={clsx(styles.stage, styles[mode])}>
+          <Leaderboard ev={step as EventId} mode={mode} run={`${run}-${step}-${mode}`} />
+          <div className={styles.side}>
+            {mode === 'rebuild' && <Sweep label="re-running every frame · 10 000 rows, 0 changes" />}
+            <Chain key={`${run}-${step}-${mode}-${expanded}`} ev={step as EventId} mode={mode} expanded={expanded} />
+            <button type="button" className={styles.toggle} aria-pressed={expanded} onClick={() => setExpanded((x) => !x)}>
+              {expanded ? '− hide operators' : '+ show operators'}
             </button>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
+    </DemoStage>
     </div>
   );
 }
