@@ -51,9 +51,12 @@ export const PARTS: Part[] = [
     name: 'Schema modules & overrides',
     group: 'schema',
     status: 'shipped',
-    body: 'A feature is a module of the schema: its tables, commands and queries in one place. Modules can be overridden by the project that uses them, so a shared feature stays yours to change.',
-    items: ['Module declarations in the schema', 'Overrides without forking', {label: 'Vertical slices across client and server', to: '/architecture'}],
-    links: [{label: 'Schema language', to: '/docs/schema/schema-language'}],
+    body: "A feature is a module of the schema: its tables, commands and queries in one place. Moving it to another game means pointing its declarations at that game's items and currencies and overriding what differs — the compiler re-derives the rest.",
+    items: ['Module declarations in the schema', 'Adapt by changing declarations', 'Overrides for what truly differs'],
+    links: [
+      {label: 'Schema language', to: '/docs/schema/schema-language'},
+      {label: 'Vertical slices', to: '/architecture'},
+    ],
   },
   {
     id: 'ready-made-modules',

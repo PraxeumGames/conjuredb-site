@@ -154,7 +154,7 @@ const CLAIMS: Claim[] = [
   },
   {
     title: 'A feature is a schema, not a sprint.',
-    body: "A battle pass or a store is a module of the schema: tables, commands and queries in one place, for both sides. Override it instead of forking it, change rules through liveops without a release, and let an assistant draft the first version — the compiler rejects what is wrong.",
+    body: "A battle pass or a store is a module of the schema: tables, commands and queries in one place, for both sides. Carry it to the next game and point its declarations at that game's items and currencies — the compiler re-derives what depends on them. Change rules through liveops without a release, and let an assistant draft the first version — the compiler rejects what is wrong.",
     badges: [
       {label: 'modules & overrides', status: 'shipped'},
       {label: 'liveops', status: 'prototype'},

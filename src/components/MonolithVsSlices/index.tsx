@@ -46,7 +46,7 @@ const REFS: [FeatureId, FeatureId, string][] = [
 
 const MESSAGES: Record<Exclude<Action, null>, string> = {
   remove: '0 files touched elsewhere · 2 declared references resolved at compile time',
-  copy: 'same module · new UI art · overrides for balance',
+  copy: 'same module · rewards now reference Card · prices in Gems · compiler re-checked the joins',
 };
 
 type Box = {x: number; y: number; w: number; h: number};
@@ -217,7 +217,7 @@ function Column({L, i, at, art}: {L: Layout; i: number; at?: {x: number; y: numb
           x={L.narrow ? c.x + c.w + 14 : lx}
           y={L.narrow ? mod + s.module[1] / 2 : c.y + s.systems[0] + s.systems[1] / 2}
           dominantBaseline="central">
-          + overrides for balance
+          → Card · Gems
         </text>
       )}
       {f.systems && (
@@ -352,7 +352,7 @@ const STEPS: DemoStep[] = [
   {
     id: 'copy',
     label: 'copy Shop to another game',
-    narration: 'Copy Shop to another game: the same module, new art for the UI view, overrides for balance.',
+    narration: 'Copy Shop to another game and point it at that game’s model: rewards now reference Card, prices are in Gems, and the compiler re-checks the joins.',
   },
 ];
 const COST: Record<string, string> = {

@@ -44,7 +44,7 @@ const T_SERVER = 0.65;
 const T_LIVEOPS = 1.15;
 const T_ARROW2 = 0;
 const T_COPY = 0.05;
-const T_OVERRIDE = 0.6;
+const T_COMPILE = 0.6;
 const T_STRIP = [0.15, 0.55, 0.95];
 
 const PLAIN_TABS: CodeTab[] = [{name: 'battlepass.conjure', lang: 'schema', lines: LINES}];
@@ -78,9 +78,10 @@ const STEPS: DemoStep[] = [
       'From that file the compiler produces the view model the UI view binds, the server side of the command, and the knobs liveops can turn after release.',
   },
   {
-    id: 'reused',
-    label: 'reused',
-    narration: 'Project B copies the folder: the same module, a re-skinned UI view and overrides for balance — no logic rewritten.',
+    id: 'adapted',
+    label: 'adapted',
+    narration:
+      'Project B stores rewards as cards and prices in gems. Two declarations change; the compiler re-checks every join and regenerates the view model and the server command. The logic is untouched.',
   },
   {
     id: 'assistant',
@@ -223,25 +224,29 @@ function Stage({index, live}: {index: number; live: boolean}): ReactNode {
         <Arrow t={T_ARROW2} cls={on(2)} />
 
         <div className={col(2)}>
-          <span className={styles.colLabel}>reused</span>
+          <span className={styles.colLabel}>adapted</span>
           <div className={styles.projectB}>
             <span className={styles.projectTitle}>Project B</span>
+            {/* The module, pointed at Project B's model: two declarations change
+                (a relation, documented as @relation, and a value-typed price). */}
             <pre className={clsx(styles.miniModule, styles.a, styles.slideIn)} style={at(T_COPY + 0.15)}>
               <span className={styles.kw}>module</span> BattlePass {'{'}
-              {'\n'}    <span className={styles.kw}>table</span> Tier {'{ … }'}
-              {'\n'}    <span className={styles.kw}>table</span> Progress {'{ … }'}
-              {'\n'}    <span className={styles.kw}>command</span> ClaimTier(…)
-              {'\n'}    <span className={styles.kw}>reactive query</span> Track(…)
+              {'\n'}  <span className={styles.kw}>table</span> Tier {'{'}
+              {'\n'}    Reward: <span className={styles.kw}>int</span> @relation(
+              {'\n'}<span className={styles.del}>-     references: Item.Id)</span>
+              {'\n'}<span className={styles.add}>+     references: Card.Id)</span>
+              {'\n'}<span className={styles.del}>-   Price: Gold</span>
+              {'\n'}<span className={styles.add}>+   Price: Gems</span>
+              {'\n'}  {'}'}
+              {'\n'}  <span className={styles.kw}>command</span> ClaimTier(…)
+              {'\n'}  <span className={styles.kw}>reactive query</span> Track(…)
               {'\n'}{'}'}
             </pre>
-            {/* No override syntax is documented yet: a labelled box, not code. */}
-            <div className={clsx(styles.override, styles.a)} style={at(T_OVERRIDE)}>
-              <span className={styles.overrideTitle}>overrides</span>
-              <span>tiers 5 → 10</span>
-              <span>rewards: Project B table</span>
-            </div>
+            <p className={clsx(styles.compilerLine, styles.a)} style={at(T_COMPILE)}>
+              compiler: re-checked 3 joins · regenerated view model + server command · ok
+            </p>
           </div>
-          <p className={styles.mono}>same module · UI view re-skinned · 0 lines of logic rewritten</p>
+          <p className={styles.mono}>same module · 2 declarations changed · logic untouched</p>
         </div>
       </div>
 

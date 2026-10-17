@@ -209,7 +209,7 @@ function Rules(): ReactNode {
 const STEPS: string[] = [
   'Copy the folder.',
   'Compile: unresolved references come back as diagnostics, not runtime surprises.',
-  'Bind the UI view to your art; override what the new game does differently.',
+  "Point its declarations at the new game's items and currencies; the compiler re-checks every join and regenerates what depends on them. Override only what the new game truly does differently.",
 ];
 
 function Carry(): ReactNode {
@@ -227,8 +227,8 @@ function Carry(): ReactNode {
           ))}
         </ol>
         <p className={styles.honest}>
-          What travels: the schema module, its generated code and the UI view logic. What you still
-          adapt: art, layout and balance.
+          What travels: the schema module, its generated code and the UI view logic. What you adapt:
+          the references to the new game&apos;s model, then art, layout and balance.
         </p>
       </div>
     </section>

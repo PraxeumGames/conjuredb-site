@@ -282,20 +282,26 @@
 .kw {
   color: var(--ifm-color-primary);
 }
-.override {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--cdb-server);
-  border-radius: var(--r-md);
+/* The two changed declarations, as a diff */
+.del,
+.add {
+  display: inline-block;
+  min-width: 100%;
+}
+.del {
+  color: var(--cdb-wire);
+  background: color-mix(in srgb, var(--cdb-wire) 10%, transparent);
+}
+.add {
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
+}
+.projectB .compilerLine {
+  margin: 0;
   font-family: var(--cdb-mono);
   font-size: var(--fs-xs);
-  color: var(--cdb-ink);
-}
-.overrideTitle {
-  color: var(--cdb-server);
-  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ifm-color-primary);
 }
 
 /* Bottom strip: assistant prompt → diff → compiler verdict */
@@ -333,6 +339,10 @@
 @media (max-width: 1099px) {
   .cols {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* Stacked: a not-yet-revealed strip takes no room. */
+  .strip.hidden {
+    display: none;
   }
   .col {
     width: 100%;
