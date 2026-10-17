@@ -119,30 +119,12 @@
   padding: 0.4rem 0.85rem;
 }
 
-.heroCode {
-  position: relative;
-  width: 100%;
-  max-width: 56rem;
-  margin: 0 auto;
-}
-.heroCode::before {
-  content: '';
-  position: absolute;
-  inset: -20px -10px 0;
-  background: radial-gradient(58% 55% at 50% 24%, rgba(236, 194, 92, 0.18), transparent 72%);
-  filter: blur(28px);
-  z-index: -1;
-  pointer-events: none;
-}
-.heroCodeCaption {
-  margin: 1rem 0 0;
-  font-size: 0.84rem;
-  color: var(--cdb-muted);
-  text-align: center;
-}
-
 .proofCta {
   margin-top: 2.2rem;
+}
+.proofCta :global(.button) {
+  white-space: normal;
+  max-width: 100%;
 }
 
 /* Problem cards: muted, a warm hairline edge to read as "pain". */
@@ -168,4 +150,55 @@
   text-transform: uppercase;
   color: var(--ifm-color-primary);
   margin-bottom: 0.6rem;
+}
+
+/* Two-line subtitle: one sentence per line, not a paragraph. */
+.subLine {
+  display: block;
+}
+.subLine + .subLine {
+  margin-top: 0.35rem;
+  color: var(--cdb-ink);
+  opacity: 0.88;
+}
+
+/* Hero visual sits under the copy at every width. */
+.heroVisual {
+  position: relative;
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+/* "See what gets generated" — the code window, moved below the hero. */
+.generated {
+  position: relative;
+  max-width: 56rem;
+  margin-top: 3rem;
+}
+.generatedCaption {
+  margin: 1rem 0 0;
+  font-size: 0.84rem;
+  color: var(--cdb-muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 4.5rem 0 3.5rem;
+  }
+  .eyebrow {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    padding: 0.4rem 0.8rem;
+  }
+  .subtitle {
+    font-size: 1.02rem;
+  }
+  .heroGrid {
+    gap: 2.4rem;
+  }
+  .chips {
+    margin-top: 1.8rem;
+  }
 }

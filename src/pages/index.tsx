@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
+import TangleToSchema from '@site/src/components/TangleToSchema';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -11,40 +12,39 @@ function Hero(): ReactNode {
       <div className={`container ${styles.heroGrid}`}>
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>
-            <span className={styles.eyebrowDot} /> In-memory database · Unity &amp; .NET game clients
+            <span className={styles.eyebrowDot} /> Compiled game state · Unity &amp; .NET
           </span>
           <h1 className={styles.title}>
-            Stop fighting
-            <br />
-            <span className={styles.grad}>your own game data.</span>
+            Your game's state, <span className={styles.grad}>compiled.</span>
           </h1>
           <p className={styles.subtitle}>
-            Right now it's hand-wired across managers, ScriptableObjects and OnChanged events until a
-            simple shop or inventory owns your week — and a year later it's a tangle you're scared to
-            touch. ConjureDB lets you describe your data once and generates the fast C# instead: clean
-            systems you build once and reuse, with no spaghetti and no GC spikes from your data layer.
+            <span className={styles.subLine}>
+              Every game hides a hand-wired data machine: dictionaries, lists and OnChanged wires
+              keeping screens in sync.
+            </span>
+            <span className={styles.subLine}>
+              ConjureDB compiles that machine from one description — indexed, reactive,
+              allocation-free, reusable across titles.
+            </span>
           </p>
           <div className={styles.ctaRow}>
             <Link className="button button--primary button--lg" to="/docs/getting-started">
               Get started
             </Link>
-            <Link className="button button--secondary button--lg" to="/why">
-              Why ConjureDB
+            <Link className="button button--secondary button--lg" to="/how-it-works">
+              See how it works
             </Link>
           </div>
           <div className={styles.chips}>
-            <span className={styles.chip}>Unity 2021.3+ · IL2CPP &amp; Mono</span>
-            <span className={styles.chip}>.NET 8 · .NET Standard 2.1</span>
-            <span className={styles.chip}>Index-aware optimizer</span>
-            <span className={styles.chip}>Reactive views · IVM</span>
-            <span className={styles.chip}>Ephemeral tables · frame systems</span>
+            <span className={styles.chip}>No GC spikes</span>
+            <span className={styles.chip}>Ships on iOS (IL2CPP)</span>
+            <span className={styles.chip}>Screens update themselves</span>
+            <span className={styles.chip}>Same file runs the frame loop</span>
+            <span className={styles.chip}>Read the generated C#</span>
           </div>
         </div>
-        <div className={styles.heroCode}>
-          <CodeWindow tabs={HERO_TABS} />
-          <p className={styles.heroCodeCaption}>
-            You write the schema &amp; query. ConjureDB emits the C# — switch the tab and read it.
-          </p>
+        <div className={styles.heroVisual}>
+          <TangleToSchema />
         </div>
       </div>
     </header>
@@ -53,10 +53,10 @@ function Hero(): ReactNode {
 
 type Stat = {n: string; l: string};
 const STATS: Stat[] = [
-  {n: '50×+', l: 'faster than SQLite*'},
-  {n: 'O(1)', l: 'indexed lookups'},
-  {n: 'AOT', l: 'IL2CPP-safe'},
-  {n: '1', l: 'build step · no runtime parser'},
+  {n: '0 B/frame', l: 'no GC spikes'},
+  {n: '1 file', l: 'per feature'},
+  {n: 'O(1)', l: 'lookups, indexed'},
+  {n: 'iOS', l: 'ships under IL2CPP'},
 ];
 
 function StatBand(): ReactNode {
@@ -71,10 +71,6 @@ function StatBand(): ReactNode {
             </div>
           ))}
         </div>
-        <p style={{textAlign: 'center', marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--cdb-muted)'}}>
-          * 57-query game-workload benchmark vs SQLite (50,000 players).{' '}
-          <Link to="/performance">See the methodology →</Link>
-        </p>
       </div>
     </section>
   );
@@ -124,6 +120,13 @@ function OneIdea(): ReactNode {
           ConjureDB lets you describe your data and the queries you need — players, items, scores — in
           one place, and generates the fast C# that used to sprawl across a dozen MonoBehaviours. You
           get clean, reusable systems, and the speed comes for free.
+        </p>
+      </div>
+      <div className={`container ${styles.generated}`}>
+        <CodeWindow tabs={HERO_TABS} />
+        <p className={styles.generatedCaption}>
+          See what gets generated: you write the schema &amp; query, ConjureDB emits the C# — switch
+          the tab and read it.
         </p>
       </div>
     </section>
@@ -290,8 +293,8 @@ function FinalCta(): ReactNode {
 export default function Home(): ReactNode {
   return (
     <Layout
-      title="ConjureDB — an in-memory data layer for game clients"
-      description="ConjureDB is an in-memory database for game clients. Describe your data and queries declaratively and compile them into fast, reactive, reusable C#. Better architecture, index-driven performance, reactive views, and lower development cost — for Unity & .NET.">
+      title="ConjureDB — your game's state, compiled"
+      description="ConjureDB compiles your game's state from one description: storage and indexes, screens that update themselves, per-frame systems, save/load and allocation-free C# — for Unity & .NET.">
       <Hero />
       <main>
         <StatBand />

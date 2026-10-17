@@ -168,3 +168,10 @@
 .com { color: var(--cw-com); font-style: italic; }
 .varname { color: var(--cw-var); }
 .attr { color: var(--cw-attr); }
+
+/* Phones: the language label pushes the title bar past the viewport. */
+@media (max-width: 480px) {
+  .lang {
+    display: none;
+  }
+}
