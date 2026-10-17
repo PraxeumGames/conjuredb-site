@@ -36,6 +36,8 @@
   /* Second semantic colour: the server / cloud side. Gold stays the schema. */
   --cdb-server: #46627d;
   --cdb-server-soft: rgba(70, 98, 125, 0.08);
+  /* Third: hand-written wiring, forged and rejected things — muted red. */
+  --cdb-wire: rgba(176, 82, 66, 0.8);
 }
 
 [data-theme='dark'] {
@@ -63,6 +65,7 @@
   --cdb-surface-2: #1b1e25;
   --cdb-server: #8ea7bf;
   --cdb-server-soft: rgba(142, 167, 191, 0.1);
+  --cdb-wire: rgba(232, 138, 120, 0.95);
 }
 
 html {

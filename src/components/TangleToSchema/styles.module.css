@@ -4,7 +4,7 @@
 
 .root {
   --tts-wire: rgba(205, 118, 104, 0.72);
-  --tts-wire-hot: rgba(232, 138, 120, 0.95);
+  --tts-wire-hot: var(--cdb-wire);
   --tts-script-fill: #1a1c22;
   --tts-script-line: rgba(196, 128, 116, 0.38);
   --tts-script-ink: #a59a94;
@@ -22,7 +22,6 @@
 }
 :global([data-theme='light']) .root {
   --tts-wire: rgba(170, 84, 70, 0.5);
-  --tts-wire-hot: rgba(176, 82, 66, 0.8);
   --tts-script-fill: #f3efe8;
   --tts-script-line: rgba(160, 92, 80, 0.35);
   --tts-script-ink: #7d6f69;

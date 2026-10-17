@@ -1,0 +1,66 @@
+/* Device and server silhouettes shared by every homepage visual. */
+
+.device {
+  --g-device-body: #0d0f13;
+  --g-device-screen: #16181e;
+  --g-device-line: rgba(154, 149, 140, 0.45);
+}
+:global([data-theme='light']) .device {
+  --g-device-body: #2a2723;
+  --g-device-screen: #ffffff;
+  --g-device-line: rgba(42, 39, 35, 0.5);
+}
+.deviceBody {
+  fill: var(--g-device-body);
+  stroke: var(--g-device-line);
+  stroke-width: 1;
+}
+.deviceScreen {
+  fill: var(--g-device-screen);
+}
+.deviceNotch {
+  fill: var(--g-device-body);
+}
+.deviceTime {
+  font-family: var(--cdb-mono);
+  font-size: 0.7em;
+  fill: var(--cdb-muted);
+}
+
+.wifi path {
+  fill: none;
+  stroke: var(--cdb-ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.wifiDot {
+  fill: var(--cdb-ink);
+}
+.wifi .wifiCross {
+  stroke: var(--cdb-wire);
+  stroke-width: 1.8;
+}
+
+.serverBase {
+  fill: var(--cdb-surface-2);
+}
+.serverTint {
+  fill: var(--cdb-server-soft);
+  stroke: var(--cdb-server);
+  stroke-width: 1.3;
+}
+.serverIcon rect {
+  fill: none;
+  stroke: var(--cdb-server);
+  stroke-width: 1;
+}
+.serverTitle {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 600;
+  font-size: 0.95em;
+  fill: var(--cdb-server);
+}
+.serverRule {
+  stroke: var(--cdb-server);
+  stroke-opacity: 0.3;
+}

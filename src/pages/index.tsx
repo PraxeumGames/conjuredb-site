@@ -3,6 +3,8 @@ import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import {CodeWindow, HERO_TABS} from '@site/src/components/CodeWindow';
 import TangleToSchema from '@site/src/components/TangleToSchema';
+import ReplayVerify from '@site/src/components/ReplayVerify';
+import StatusBadge, {type Status} from '@site/src/components/StatusBadge';
 import styles from './index.module.css';
 
 function Hero(): ReactNode {
@@ -49,6 +51,40 @@ function Hero(): ReactNode {
         </div>
       </div>
     </header>
+  );
+}
+
+type Fact = {text: string; status: Status};
+const REPLAY_FACTS: Fact[] = [
+  {text: 'Deterministic by construction — own float math, seeded random in the schema', status: 'shipped'},
+  {text: 'Replay verification on the server', status: 'prototype'},
+  {text: 'Microseconds per command, device and server', status: 'shipped'},
+];
+
+function ReplaySection(): ReactNode {
+  return (
+    <section className="cdb-section cdb-surface">
+      <div className="container">
+        <span className="cdb-kicker">Play offline. The server still checks.</span>
+        <h2 className="cdb-h2">No request per tap. No trust in the client.</h2>
+        <p className="cdb-lead">
+          The device runs the compiled logic and writes down what the player did. When the network
+          is back, the server replays that log with the same compiled logic and compares the state.
+        </p>
+        <ReplayVerify />
+        <p className={styles.replayCaption}>
+          Same compiled command on both sides. Same inputs, same state — or the session is rejected.
+        </p>
+        <ul className={styles.facts}>
+          {REPLAY_FACTS.map((f) => (
+            <li key={f.text} className={styles.fact}>
+              <span>{f.text}</span>
+              <StatusBadge status={f.status} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
@@ -298,6 +334,7 @@ export default function Home(): ReactNode {
       description="Conjure compiles one declarative description of your game into the client data layer, the server, replay verification and liveops. Play offline, verify on the server by replay, ship features in days — for Unity & .NET.">
       <Hero />
       <main>
+        <ReplaySection />
         <StatBand />
         <Problems />
         <OneIdea />
