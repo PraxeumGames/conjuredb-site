@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import type {CSSProperties, ReactNode} from 'react';
 import clsx from 'clsx';
 import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import {BUY_TABS, CodeWindow} from '@site/src/components/CodeWindow';
@@ -59,6 +59,38 @@ function Rows({us, run, side}: {us: number; run: Run; side: 'device' | 'server'}
 
 const STEP_RUN: Run[] = ['idle', 'running', 'done'];
 
+// The two frames are a mirrored pair: same size, same inner rhythm (title,
+// command, progress bar, check), so the eye compares like with like.
+const FRAME_W = 300;
+const FRAME_H = 200;
+const TITLE_Y = 50;
+const BAR_Y = 120; // also where the "identical" sign sits, between the frames
+const PAD_X = 18;
+
+function Frame({side, run}: {side: 'device' | 'server'; run: Run}) {
+  const inner = (
+    <>
+      <text className={clsx(styles.where, side === 'server' && styles.whereServer)} x={PAD_X} y={TITLE_Y}>
+        {side === 'device' ? 'device · IL2CPP' : 'server · .NET 8'}
+      </text>
+      <Progress x={PAD_X} y={BAR_Y} w={FRAME_W - 2 * PAD_X} run={run} />
+    </>
+  );
+  return (
+    <svg className={styles.frame} viewBox={`0 0 ${FRAME_W} ${FRAME_H}`} aria-hidden="true" style={{fontSize: 14}}>
+      {side === 'device' ? (
+        <DeviceFrame x={0.5} y={0.5} width={FRAME_W - 1} height={FRAME_H - 1}>
+          {inner}
+        </DeviceFrame>
+      ) : (
+        <ServerFrame x={0.5} y={0.5} width={FRAME_W - 1} height={FRAME_H - 1} title="">
+          {inner}
+        </ServerFrame>
+      )}
+    </svg>
+  );
+}
+
 export default function TwoPlaces({id}: {id?: string}): ReactNode {
   // Register the anchor so links like /how-it-works#replay pass the broken-anchor check.
   const brokenLinks = useBrokenLinks();
@@ -90,30 +122,26 @@ export default function TwoPlaces({id}: {id?: string}): ReactNode {
         {({index, run: k}) => {
           const run = STEP_RUN[index];
           return (
-            <div key={`${k}-${index}`} className={clsx(styles.stage, styles[run])}>
-              <div className={clsx(styles.side, styles.deviceSide)}>
-                <svg className={styles.frame} viewBox="0 0 160 220" aria-hidden="true" style={{fontSize: 14}}>
-                  <DeviceFrame x={0.5} y={0.5} width={159} height={219}>
-                    <text className={styles.where} x={14} y={DEVICE_STATUS_H + 22}>
-                      device · IL2CPP
-                    </text>
-                    <Progress x={14} y={DEVICE_STATUS_H + 92} w={131} run={run} />
-                  </DeviceFrame>
-                </svg>
+            <div
+              key={`${k}-${index}`}
+              className={clsx(styles.stage, styles[run])}
+              style={{'--frame-w': `${FRAME_W}px`, '--bar-y': `${BAR_Y}px`} as CSSProperties}>
+              <div className={styles.side}>
+                <Frame side="device" run={run} />
                 <Rows us={DEVICE_US} run={run} side="device" />
               </div>
 
               <div className={styles.equals}>
-                <span className={styles.equalsSign} aria-hidden="true" />
+                <span className={styles.equalsRow}>
+                  <span className={styles.equalsLine} aria-hidden="true" />
+                  <span className={styles.equalsSign} aria-hidden="true" />
+                  <span className={styles.equalsLine} aria-hidden="true" />
+                </span>
                 <span className={styles.equalsLabel}>{run === 'done' ? 'identical' : 'same input, same seed'}</span>
               </div>
 
               <div className={clsx(styles.side, styles.serverSide)}>
-                <svg className={styles.frame} viewBox="0 0 250 150" aria-hidden="true" style={{fontSize: 14}}>
-                  <ServerFrame x={0.5} y={0.5} width={249} height={149} title="server · .NET 8">
-                    <Progress x={18} y={88} w={214} run={run} />
-                  </ServerFrame>
-                </svg>
+                <Frame side="server" run={run} />
                 <Rows us={SERVER_US} run={run} side="server" />
               </div>
             </div>
